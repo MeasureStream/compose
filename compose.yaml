@@ -42,7 +42,7 @@ services:
       - ./mongod.conf:/etc/mongod.conf
     command: ["mongod", "--config", "/etc/mongod.conf"]
     healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.runCommand('ping').ok" ]
+      test: [  "CMD", "mongo", "--eval", "db.runCommand({ ping: 1 }).ok" ]
       interval: 10s
       timeout: 5s
       retries: 5
