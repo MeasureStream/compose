@@ -126,11 +126,11 @@ services:
     image: 'docker.io/christiand9699/frontend-react:latest'
     ports:
       - "5173:5173"
-    environment:
-      NODE_ENV: development
-    stdin_open: true
-    tty: true
-    command: ["npm", "run", "dev", "--", "--host"]
+    #environment:
+    #  NODE_ENV: development
+    #stdin_open: true
+    #tty: true
+    #command: ["npm", "run", "dev", "--", "--host"]
     networks:
       app_network:
         ipv4_address: 172.20.0.12
