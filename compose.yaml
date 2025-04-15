@@ -125,7 +125,7 @@ services:
   frontend:
     image: 'docker.io/christiand9699/frontend-react:latest'
     ports:
-      - "5173:5173"
+      - "5173:80"
     #environment:
     #  NODE_ENV: development
     #stdin_open: true
