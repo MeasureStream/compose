@@ -27,7 +27,7 @@ services:
         ipv4_address: 172.20.0.10
 
   mongodb:
-    image: 'mongo:latest'
+    image: arm64v8/mongo:latest
     environment:
       - 'MONGO_INITDB_DATABASE=mydatabase'
       - 'MONGO_INITDB_ROOT_PASSWORD=secret'
