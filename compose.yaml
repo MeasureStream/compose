@@ -39,8 +39,8 @@ services:
         ipv4_address: 172.20.0.23
     volumes:
       - mongo_data:/data/db
-      - ./mongod.conf:/etc/mongo/mongod.conf
-    command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+      - ./mongod.conf:/etc/mongod.conf
+    command: ["mongod", "--config", "/etc/mongod.conf"]
     healthcheck:
       test: [ "CMD", "mongosh", "--eval", "db.runCommand('ping').ok" ]
       interval: 10s
