@@ -93,7 +93,7 @@ services:
       app_network:
         ipv4_address: 172.20.0.22
     healthcheck:
-      test: [ "CMD-SHELL", "exec 3<> /dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: http://localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; if [ $? -eq 0 ]; then echo 'Healthcheck Successful'; exit 0; else echo 'Healthcheck Failed'; exit 1; fi;" ]
+      test: [ "CMD-SHELL", "exec 3<> /dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: http://localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; if [ $? -eq 0 ]; then echo 'Healthcheck Successful'; exit 0; else echo 'Healthcheck Failed'; exit 1; fi;" ]
       interval: 15s
       retries: 15
       start_period: 5s
@@ -149,7 +149,12 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.200
-
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/me" ]
+      interval: 10s        # Ogni 10 secondi
+      timeout: 5s          # Timeout di 5 secondi per la risposta
+      retries: 5           # Prova fino a 5 volte prima di fallire
+      start_period: 30s
 
 
 
