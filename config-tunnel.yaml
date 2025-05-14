@@ -1,0 +1,7 @@
+tunnel: prova-tunnel
+credentials-file: /home/pi/.cloudflared/prova-tunnel.json
+
+ingress:
+  - hostname: prova.miodominio.it
+    service: http://localhost:8080
+  - service: http_status:404
