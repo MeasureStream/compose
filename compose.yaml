@@ -150,6 +150,8 @@ services:
       - 'SPRING_DATASOURCE_USERNAME=myuser'
       - 'SPRING_DATASOURCE_PASSWORD=secret'
       - 'OS=raspberrypi'
+    extra_hosts:
+      - "christiandellisanti.uk:172.20.0.22"
     networks:
       app_network:
         ipv4_address: 172.20.0.200
