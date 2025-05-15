@@ -160,6 +160,25 @@ services:
       retries: 5           # Prova fino a 5 volte prima di fallire
       start_period: 30s
 
+  kafka:
+    image: 'bitnami/kafka:3.7'
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/bitnami
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:29092,CONTROLLER://:9093,PLAINTEXT_HOST://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://130.192.164.73:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.40
 
 
 volumes:
@@ -167,6 +186,7 @@ volumes:
   keycloak-db-data:
   mongo_data:
   grafana_data:
+  kafka_data:
 
 networks:
   app_network:
