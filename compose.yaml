@@ -80,26 +80,23 @@ services:
     depends_on:
       - keycloak-db
     environment:
-      - 'KEYCLOAK_ADMIN=admin'
-      - 'KEYCLOAK_ADMIN_PASSWORD=admin'
-      - 'KC_DB=postgres'
-      - 'KC_DB_URL=jdbc:postgresql://keycloak-db/keycloak'
-      - 'KC_DB_USERNAME=keycloak'
-      - 'KC_DB_PASSWORD=keycloakpassword'
-      - 'KEYCLOAK_FRONTEND_URL=https://auth.christiandellisanti.uk'
-      - 'PROXY_HEADERS=forwarded'
-      - 'PROXY_ADDRESS_FORWARDING=true'
-      - 'KEYCLOAK_TLS_TERMINATION=edge'
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloakpassword
+    volumes:
+      - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
-      - '9090:8080'
-    command: [
-      "start",
-      "--http-enabled=true",
-      "--https-port=0",
-      "--hostname-strict=false",
-      "--proxy-headers=forwarded",
-      "--hostname=auth.christiandellisanti.uk",
-    ]
+      - "8443:8443"
+    command: >
+      start
+      --https-certificate-file=/etc/x509/https/cert.pem
+      --https-certificate-key-file=/etc/x509/https/privkey.pem
+      --hostname=auth.christiandellisanti.uk
+      --hostname-strict=false
+      --proxy=edge
 
     networks:
       app_network:
