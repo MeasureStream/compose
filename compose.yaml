@@ -92,7 +92,13 @@ services:
       - 'KEYCLOAK_TLS_TERMINATION=edge'
     ports:
       - '9090:8080'
-    command: [ "start" ]
+    command: [
+      "start",
+      "--http-enabled=true",
+      "--https-port=0",
+      "--hostname-strict=false",
+      "--proxy=edge"
+    ]
     networks:
       app_network:
         ipv4_address: 172.20.0.22
