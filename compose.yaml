@@ -88,6 +88,8 @@ services:
       - 'KC_DB_PASSWORD=keycloakpassword'
       - 'KEYCLOAK_FRONTEND_URL=https://auth.christiandellisanti.uk'
       - 'PROXY_HEADERS=forwarded'
+      - 'PROXY_ADDRESS_FORWARDING=true'
+      - 'KEYCLOAK_TLS_TERMINATION=edge'
     ports:
       - '9090:8080'
     command: [ "start-dev" ]
