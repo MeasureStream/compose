@@ -98,7 +98,6 @@ services:
       "--https-port=0",
       "--hostname-strict=false",
       "--proxy-headers=forwarded",
-      "--proxy-address-forwarding=true"
     ]
     networks:
       app_network:
