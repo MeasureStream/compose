@@ -92,7 +92,7 @@ services:
       - 'KEYCLOAK_TLS_TERMINATION=edge'
     ports:
       - '9090:8080'
-    command: [ "start-dev" ]
+    command: [ "start" ]
     networks:
       app_network:
         ipv4_address: 172.20.0.22
