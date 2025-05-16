@@ -96,7 +96,7 @@ services:
       --https-certificate-key-file=/etc/x509/https/privkey.pem
       --hostname=auth.christiandellisanti.uk
       --hostname-strict=false
-      --proxy=edge
+      --proxy-headers=forwarded
 
     networks:
       app_network:
