@@ -96,8 +96,7 @@ services:
       "start",
       "--http-enabled=true",
       "--https-port=0",
-      "--hostname-strict=false",
-      "--proxy=edge"
+      "--hostname-strict=false"
     ]
     networks:
       app_network:
