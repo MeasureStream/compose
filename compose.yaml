@@ -99,7 +99,6 @@ services:
       "--hostname-strict=false",
       "--proxy-headers=forwarded",
       "--hostname=auth.christiandellisanti.uk",
-      "--frontend-url=https://auth.christiandellisanti.uk"
     ]
 
     networks:
