@@ -98,8 +98,10 @@ services:
       "--https-port=0",
       "--hostname-strict=false",
       "--proxy-headers=forwarded",
-      "--hostname-url=https://auth.christiandellisanti.uk"
+      "--hostname=auth.christiandellisanti.uk",
+      "--frontend-url=https://auth.christiandellisanti.uk"
     ]
+
     networks:
       app_network:
         ipv4_address: 172.20.0.22
