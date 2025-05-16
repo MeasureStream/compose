@@ -93,6 +93,7 @@ services:
       - 'KC_HOSTNAME_ADMIN_URL=https://auth.christiandellisanti.uk'
       - 'KC_HOSTNAME_URL=https://auth.christiandellisanti.uk'
       - 'KC_HTTP_ENABLED=true'
+      - 'KC_HTTP_RELATIVE_PATH=/'
     ports:
       - '9090:8080'
     command: [ "start-dev" ]
