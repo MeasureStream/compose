@@ -98,6 +98,7 @@ services:
       "--https-port=0",
       "--hostname-strict=false",
       "--proxy-headers=forwarded",
+      "--hostname-url=https://auth.christiandellisanti.uk"
     ]
     networks:
       app_network:
