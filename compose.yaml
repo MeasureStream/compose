@@ -96,7 +96,7 @@ services:
       - 'KC_HTTP_RELATIVE_PATH=/'
     ports:
       - '9090:8080'
-    command: [ "start-dev" ]
+    command: [ "start" ]
     networks:
       app_network:
         ipv4_address: 172.20.0.22
