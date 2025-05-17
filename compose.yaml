@@ -97,6 +97,7 @@ services:
       --hostname=auth.christiandellisanti.uk
       --hostname-strict=false
       --proxy-headers=forwarded
+      --health-enabled=true
 
     networks:
       app_network:
