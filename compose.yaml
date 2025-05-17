@@ -104,7 +104,7 @@ services:
     healthcheck:
       test: [
         "CMD-SHELL",
-        'exec 3<>/dev/tcp/localhost/8443; echo -e "GET /health HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n" >&3; timeout --preserve-status 3 cat <&3 | grep -q "200 OK"; exec 3<&-; exec 3>&-'
+        "curl --fail --insecure --silent https://localhost:8443/health/ready || exit 1"
       ]
       interval: 15s
       retries: 15
