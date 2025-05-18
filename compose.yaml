@@ -155,8 +155,8 @@ services:
   gateway-iam:
     image: 'docker.io/christiand9699/gateway-iam:latest'
     depends_on:
-      keycloak-healthcheck:
-        condition: service_healthy
+      keycloak:
+        condition: service_started
     ports:
       - '8080:8080'
     environment:
@@ -174,7 +174,7 @@ services:
       interval: 10s        # Ogni 10 secondi
       timeout: 5s          # Timeout di 5 secondi per la risposta
       retries: 5           # Prova fino a 5 volte prima di fallire
-      start_period: 30s
+      start_period: 120s
 
   kafka:
     image: 'bitnami/kafka:3.7'
@@ -196,26 +196,7 @@ services:
       app_network:
         ipv4_address: 172.20.0.40
 
-  keycloak-healthcheck:
-    image: curlimages/curl:latest
-    command: >
-      sh -c '
-        until curl -k --silent --fail https://keycloak:9000/q/health/ready; do
-          echo "Waiting for Keycloak healthcheck...";
-          sleep 5;
-        done;
-        echo "Keycloak is healthy.";
-        sleep infinity'
-    depends_on:
-      - keycloak
-    networks:
-      - app_network
-    healthcheck:
-      test: curl -k --silent --fail https://keycloak:9000/q/health/ready || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 90s
+
 
 
 volumes:
