@@ -90,6 +90,7 @@ services:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
       - "8443:8443"
+      - "9000:9000"   # espone management port
     command: >
       start
       --https-certificate-file=/etc/x509/https/cert.pem
