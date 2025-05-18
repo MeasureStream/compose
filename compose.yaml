@@ -203,11 +203,19 @@ services:
           echo "Waiting for Keycloak healthcheck...";
           sleep 5;
         done;
-        echo "Keycloak is healthy."'
+        echo "Keycloak is healthy.";
+        sleep infinity'
     depends_on:
       - keycloak
     networks:
       - app_network
+    healthcheck:
+      test: curl -k --silent --fail https://keycloak:9000/q/health/ready || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 
 volumes:
   postgres-data:
