@@ -98,7 +98,7 @@ services:
       --hostname-strict=false
       --proxy-headers=forwarded
       --health-enabled=true
-      --features=health
+
 
     networks:
       app_network:
