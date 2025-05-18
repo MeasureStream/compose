@@ -153,7 +153,7 @@ services:
   gateway-iam:
     image: 'docker.io/christiand9699/gateway-iam:latest'
     depends_on:
-      keycloak:
+      keycloak-healthcheck:
         condition: service_healthy
     ports:
       - '8080:8080'
@@ -194,6 +194,19 @@ services:
       app_network:
         ipv4_address: 172.20.0.40
 
+  keycloak-healthcheck:
+    image: curlimages/curl:latest
+    command: >
+      sh -c '
+        until curl -k --silent --fail https://keycloak:9000/q/health/ready; do
+          echo "Waiting for Keycloak healthcheck...";
+          sleep 5;
+        done;
+        echo "Keycloak is healthy."'
+    depends_on:
+      - keycloak
+    networks:
+      - app_network
 
 volumes:
   postgres-data:
