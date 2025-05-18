@@ -99,6 +99,8 @@ services:
       --hostname-strict=false
       --proxy-headers=forwarded
       --health-enabled=true
+      --http-enabled=true
+      --http-port=9000
 
 
     networks:
