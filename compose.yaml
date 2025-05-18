@@ -106,7 +106,7 @@ services:
     healthcheck:
       test: [
         "CMD-SHELL",
-        "curl --fail --insecure --silent https://localhost:8443/health/ready || exit 1"
+        "curl --fail --insecure --silent https://localhost:8443/realms/master || exit 1"
       ]
       interval: 15s
       retries: 15
