@@ -104,15 +104,16 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.22
-    healthcheck:
-      test: [
-        "CMD-SHELL",
-        "exec 3<> /dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; cat <&3 | grep 'HTTP/1.1 200 OK' || exit 1"
-      ]
-      interval: 15s
-      retries: 15
-      start_period: 60s
-      timeout: 2s
+    #healthcheck:
+    #  test: [
+    #    "CMD-SHELL",
+    #    "exec 3<> /dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; cat <&3 | grep 'HTTP/1.1 200 OK' || exit 1"
+    #  ]
+    #  interval: 15s
+    #  retries: 15
+    #  start_period: 60s
+    #  timeout: 2s
+
 
   grafana:
     image: grafana/grafana-enterprise
