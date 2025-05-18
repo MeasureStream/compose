@@ -3,9 +3,9 @@ services:
   postgres:
     image: 'postgres:latest'
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      - 'POSTGRES_DB=${POSTGRES_DB}'
+      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
+      - 'POSTGRES_USER=${POSTGRES_USER}'
     ports:
       - '5432'
     networks:
@@ -19,9 +19,9 @@ services:
     expose:
       - '8080'
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/mydatabase'
-      - 'SPRING_DATASOURCE_USERNAME=myuser'
-      - 'SPRING_DATASOURCE_PASSWORD=secret'
+      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}'
+      - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
+      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
       - 'OS=raspberrypi'
     networks:
       app_network:
@@ -30,9 +30,9 @@ services:
   mongodb:
     image: arm64v8/mongo:4.4.18
     environment:
-      - 'MONGO_INITDB_DATABASE=mydatabase'
-      - 'MONGO_INITDB_ROOT_PASSWORD=secret'
-      - 'MONGO_INITDB_ROOT_USERNAME=root'
+      - 'MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}'
+      - 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
+      - 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
     ports:
       - '27017:27017'
     networks:
@@ -57,7 +57,7 @@ services:
     expose:
       - '8080'
     environment:
-      - 'SPRING_DATA_MONGODB_URI=mongodb://root:secret@172.20.0.23:27017/mydatabase?authSource=admin'
+      - 'SPRING_DATA_MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@172.20.0.23:27017/${MONGO_INITDB_DATABASE}?authSource=admin'
     networks:
       app_network:
         ipv4_address: 172.20.0.11
@@ -65,9 +65,9 @@ services:
   keycloak-db:
     image: 'postgres:latest'
     environment:
-      - 'POSTGRES_DB=keycloak'
-      - 'POSTGRES_USER=keycloak'
-      - 'POSTGRES_PASSWORD=keycloakpassword'
+      - 'POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}'
+      - 'POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}'
+      - 'POSTGRES_PASSWORD=${keycloakpassword}'
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
     ports:
@@ -84,9 +84,9 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloakpassword
+      KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
+      KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
     volumes:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
@@ -117,15 +117,7 @@ services:
       start_period: 60s
       timeout: 5s
 
-    #healthcheck:
-    #  test: [
-    #    "CMD-SHELL",
-    #    "exec 3<> /dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; cat <&3 | grep 'HTTP/1.1 200 OK' || exit 1"
-    #  ]
-    #  interval: 15s
-    #  retries: 15
-    #  start_period: 60s
-    #  timeout: 2s
+
 
 
   grafana:
@@ -137,8 +129,8 @@ services:
     ports:
       - 3000:3000
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
@@ -174,9 +166,9 @@ services:
     ports:
       - '8080:8080'
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/mydatabase'
-      - 'SPRING_DATASOURCE_USERNAME=myuser'
-      - 'SPRING_DATASOURCE_PASSWORD=secret'
+      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}'
+      - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
+      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
       - 'OS=raspberrypi'
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
