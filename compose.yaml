@@ -61,6 +61,7 @@ services:
       - 'MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}'
       - 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
       - 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
+      - 'OS=raspberrypi'
     networks:
       app_network:
         ipv4_address: 172.20.0.11
