@@ -67,7 +67,7 @@ services:
     environment:
       - 'POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}'
       - 'POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}'
-      - 'POSTGRES_PASSWORD=${keycloakpassword}'
+      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KEYCLOAK}'
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
     ports:
@@ -81,8 +81,8 @@ services:
     depends_on:
       - keycloak-db
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
