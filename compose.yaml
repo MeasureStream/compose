@@ -170,6 +170,7 @@ services:
       - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}'
       - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
       - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
+      - 'KEYCLOAK_GATEWAY_CLIENT_SECRET=${KEYCLOAK_GATEWAY_CLIENT_SECRET}'
       - 'OS=raspberrypi'
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
