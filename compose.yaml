@@ -100,7 +100,7 @@ services:
       --hostname-strict=false
       --proxy-headers=forwarded
       --health-enabled=true
-      --optimized
+#--optimized
     
 
 
