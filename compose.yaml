@@ -155,8 +155,8 @@ services:
     image: 'docker.io/christiand9699/frontend-react:latest'
     ports:
       - "5173:80"
-    #volumes:
-    #  - ./default.conf:/etc/nginx/conf.d/default.conf:ro
+    volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
     #environment:
     #  NODE_ENV: development
     #stdin_open: true
