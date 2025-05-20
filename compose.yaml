@@ -216,26 +216,30 @@ services:
     image: confluentinc/cp-kafka-rest:7.4.0
     depends_on:
       - kafka
-    ports:
-      - "8082:8082"
     environment:
       KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
       KAFKA_REST_LISTENERS: http://0.0.0.0:8082
-      # Opzionale, per sicurezza, ma disabilitato di default
-      # KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-
-
-      # Configurazione OAuth2 con Keycloak
-      KAFKA_REST_AUTHENTICATION_METHOD: OAUTH
-      KAFKA_REST_AUTHENTICATION_OAUTH2_OIDC_ISSUER: https://auth.christiandellisanti.uk/auth/realms/measurestream
-      KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_ID: kafka-rest
-      KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_SECRET: ${KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_SECRET}
-      # Opzionale, se usi introspection endpoint
-      # KAFKA_REST_AUTHENTICATION_OAUTH2_INTROSPECTION_ENDPOINT: https://<keycloak-server>/auth/realms/<realm-name>/protocol/openid-connect/token/introspect
-      # KAFKA_REST_AUTHENTICATION_OAUTH2_CHECKACCESSTOKEN: "true"
     networks:
       app_network:
         ipv4_address: 172.20.0.41
+    expose:
+      - 8082   # solo accessibile da Nginx
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./kafka_rest.conf:/etc/nginx/conf.d/kafka_rest.conf:ro
+      - ./.kafka_rest_passwd:/etc/nginx/.kafka_rest_passwd:ro
+    ports:
+      - "8082:8082"  # espone Nginx
+    depends_on:
+      - kafka-rest
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.50
+
+
+
 
 
 
