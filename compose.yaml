@@ -92,6 +92,10 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
+
+      KC_HTTP_COOKIE_SAMESITE: None
+      KC_HTTP_COOKIE_SECURE: true
+
     volumes:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
