@@ -109,6 +109,11 @@ services:
       --hostname-strict=false
       --proxy-headers=forwarded
       --health-enabled=true
+      
+      --spi-cookie-cookie-path=/
+      --spi-cookie-cookie-domain=.christiandellisanti.uk
+      --spi-cookie-same-site=None
+      --spi-cookie-secure=true
 #--optimized
     
 
