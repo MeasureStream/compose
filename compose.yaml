@@ -212,6 +212,19 @@ services:
         ipv4_address: 172.20.0.40
 
 
+  kafka-rest:
+    image: confluentinc/cp-kafka-rest:7.4.0
+    depends_on:
+      - kafka
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
+      # Opzionale, per sicurezza, ma disabilitato di default
+      # KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+
 
 
 volumes:
