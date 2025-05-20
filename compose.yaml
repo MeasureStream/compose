@@ -223,6 +223,16 @@ services:
       KAFKA_REST_LISTENERS: http://0.0.0.0:8082
       # Opzionale, per sicurezza, ma disabilitato di default
       # KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+
+      # Configurazione OAuth2 con Keycloak
+      KAFKA_REST_AUTHENTICATION_METHOD: OAUTH
+      KAFKA_REST_AUTHENTICATION_OAUTH2_OIDC_ISSUER: https://auth.christiandellisanti.uk/auth/realms/measurestream
+      KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_ID: kafka-rest
+      KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_SECRET: ${KAFKA_REST_AUTHENTICATION_OAUTH2_CLIENT_SECRET}
+      # Opzionale, se usi introspection endpoint
+      # KAFKA_REST_AUTHENTICATION_OAUTH2_INTROSPECTION_ENDPOINT: https://<keycloak-server>/auth/realms/<realm-name>/protocol/openid-connect/token/introspect
+      # KAFKA_REST_AUTHENTICATION_OAUTH2_CHECKACCESSTOKEN: "true"
     networks:
       app_network:
         ipv4_address: 172.20.0.41
