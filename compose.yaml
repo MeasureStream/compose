@@ -238,31 +238,7 @@ services:
         ipv4_address: 172.20.0.40
 
 
-  kafka-rest:
-    image: confluentinc/cp-kafka-rest:7.4.0
-    depends_on:
-      - kafka
-    environment:
-      KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
-      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.41
-    expose:
-      - 8082   # solo accessibile da Nginx
 
-  nginx:
-    image: nginx:latest
-    volumes:
-      - ./kafka_rest.conf:/etc/nginx/conf.d/kafka_rest.conf:ro
-      - ./.kafka_rest_passwd:/etc/nginx/.kafka_rest_passwd:ro
-    ports:
-      - "8082:8082"  # espone Nginx
-    depends_on:
-      - kafka-rest
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.50
 
 
 
