@@ -22,7 +22,7 @@ services:
       - '5432'
     networks:
       app_network:
-        ipv4_address: 172.20.0.20
+        ipv4_address: 172.20.0.25
 
   sensor-manager:
     image: 'docker.io/christiand9699/sensor-manager:latest'
