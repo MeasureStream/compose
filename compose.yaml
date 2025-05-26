@@ -237,6 +237,16 @@ services:
       app_network:
         ipv4_address: 172.20.0.40
 
+  settings:
+    image: 'docker.io/christiand9699/settings:latest'
+    expose:
+      - 8080
+    environment:
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.13
 
 
 
