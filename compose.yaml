@@ -263,6 +263,30 @@ services:
       app_network:
         ipv4_address: 172.20.0.13
 
+  duplicati:
+    image: duplicati/duplicati:latest
+    container_name: duplicati
+    environment:
+      - TZ=Europe/Rome
+      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_PASSWORD}
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
+    volumes:
+      - /home/measurestream/backups:/backups
+      - /home/measurestream/config/duplicati:/config
+      - grafana_data:/data/grafana
+      - mongo_data:/data/mongodb
+      - keycloak-db-data:/data/keycloakdb
+      - kafka_data:/data/kafka
+      - postgres-data:/data/postgres
+    ports:
+      - "8200:8200"
+    restart: unless-stopped
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.50
+
+
+
 
 
 
