@@ -271,8 +271,8 @@ services:
       - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_PASSWORD}
       - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
     volumes:
-      - /home/measurestream/backups:/backups
-      - /home/measurestream/config/duplicati:/config
+      - /home/measurestream/duplicati/backups:/backups
+      - /home/measurestream/duplicati/config/duplicati:/config
       - grafana_data:/data/grafana
       - mongo_data:/data/mongodb
       - keycloak-db-data:/data/keycloakdb
