@@ -283,7 +283,7 @@ services:
     restart: unless-stopped
     networks:
       app_network:
-        ipv4_address: 172.20.0.50
+        ipv4_address: 172.20.0.60
 
 
 
