@@ -298,7 +298,7 @@ services:
       - portainer_data:/data
     networks:
       app_network:
-        ipv4_address: 172.20.0.50
+        ipv4_address: 172.20.0.70
 
 
 
