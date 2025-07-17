@@ -203,23 +203,23 @@ services:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
       #- GF_AUTH_ANONYMOUS_ENABLED=true
       #- GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      #- GF_AUTH_DISABLE_LOGIN_FORM=false
       - GF_SECURITY_ALLOW_EMBEDDING=true
 
-      #- GF_AUTH_GENERIC_OAUTH_ENABLED=true
-      #- GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
-      #- GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
-      #- GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
-      #- GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
-      #- GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/auth
-      #- GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/token
-      #- GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/userinfo
-      #- GF_AUTH_GENERIC_OAUTH_LOGOUT_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/logout?redirect_uri=https://grafana.christiandellisanti.uk
-      #- GF_AUTH_OAUTH_AUTO_LOGIN=true
-      #- GF_AUTH_GENERIC_OAUTH_USE_PKCE=true
-      #- GF_AUTH_GENERIC_OAUTH_USERNAME_PATH=preferred_username # O 'sub' o l'attributo che Keycloak usa come username
-      #- GF_AUTH_GENERIC_OAUTH_EMAIL_PATH=email
-      #- GF_AUTH_GENERIC_OAUTH_NAME_PATH=name
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/auth
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/userinfo
+      - GF_AUTH_GENERIC_OAUTH_LOGOUT_URL=https://auth.christiandellisanti.uk/realms/measurestream/protocol/openid-connect/logout?redirect_uri=https://grafana.christiandellisanti.uk
+      - GF_AUTH_OAUTH_AUTO_LOGIN=true
+      - GF_AUTH_GENERIC_OAUTH_USE_PKCE=true
+      - GF_AUTH_GENERIC_OAUTH_USERNAME_PATH=preferred_username # O 'sub' o l'attributo che Keycloak usa come username
+      - GF_AUTH_GENERIC_OAUTH_EMAIL_PATH=email
+      - GF_AUTH_GENERIC_OAUTH_NAME_PATH=name
 
 
     networks:
