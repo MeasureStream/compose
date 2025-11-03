@@ -1,74 +1,71 @@
 services:
-
   postgres:
-    image: 'postgres:latest'
+    image: "postgres:latest"
     restart: unless-stopped
     environment:
-      - 'POSTGRES_DB=${POSTGRES_DB}'
-      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'POSTGRES_USER=${POSTGRES_USER}'
+      - "POSTGRES_DB=${POSTGRES_DB}"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+      - "POSTGRES_USER=${POSTGRES_USER}"
     ports:
-      - '5432'
+      - "5432"
     networks:
       app_network:
         ipv4_address: 172.20.0.20
 
   settings-db:
-    image: 'postgres:latest'
+    image: "postgres:latest"
     restart: unless-stopped
     environment:
-      - 'POSTGRES_DB=SETTINGS'
-      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'POSTGRES_USER=${POSTGRES_USER}'
+      - "POSTGRES_DB=SETTINGS"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+      - "POSTGRES_USER=${POSTGRES_USER}"
     expose:
-      - '5432'
+      - "5432"
     networks:
       app_network:
         ipv4_address: 172.20.0.25
 
   calibrator-db:
-    image: 'postgres:latest'
+    image: "postgres:latest"
     restart: unless-stopped
     environment:
-      - 'POSTGRES_DB=CALIBRATOR'
-      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'POSTGRES_USER=${POSTGRES_USER}'
+      - "POSTGRES_DB=CALIBRATOR"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+      - "POSTGRES_USER=${POSTGRES_USER}"
     expose:
-      - '5432'
+      - "5432"
     networks:
       app_network:
         ipv4_address: 172.20.0.26
 
-
   calibrator-manager:
-    image: 'docker.io/christiand9699/calibrator-manager:latest'
+    image: "docker.io/christiand9699/calibrator-manager:latest"
     restart: unless-stopped
     depends_on:
       - calibrator-db
     expose:
-      - '8080'
+      - "8080"
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://calibrator-db/CALIBRATOR'
-      - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
-      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'OS=raspberrypi'
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://calibrator-db/CALIBRATOR"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "OS=raspberrypi"
     networks:
       app_network:
         ipv4_address: 172.20.0.15
 
-
   sensor-manager:
-    image: 'docker.io/christiand9699/sensor-manager:latest'
+    image: "docker.io/christiand9699/sensor-manager:latest"
     restart: unless-stopped
     depends_on:
       - postgres
     expose:
-      - '8080'
+      - "8080"
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}'
-      - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
-      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'OS=raspberrypi'
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "OS=raspberrypi"
     networks:
       app_network:
         ipv4_address: 172.20.0.10
@@ -77,11 +74,11 @@ services:
     image: arm64v8/mongo:4.4.18
     restart: unless-stopped
     environment:
-      - 'MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}'
-      - 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
-      - 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
+      - "MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}"
+      - "MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}"
+      - "MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}"
     ports:
-      - '27017:27017'
+      - "27017:27017"
     networks:
       app_network:
         ipv4_address: 172.20.0.23
@@ -90,20 +87,20 @@ services:
       - ./mongod.conf:/etc/mongod.conf
     command: ["mongod", "--config", "/etc/mongod.conf"]
     healthcheck:
-      test: [  "CMD", "mongo", "--eval", "db.runCommand({ ping: 1 }).ok" ]
+      test: ["CMD", "mongo", "--eval", "db.runCommand({ ping: 1 }).ok"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
   measure-manager:
-    image: 'docker.io/christiand9699/measure:latest'
+    image: "docker.io/christiand9699/measure:latest"
     restart: unless-stopped
     depends_on:
       mongodb:
         condition: service_healthy
     expose:
-      - '8080'
+      - "8080"
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
       #- 'SPRING_DATA_MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin'
@@ -116,16 +113,16 @@ services:
         ipv4_address: 172.20.0.11
 
   keycloak-db:
-    image: 'postgres:latest'
+    image: "postgres:latest"
     restart: unless-stopped
     environment:
-      - 'POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}'
-      - 'POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}'
-      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KEYCLOAK}'
+      - "POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}"
+      - "POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KEYCLOAK}"
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
     ports:
-      - '5433:5432'
+      - "5433:5432"
     networks:
       app_network:
         ipv4_address: 172.20.0.21
@@ -152,7 +149,7 @@ services:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
       - "8443:8443"
-      - "9000:9000"   # espone management port
+      - "9000:9000" # espone management port
     command: >
       start
       --https-certificate-file=/etc/x509/https/cert.pem
@@ -161,31 +158,26 @@ services:
       --hostname-strict=false
       --proxy-headers=forwarded
       --health-enabled=true
-      
+
       --spi-cookie-cookie-path=/
       --spi-cookie-cookie-domain=.christiandellisanti.uk
       --spi-cookie-same-site=None
       --spi-cookie-secure=true
-#--optimized
-    
-
-
+    #--optimized
     networks:
       app_network:
         ipv4_address: 172.20.0.22
 
     healthcheck:
-      test: [
-        "CMD-SHELL",
-        "timeout 1 bash -c '</dev/tcp/localhost/9000' && echo 'Port is open' || exit 1"
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 1 bash -c '</dev/tcp/localhost/9000' && echo 'Port is open' || exit 1",
+        ]
       interval: 15s
       retries: 15
       start_period: 60s
       timeout: 5s
-
-
-
 
   grafana:
     image: grafana/grafana-enterprise
@@ -221,14 +213,12 @@ services:
       - GF_AUTH_GENERIC_OAUTH_EMAIL_PATH=email
       - GF_AUTH_GENERIC_OAUTH_NAME_PATH=name
 
-
     networks:
       app_network:
         ipv4_address: 172.20.0.30
 
-
   frontend:
-    image: 'docker.io/christiand9699/frontend-react:latest'
+    image: "docker.io/christiand9699/frontend-react:latest"
     restart: unless-stopped
     ports:
       - "5173:80"
@@ -244,33 +234,33 @@ services:
         ipv4_address: 172.20.0.12
 
   gateway-iam:
-    image: 'docker.io/christiand9699/gateway-iam:latest'
+    image: "docker.io/christiand9699/gateway-iam:latest"
     depends_on:
       keycloak:
         condition: service_healthy
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "8080:8080"
     environment:
-      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}'
-      - 'SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}'
-      - 'SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}'
-      - 'KEYCLOAK_GATEWAY_CLIENT_SECRET=${KEYCLOAK_GATEWAY_CLIENT_SECRET}'
-      - 'OS=raspberrypi'
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "KEYCLOAK_GATEWAY_CLIENT_SECRET=${KEYCLOAK_GATEWAY_CLIENT_SECRET}"
+      - "OS=raspberrypi"
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
     networks:
       app_network:
         ipv4_address: 172.20.0.200
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/me" ]
-      interval: 10s        # Ogni 10 secondi
-      timeout: 5s          # Timeout di 5 secondi per la risposta
-      retries: 5           # Prova fino a 5 volte prima di fallire
+      test: ["CMD", "curl", "-f", "http://localhost:8080/me"]
+      interval: 10s # Ogni 10 secondi
+      timeout: 5s # Timeout di 5 secondi per la risposta
+      retries: 5 # Prova fino a 5 volte prima di fallire
       start_period: 120s
 
   kafka:
-    image: 'bitnami/kafka:3.7'
+    image: "bitnami/kafka:3.7"
     hostname: kafka
     restart: unless-stopped
     ports:
@@ -291,13 +281,15 @@ services:
         ipv4_address: 172.20.0.40
 
   settings:
-    image: 'docker.io/christiand9699/settings:latest'
+    image: "docker.io/christiand9699/settings:latest"
     restart: unless-stopped
     expose:
       - 8080
     environment:
       - MQTT_USERNAME=${MQTT_USERNAME}
       - MQTT_PASSWORD=${MQTT_PASSWORD}
+      - MQTT_CLIENT=${MQTT_CLIENT}
+      - MQTT_BROKER=${MQTT_BROKER}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://settings-db/SETTINGS
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
@@ -327,14 +319,13 @@ services:
       app_network:
         ipv4_address: 172.20.0.60
 
-
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
     ports:
-      - "9443:9443"   # HTTPS
-      - "9002:9000"   # Portainer UI su porta diversa da Keycloak
+      - "9443:9443" # HTTPS
+      - "9002:9000" # Portainer UI su porta diversa da Keycloak
     environment:
       - ADMIN_USERNAME=${PORTAINER_ADMIN_USER}
       - ADMIN_PASSWORD=${PORTAINER_ADMIN_PASSWORD}
@@ -344,13 +335,6 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.70
-
-
-
-
-
-
-
 
 volumes:
   postgres-data:
