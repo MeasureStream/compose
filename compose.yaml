@@ -280,6 +280,31 @@ services:
       app_network:
         ipv4_address: 172.20.0.40
 
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.3.2
+    container_name: kafka-connect
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:29092"
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_CONFIG_STORAGE_TOPIC: "_connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "_connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "_connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.converters.ByteArrayConverter"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_LOG4J_LOGGERS: "org.reflections=ERROR"
+    volumes:
+      - ./connect-plugins:/usr/share/confluent-hub-components
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.41
+
   settings:
     image: "docker.io/christiand9699/settings:latest"
     restart: unless-stopped
