@@ -143,7 +143,7 @@ services:
       KC_HTTP_COOKIE_SAMESITE: None
       KC_HTTP_COOKIE_SECURE: true
 
-      KC_LOG_LEVEL: DEBUG
+      #KC_LOG_LEVEL: DEBUG
 
     volumes:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
