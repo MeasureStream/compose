@@ -128,7 +128,7 @@ services:
         ipv4_address: 172.20.0.21
 
   keycloak:
-    image: keycloak/keycloak:26.0.7
+    image: keycloak/keycloak
     depends_on:
       - keycloak-db
     restart: unless-stopped
