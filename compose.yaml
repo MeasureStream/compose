@@ -249,6 +249,8 @@ services:
       - "OS=raspberrypi"
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
+    volumes:
+      - ./gateway/truststore/cacerts:/opt/java/openjdk/lib/security/cacerts
     networks:
       app_network:
         ipv4_address: 172.20.0.200
