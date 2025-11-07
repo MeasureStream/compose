@@ -262,7 +262,7 @@ services:
       start_period: 120s
 
   kafka:
-    image: bitnamilegacy/kafka:3.3.2
+    image: bitnamilegacy/kafka:3.8.0
     hostname: kafka
     restart: unless-stopped
     ports:
