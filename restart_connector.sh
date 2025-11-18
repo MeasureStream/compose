@@ -20,7 +20,8 @@ echo "Connector deleted (HTTP code: $HTTP_CODE)."
 
 # Create connector from JSON file with environment variable substitution
 echo "Preparing connector configuration..."
-CONFIG_CONTENT=$(envsubst <"$CONFIG_FILE")
+#CONFIG_CONTENT=$(envsubst <"$CONFIG_FILE")
+CONFIG_CONTENT=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$CONFIG_FILE")
 
 echo -e "\n==== Connector Configuration ===="
 echo "$CONFIG_CONTENT"

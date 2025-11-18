@@ -20,7 +20,7 @@
     "value.converter.schemas.enable": "false",
     
     "transforms": "ExtractFPort",
-    "transforms.ExtractFPort.type": "org.apache.kafka.connect.transforms.ExtractField\$Value",
+    "transforms.ExtractFPort.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
     "transforms.ExtractFPort.field": "uplink_message.f_port"
   }
 }
