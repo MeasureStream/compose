@@ -11,7 +11,7 @@
     "connect.mqtt.service.quality": "1",
         
     "connect.mqtt.kcql": "INSERT INTO fport1 SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up WHERE f_port = 1; \
-                           INSERT INTO fport2 SELECT * FROM v3/${MQTT_USERNAME$}/devices/+/up WHERE f_port = 2",
+                           INSERT INTO fport2 SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up WHERE f_port = 2",
     
 
     "connect.progress.enabled": "true",
