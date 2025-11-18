@@ -19,6 +19,13 @@ HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$CONNECT_URL/$CONN
 echo "Connector deleted (HTTP code: $HTTP_CODE)."
 
 # Create connector from JSON file with environment variable substitution
-echo "Creating connector from $CONFIG_FILE..."
-HTTP_CODE=$(envsubst <"$CONFIG_FILE" | curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL")
+echo "Preparing connector configuration..."
+CONFIG_CONTENT=$(envsubst <"$CONFIG_FILE")
+
+echo -e "\n==== Connector Configuration ===="
+echo "$CONFIG_CONTENT"
+echo "=================================\n"
+
+echo "Creating connector from config..."
+HTTP_CODE=$(echo "$CONFIG_CONTENT" | curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL")
 echo "Connector created (HTTP code: $HTTP_CODE)."
