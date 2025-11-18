@@ -10,18 +10,13 @@
     "connect.mqtt.clean": "true",
     "connect.mqtt.service.quality": "1",
         
-    "connect.mqtt.kcql": "INSERT INTO fport1 SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up WHERE f_port = 1; \
-                           INSERT INTO fport2 SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up WHERE f_port = 2",
-    
+    "connect.mqtt.kcql": "INSERT INTO ttn-uplink SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up",
 
     "connect.progress.enabled": "true",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
     
-    "transforms": "ExtractFPort",
-    "transforms.ExtractFPort.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
-    "transforms.ExtractFPort.field": "uplink_message.f_port"
   }
 }
 
