@@ -1,0 +1,19 @@
+{
+  "name": "ttn-mqtt-source",
+  "config": {
+    "connector.class": "io.lenses.streamreactor.connect.mqtt.source.MqttSourceConnector",
+    "tasks.max": "1",
+    "connect.mqtt.hosts": "${MQTT_BROKER}",
+    "connect.mqtt.username": "${MQTT_USERNAME}",
+    "connect.mqtt.password": "${MQTT_PASSWORD}",
+    "connect.mqtt.client.id": "kafka-backend",
+    "connect.mqtt.clean": "true",
+    "connect.mqtt.service.quality": "1",
+    "connect.mqtt.kcql": "INSERT INTO ttn-uplink SELECT * FROM v3/${MQTT_USERNAME}/devices/+/up",
+    "connect.progress.enabled": "true",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}
+
