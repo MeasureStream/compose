@@ -8,6 +8,11 @@ else
   exit 1
 fi
 
+# Define connector name and config file
+CONNECTOR_NAME="ttn-mqtt-source"
+CONFIG_FILE="kafka-mqtt-source.json"
+CONNECT_URL="http://localhost:8083/connectors"
+
 # Delete the connector if it exists
 echo "Deleting connector: $CONNECTOR_NAME..."
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$CONNECT_URL/$CONNECTOR_NAME")
