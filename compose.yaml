@@ -311,6 +311,18 @@ services:
       app_network:
         ipv4_address: 172.20.0.41
 
+  kafkastream:
+    image: "docker.io/christiand9699/kafkastream:latest"
+    restart: unless-stopped
+    environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_APPLICATION_NAME=kafka-stream
+    depends_on:
+      - kafka
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.50
+
   settings:
     image: "docker.io/christiand9699/settings:latest"
     restart: unless-stopped
