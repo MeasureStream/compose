@@ -321,7 +321,7 @@ services:
       - kafka
     networks:
       app_network:
-        ipv4_address: 172.20.0.50
+        ipv4_address: 172.20.0.51
 
   settings:
     image: "docker.io/christiand9699/settings:latest"
