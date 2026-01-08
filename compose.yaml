@@ -334,14 +334,14 @@ services:
     expose:
       - 8080
     environment:
-      - MQTT_USERNAME=${MQTT_USERNAME}
-      - MQTT_PASSWORD=${MQTT_PASSWORD}
-      - MQTT_CLIENT=${MQTT_CLIENT}
-      - MQTT_BROKER=${MQTT_BROKER}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://settings-db/SETTINGS
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - JAVA_TOOL_OPTIONS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_CLIENT: ${MQTT_CLIENT}
+      MQTT_BROKER: ${MQTT_BROKER}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://settings-db/SETTINGS
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
         ipv4_address: 172.20.0.13
