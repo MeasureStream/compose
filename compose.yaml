@@ -50,7 +50,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
         ipv4_address: 172.20.0.15
@@ -67,7 +67,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1 "
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
         ipv4_address: 172.20.0.10
@@ -110,7 +110,7 @@ services:
       #- 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
       #- 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
       OS: raspberrypi
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
         ipv4_address: 172.20.0.11
@@ -249,7 +249,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_GATEWAY_CLIENT_SECRET: ${KEYCLOAK_GATEWAY_CLIENT_SECRET}
       OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1 "
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
     volumes:
