@@ -321,7 +321,7 @@ services:
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_APPLICATION_NAME: kafka-stream
-      JAVA_TOOL_OPTIONS: Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     depends_on:
       - kafka
     networks:
