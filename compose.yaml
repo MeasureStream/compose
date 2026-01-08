@@ -63,11 +63,11 @@ services:
     expose:
       - "8080"
     environment:
-      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
-      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
-      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
-      - "OS=raspberrypi"
-      - JAVA_TOOL_OPTIONS="-Xms128m -Xmx384m -XX:+UseZGC -XX:ActiveProcessorCount=4 "
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      OS: "raspberrypi"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1 "
     networks:
       app_network:
         ipv4_address: 172.20.0.10
@@ -110,7 +110,7 @@ services:
       #- 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
       #- 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
       OS: raspberrypi
-      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseZGC -XX:ActiveProcessorCount=4"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
     networks:
       app_network:
         ipv4_address: 172.20.0.11
@@ -119,9 +119,9 @@ services:
     image: "postgres:17"
     restart: unless-stopped
     environment:
-      - "POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}"
-      - "POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}"
-      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KEYCLOAK}"
+      POSTGRES_DB: ${POSTGRES_DB_KEYCLOAK}
+      POSTGRES_USER: ${POSTGRES_USER_KEYCLOAK}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
     ports:
@@ -142,7 +142,6 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
-
       KC_HTTP_COOKIE_SAMESITE: None
       KC_HTTP_COOKIE_SECURE: true
 
@@ -245,12 +244,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
-      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
-      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
-      - "KEYCLOAK_GATEWAY_CLIENT_SECRET=${KEYCLOAK_GATEWAY_CLIENT_SECRET}"
-      - "OS=raspberrypi"
-      - "JAVA_TOOL_OPTIONS=-Xms128m -Xmx384m -XX:+UseZGC -XX:ActiveProcessorCount=4 "
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_GATEWAY_CLIENT_SECRET: ${KEYCLOAK_GATEWAY_CLIENT_SECRET}
+      OS: "raspberrypi"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1 "
     #extra_hosts:
     #  - "auth.christiandellisanti.uk:172.20.0.22"
     volumes:
@@ -322,7 +321,7 @@ services:
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_APPLICATION_NAME=kafka-stream
-      - "JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -XX:ActiveProcessorCount=3"
+      - JAVA_TOOL_OPTIONS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
     depends_on:
       - kafka
     networks:
@@ -342,7 +341,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://settings-db/SETTINGS
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - JAVA_TOOL_OPTIONS="-Xms128m -Xmx256m -XX:+UseSerialGC -XX:ActiveProcessorCount=3"
+      - JAVA_TOOL_OPTIONS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1"
     networks:
       app_network:
         ipv4_address: 172.20.0.13
