@@ -115,9 +115,7 @@ services:
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
 
-      KC_HTTP_ENABLED: "true"
-      KC_HTTP_PORT: 8080
-      KC_HOSTNAME_STRICT: "false"
+
 
     command: >
       start-dev
