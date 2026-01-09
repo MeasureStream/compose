@@ -3,29 +3,53 @@ services:
     image: "postgres:17"
     restart: unless-stopped
     environment:
+      - "POSTGRES_DB=${POSTGRES_DB}"
       - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
       - "POSTGRES_USER=${POSTGRES_USER}"
-    volumes:
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
       - "5432"
     networks:
       app_network:
         ipv4_address: 172.20.0.20
 
+  settings-db:
+    image: "postgres:17"
+    restart: unless-stopped
+    environment:
+      - "POSTGRES_DB=SETTINGS"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+      - "POSTGRES_USER=${POSTGRES_USER}"
+    expose:
+      - "5432"
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.25
+
+  calibrator-db:
+    image: "postgres:17"
+    restart: unless-stopped
+    environment:
+      - "POSTGRES_DB=CALIBRATOR"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+      - "POSTGRES_USER=${POSTGRES_USER}"
+    expose:
+      - "5432"
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.26
+
   calibrator-manager:
     image: "docker.io/christiand9699/calibrator-manager:latest"
     restart: unless-stopped
     depends_on:
-      - postgres
+      - calibrator-db
     expose:
       - "8080"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/CALIBRATOR"
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://calibrator-db/CALIBRATOR"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "OS=raspberrypi"
     networks:
       app_network:
         ipv4_address: 172.20.0.15
@@ -38,17 +62,16 @@ services:
     expose:
       - "8080"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "OS=raspberrypi"
     networks:
       app_network:
         ipv4_address: 172.20.0.10
 
   mongodb:
-    image: mongo:4.4.18
+    image: arm64v8/mongo:4.4.18
     restart: unless-stopped
     environment:
       - "MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}"
@@ -80,8 +103,11 @@ services:
       - "8080"
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
+      #- 'SPRING_DATA_MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin'
+      #- 'MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}'
+      #- 'MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}'
+      #- 'MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}'
       OS: raspberrypi
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
         ipv4_address: 172.20.0.11
@@ -90,9 +116,9 @@ services:
     image: "postgres:17"
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB_KEYCLOAK}
-      POSTGRES_USER: ${POSTGRES_USER_KEYCLOAK}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
+      - "POSTGRES_DB=${POSTGRES_DB_KEYCLOAK}"
+      - "POSTGRES_USER=${POSTGRES_USER_KEYCLOAK}"
+      - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KEYCLOAK}"
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
     ports:
@@ -109,30 +135,52 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
 
-      KC_HTTP_ENABLED: "true"
-      KC_HTTP_PORT: 8080
-      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_COOKIE_SAMESITE: None
+      KC_HTTP_COOKIE_SECURE: true
 
-    command: >
-      start-dev
+      #KC_LOG_LEVEL: DEBUG
 
+    volumes:
+      - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
     ports:
-      - "8081:8080"
+      - "8443:8443"
+      - "9000:9000" # espone management port
+    command: >
+      start
+      --https-certificate-file=/etc/x509/https/cert.pem
+      --https-certificate-key-file=/etc/x509/https/privkey.pem
+      --hostname=auth.christiandellisanti.uk
+      --hostname-strict=false
+      --proxy-headers=forwarded
+      --health-enabled=true
 
+      --spi-cookie-cookie-path=/
+      --spi-cookie-cookie-domain=.christiandellisanti.uk
+      --spi-cookie-same-site=None
+      --spi-cookie-secure=true
+    #--optimized
     networks:
       app_network:
         ipv4_address: 172.20.0.22
 
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 1 bash -c '</dev/tcp/localhost/9000' && echo 'Port is open' || exit 1",
+        ]
+      interval: 15s
+      retries: 15
+      start_period: 60s
+      timeout: 5s
+
   grafana:
     image: grafana/grafana-enterprise
-    profiles:
-      - observability
     restart: always
     volumes:
       - grafana_data:/var/lib/grafana
@@ -187,16 +235,22 @@ services:
 
   gateway-iam:
     image: "docker.io/christiand9699/gateway-iam:latest"
+    #depends_on:
+    #keycloak:
+    #condition: service_healthy
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      KEYCLOAK_GATEWAY_CLIENT_SECRET: ${KEYCLOAK_GATEWAY_CLIENT_SECRET}
-      OS: "raspberrypi"
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      - "SPRING_DATASOURCE_URL=jdbc:postgresql://postgres/${POSTGRES_DB}"
+      - "SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}"
+      - "SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}"
+      - "KEYCLOAK_GATEWAY_CLIENT_SECRET=${KEYCLOAK_GATEWAY_CLIENT_SECRET}"
+      - "OS=raspberrypi"
+    #extra_hosts:
+    #  - "auth.christiandellisanti.uk:172.20.0.22"
+    volumes:
+      - ./gateway/truststore/cacerts:/opt/java/openjdk/lib/security/cacerts
     networks:
       app_network:
         ipv4_address: 172.20.0.200
@@ -224,7 +278,6 @@ services:
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - KAFKA_HEAP_OPTS=-Xms256m -Xmx512m
     networks:
       app_network:
         ipv4_address: 172.20.0.40
@@ -262,9 +315,8 @@ services:
     image: "docker.io/christiand9699/kafkastream:latest"
     restart: unless-stopped
     environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPRING_APPLICATION_NAME: kafka-stream
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_APPLICATION_NAME=kafka-stream
     depends_on:
       - kafka
     networks:
@@ -277,17 +329,55 @@ services:
     expose:
       - 8080
     environment:
-      MQTT_USERNAME: ${MQTT_USERNAME}
-      MQTT_PASSWORD: ${MQTT_PASSWORD}
-      MQTT_CLIENT: ${MQTT_CLIENT}
-      MQTT_BROKER: ${MQTT_BROKER}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres/SETTINGS
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      - MQTT_CLIENT=${MQTT_CLIENT}
+      - MQTT_BROKER=${MQTT_BROKER}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://settings-db/SETTINGS
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
     networks:
       app_network:
         ipv4_address: 172.20.0.13
+
+  duplicati:
+    image: duplicati/duplicati:latest
+    container_name: duplicati
+    environment:
+      - TZ=Europe/Rome
+      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_PASSWORD}
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
+    volumes:
+      - /home/measurestream/duplicati/backups:/backups
+      - /home/measurestream/duplicati/config/duplicati:/config
+      - grafana_data:/data/grafana
+      - mongo_data:/data/mongodb
+      - keycloak-db-data:/data/keycloakdb
+      - kafka_data:/data/kafka
+      - postgres-data:/data/postgres
+    ports:
+      - "8200:8200"
+    restart: unless-stopped
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.60
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9443:9443" # HTTPS
+      - "9002:9000" # Portainer UI su porta diversa da Keycloak
+    environment:
+      - ADMIN_USERNAME=${PORTAINER_ADMIN_USER}
+      - ADMIN_PASSWORD=${PORTAINER_ADMIN_PASSWORD}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.70
 
 volumes:
   postgres-data:
@@ -295,6 +385,7 @@ volumes:
   mongo_data:
   grafana_data:
   kafka_data:
+  portainer_data:
 
 networks:
   app_network:
