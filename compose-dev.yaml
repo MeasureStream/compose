@@ -183,6 +183,8 @@ services:
 
   grafana:
     image: grafana/grafana-enterprise
+    profiles:
+      - observability
     restart: always
     volumes:
       - grafana_data:/var/lib/grafana
