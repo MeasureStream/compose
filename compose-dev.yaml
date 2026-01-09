@@ -346,52 +346,12 @@ services:
       app_network:
         ipv4_address: 172.20.0.13
 
-  duplicati:
-    image: duplicati/duplicati:latest
-    container_name: duplicati
-    environment:
-      - TZ=Europe/Rome
-      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_PASSWORD}
-      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
-    volumes:
-      - /home/measurestream/duplicati/backups:/backups
-      - /home/measurestream/duplicati/config/duplicati:/config
-      - grafana_data:/data/grafana
-      - mongo_data:/data/mongodb
-      - keycloak-db-data:/data/keycloakdb
-      - kafka_data:/data/kafka
-      - postgres-data:/data/postgres
-    ports:
-      - "8200:8200"
-    restart: unless-stopped
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.60
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: unless-stopped
-    ports:
-      - "9443:9443" # HTTPS
-      - "9002:9000" # Portainer UI su porta diversa da Keycloak
-    environment:
-      - ADMIN_USERNAME=${PORTAINER_ADMIN_USER}
-      - ADMIN_PASSWORD=${PORTAINER_ADMIN_PASSWORD}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.70
-
 volumes:
   postgres-data:
   keycloak-db-data:
   mongo_data:
   grafana_data:
   kafka_data:
-  portainer_data:
 
 networks:
   app_network:
