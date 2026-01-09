@@ -114,7 +114,10 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db/${POSTGRES_DB_KEYCLOAK}
       KC_DB_USERNAME: ${POSTGRES_USER_KEYCLOAK}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD_KEYCLOAK}
-
+      KC_HTTP_ENABLED: "true"
+      KC_HTTPS_CERTIFICATE_FILE: ""
+      KC_HTTPS_CERTIFICATE_KEY_FILE: ""
+      KC_HOSTNAME_STRICT: "false"
 
 
     command: >
