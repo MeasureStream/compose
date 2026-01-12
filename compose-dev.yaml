@@ -199,7 +199,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_GATEWAY_CLIENT_SECRET: ${KEYCLOAK_GATEWAY_CLIENT_SECRET}
-      OS: "raspberrypi"
+      OS: "dev"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
