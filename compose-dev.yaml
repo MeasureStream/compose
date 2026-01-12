@@ -89,6 +89,8 @@ services:
   keycloak-db:
     image: "postgres:17"
     restart: unless-stopped
+    profile:
+      - keycloak-internal
     environment:
       POSTGRES_DB: ${POSTGRES_DB_KEYCLOAK}
       POSTGRES_USER: ${POSTGRES_USER_KEYCLOAK}
@@ -103,6 +105,8 @@ services:
 
   keycloak:
     image: keycloak/keycloak:26.4.2
+    profile:
+      - keycloak-internal
     depends_on:
       - keycloak-db
     restart: unless-stopped
@@ -132,7 +136,7 @@ services:
   grafana:
     image: grafana/grafana-enterprise
     profiles:
-      - observability
+      - grafana
     restart: always
     volumes:
       - grafana_data:/var/lib/grafana
@@ -232,6 +236,8 @@ services:
   kafka-connect:
     image: confluentinc/cp-kafka-connect:7.3.2
     container_name: kafka-connect
+    profiles:
+      - kafka-external
     restart: unless-stopped
     depends_on:
       - kafka
@@ -261,6 +267,8 @@ services:
   kafkastream:
     image: "docker.io/christiand9699/kafkastream:latest"
     restart: unless-stopped
+    profiles:
+      - kafka-external
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_APPLICATION_NAME: kafka-stream
