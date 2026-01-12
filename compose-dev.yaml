@@ -89,7 +89,7 @@ services:
   keycloak-db:
     image: "postgres:17"
     restart: unless-stopped
-    profile:
+    profiles:
       - keycloak-internal
     environment:
       POSTGRES_DB: ${POSTGRES_DB_KEYCLOAK}
@@ -105,7 +105,7 @@ services:
 
   keycloak:
     image: keycloak/keycloak:26.4.2
-    profile:
+    profiles:
       - keycloak-internal
     depends_on:
       - keycloak-db
