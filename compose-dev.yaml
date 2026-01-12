@@ -17,7 +17,7 @@ services:
     image: "docker.io/christiand9699/calibrator-manager:latest"
     restart: unless-stopped
     depends_on:
-      - calibrator-db
+      - postgres
     expose:
       - "8080"
     environment:
