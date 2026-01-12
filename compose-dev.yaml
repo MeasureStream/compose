@@ -174,7 +174,7 @@ services:
         ipv4_address: 172.20.0.30
 
   frontend:
-    image: "docker.io/christiand9699/frontend-react:latest"
+    image: "docker.io/christiand9699/frontend-react:latest-dev"
     restart: unless-stopped
     ports:
       - "5173:80"
