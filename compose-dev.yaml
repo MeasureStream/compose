@@ -191,7 +191,7 @@ services:
         ipv4_address: 172.20.0.12
 
   gateway-iam:
-    image: "docker.io/christiand9699/gateway-iam:latest"
+    image: "docker.io/christiand9699/gateway-iam:latest-dev-mario"
     restart: unless-stopped
     ports:
       - "8080:8080"
