@@ -31,7 +31,7 @@ services:
         ipv4_address: 172.20.0.15
 
   sensor-manager:
-    image: "docker.io/christiand9699/sensor-manager:latest"
+    image: "docker.io/christiand9699/sensor-manager:latest-dev-mario"
     restart: unless-stopped
     depends_on:
       - postgres
@@ -174,13 +174,12 @@ services:
       app_network:
         ipv4_address: 172.20.0.30
 
-  frontend:
-    image: "docker.io/christiand9699/frontend-react:latest-dev-mario"
+  gemimeg-backend:
+    image: "docker.io/christiand9699/gemimeg-backend:latest-dev-mario"
     restart: unless-stopped
     ports:
-      - "5173:80"
-    volumes:
-      - ./default.conf:/etc/nginx/conf.d/default.conf
+      - "3007:10001"
+
     #environment:
     #  NODE_ENV: development
     #stdin_open: true
@@ -188,10 +187,43 @@ services:
     #command: ["npm", "run", "dev", "--", "--host"]
     networks:
       app_network:
+        ipv4_address: 172.20.0.129
+
+        
+  gemimeg-frontend:
+    image: "docker.io/christiand9699/gemimeg-frontend:latest-dev-mario"
+    restart: unless-stopped
+    ports:
+      - "3006:80"
+    # volumes:
+    #   - ./default.conf:/etc/nginx/conf.d/default.conf
+    environment:
+     API_URL: "http://100.127.76.43:3007"
+    #stdin_open: true
+    #tty: true
+    #command: ["npm", "run", "dev", "--", "--host"]
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.128      
+        
+  frontend:
+    image: "docker.io/christiand9699/frontend-react:latest-dev-mario"
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    volumes:
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+     # environment:
+     #  API_URL: development
+     #stdin_open: true
+     #tty: true
+     #command: ["npm", "run", "dev", "--", "--host"]
+    networks:
+      app_network:
         ipv4_address: 172.20.0.12
 
   gateway-iam:
-    image: "docker.io/christiand9699/gateway-iam:latest"
+    image: "docker.io/christiand9699/gateway-iam:latest-dev-mario"
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -206,7 +238,7 @@ services:
       app_network:
         ipv4_address: 172.20.0.200
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/me"]
+      test: ["CMD", "curl", "-f", "http://169.254.144.159:5173/ui/"]
       interval: 10s # Ogni 10 secondi
       timeout: 5s # Timeout di 5 secondi per la risposta
       retries: 5 # Prova fino a 5 volte prima di fallire
@@ -281,7 +313,7 @@ services:
         ipv4_address: 172.20.0.51
 
   settings:
-    image: "docker.io/christiand9699/settings:latest"
+    image: "docker.io/christiand9699/settings:latest-dev-mario"
     restart: unless-stopped
     expose:
       - 8080
