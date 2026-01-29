@@ -174,50 +174,82 @@ services:
       app_network:
         ipv4_address: 172.20.0.30
 
+  dcc-service:
+    image: "docker.io/christiand9699/dcc-service:latest-dev-mario"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - kafka
+    expose:
+      - "8080"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      GEMIMEG_BACKEND_URL: "http://gemimeg-backend:10001"
+      GATEWAY_IAM_URL: "http://gateway-iam:8080"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.14
+
   gemimeg-backend:
     image: "docker.io/christiand9699/gemimeg-backend:latest-dev-mario"
     restart: unless-stopped
+    depends_on:
+      - dcc-service
+      - gateway-iam
+    expose:
+      - "10001"
     ports:
       - "3007:10001"
-
-    #environment:
-    #  NODE_ENV: development
-    #stdin_open: true
-    #tty: true
-    #command: ["npm", "run", "dev", "--", "--host"]
+    environment:
+      SERVER_PORT: 10001
+      DCC_SERVICE_URL: "http://dcc-service:8080"
+      GATEWAY_IAM_URL: "http://gateway-iam:8080"
+      FRONTEND_URL: "http://gemimeg-frontend:80"
+      JAVA_OPTS: "-Xmx512m -Xms256m -XX:+UseG1GC"
     networks:
       app_network:
         ipv4_address: 172.20.0.129
 
-        
   gemimeg-frontend:
     image: "docker.io/christiand9699/gemimeg-frontend:latest-dev-mario"
     restart: unless-stopped
+    depends_on:
+      - gemimeg-backend
+      - gateway-iam
     ports:
       - "3006:80"
-    # volumes:
-    #   - ./default.conf:/etc/nginx/conf.d/default.conf
     environment:
-     API_URL: "http://100.127.76.43:3007"
-    #stdin_open: true
-    #tty: true
-    #command: ["npm", "run", "dev", "--", "--host"]
+      API_URL: "http://172.20.0.200:8080"
+      BACKEND_HOST: "gemimeg-backend"
+      BACKEND_PORT: "10001"
+      GATEWAY_HOST: "gateway-iam"
+      GATEWAY_PORT: "8080"
     networks:
       app_network:
-        ipv4_address: 172.20.0.128      
-        
+        ipv4_address: 172.20.0.128
+
   frontend:
     image: "docker.io/christiand9699/frontend-react:latest-dev-mario"
     restart: unless-stopped
+    depends_on:
+      - gateway-iam
+      - sensor-manager
+      - measure-manager
+      - dcc-service
     ports:
       - "5173:80"
     volumes:
       - ./default.conf:/etc/nginx/conf.d/default.conf
-     # environment:
-     #  API_URL: development
-     #stdin_open: true
-     #tty: true
-     #command: ["npm", "run", "dev", "--", "--host"]
+    environment:
+      VITE_API_URL: "http://172.20.0.200:8080"
+      VITE_BACKEND_URL: "http://172.20.0.129:10001"
+      VITE_GATEWAY_URL: "http://172.20.0.200:8080"
+      VITE_DCC_SERVICE_URL: "http://172.20.0.14:8080"
+      VITE_SENSOR_MANAGER_URL: "http://172.20.0.10:8080"
     networks:
       app_network:
         ipv4_address: 172.20.0.12
