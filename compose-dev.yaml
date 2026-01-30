@@ -175,7 +175,7 @@ services:
         ipv4_address: 172.20.0.30
 
   dcc-service:
-    image: "docker.io/christiand9699/dcc-service:latest-dev-mario"
+    image: "docker.io/christiand9699/dcc-service:latest"
     restart: unless-stopped
     depends_on:
       - postgres
