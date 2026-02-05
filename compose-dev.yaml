@@ -372,6 +372,7 @@ services:
     ports:
       - "3900:3900"
       - "3901:3901"
+      - "3902:3902"
       - "3903:3903"
     environment:
       - RPC_SECRET=${RPC_SECRET}

@@ -38,32 +38,27 @@ Try creating the key again:
    docker exec -it garage /garage key list
    ```
 
-mattrovio@measurestream-dev:~/compose$ docker exec -it garage /garage key create testkey
 docker exec -it garage /garage key list
-2026-02-05T20:44:48.789159Z  INFO garage_net::netapp: Connected to 172.20.0.60:3901, negotiating handshake...
-2026-02-05T20:44:48.832173Z  INFO garage_net::netapp: Connection established to 0297f928e9948c1a
 ==== ACCESS KEY INFORMATION ====
-Key ID:              GKf73ab171533f1f5e902c8d1e
+Key ID:              GKe8afbd2d80a1ee88b135c9cf
 Key name:            testkey
-Secret key:          c41c033a237b9732854328fcc533fd15b67ca23cbd51142c77dc2b7c32599137
-Created:             2026-02-05 20:44:48.832 +00:00
+Secret key:          0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b
+Created:             2026-02-05 21:11:28.908 +00:00
 Validity:            valid
 Expiration:          never
 
 Can create buckets:  false
 
-==== BUCKETS FOR THIS KEY ====
-Permissions  ID  Global aliases  Local aliases
-2026-02-05T20:44:48.910280Z  INFO garage_net::netapp: Connected to 172.20.0.60:3901, negotiating handshake...
-2026-02-05T20:44:48.952167Z  INFO garage_net::netapp: Connection established to 0297f928e9948c1a
-ID                          Created     Name     Expiration
-GKf73ab171533f1f5e902c8d1e  2026-02-05  testkey  never
-mattrovio@measurestream-dev:~/compose$
-
     docker exec -it garage /garage key allow GKf73ab171533f1f5e902c8d1e --create-bucket
         docker exec -it garage /garage bucket create test-garage-bucket
     docker exec -it garage /garage bucket allow test-garage-bucket --key GKf73ab171533f1f5e902c8d1e --read --write
-2. **Run Test:**
+2. **Give Key Maximum Permissions:**
+   ```bash
+   docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --create-bucket
+   docker exec -it garage /garage bucket list
+   ```
+
+3. **Run Test:**
    Install dependencies: `pip install boto3`
    Update the placeholders in `test/test_s3_garage.py` and run:
    ```bash

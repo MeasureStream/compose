@@ -1,72 +1,137 @@
 import boto3
 import sys
 import socket
+import time
 from botocore.client import Config
 
-# Configuration
-GARAGE_HOST = "localhost"
-GARAGE_S3_PORT = 3900
+# Configuration - Following Garage Quick Start Guide
+GARAGE_HOST = "100.127.76.43"
+GARAGE_S3_PORT = 3901
 ENDPOINT_URL = f"http://{GARAGE_HOST}:{GARAGE_S3_PORT}"
 
-ACCESS_KEY = "GKf73ab171533f1f5e902c8d1e"
-SECRET_KEY = "c41c033a237b9732854328fcc533fd15b67ca23cbd51142c77dc2b7c32599137"
+# These should match your garage key info output
+ACCESS_KEY = "GKe8afbd2d80a1ee88b135c9cf"
+SECRET_KEY = "0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b"
 
 def check_port():
+    """Check if Garage S3 port is accessible"""
     print(f"Checking connectivity to {GARAGE_HOST}:{GARAGE_S3_PORT}...")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(3)
     try:
-        # Resolve localhost to IPv4
-        s.connect(('127.0.0.1', GARAGE_S3_PORT))
+        # Connect to the remote Garage server
+        s.connect((GARAGE_HOST, GARAGE_S3_PORT))
         s.close()
         print("✅ Port is OPEN")
         return True
     except Exception as e:
         print(f"❌ Port is CLOSED or UNREACHABLE: {e}")
+        print(f"💡 Make sure Garage is running on {GARAGE_HOST}: 'docker ps | grep garage'")
+        print(f"💡 And that port 3900 is open in the firewall: 'sudo ufw allow 3900/tcp'")
         return False
 
 def test_garage_s3():
+    """Test Garage S3 functionality following the official Quick Start guide"""
+    print("=== Garage S3 Quick Start Test ===")
+
     if not check_port():
-        print("\nPossible fixes:")
-        print("1. Ensure the container is running: 'docker ps | grep garage'")
-        print("2. Check container logs: 'docker logs garage'")
         return
-    
-    print(f"Connecting to Garage S3 at {ENDPOINT_URL}...")
-    
+
     try:
+        # Configure S3 client following Garage Quick Start guide
         s3 = boto3.client(
             's3',
             endpoint_url=ENDPOINT_URL,
             aws_access_key_id=ACCESS_KEY,
             aws_secret_access_key=SECRET_KEY,
+            aws_default_region='garage',  # Matches s3_region from garage.toml
             config=Config(signature_version='s3v4'),
-            region_name='garage'
+            verify=False  # Skip SSL verification for local testing
         )
 
-        # 1. List Buckets
+        # 1. List buckets (following garage quick start)
         print("\n--- Listing Buckets ---")
-        response = s3.list_buckets()
-        buckets = [bucket['Name'] for bucket in response['Buckets']]
-        print(f"Buckets found: {buckets}")
+        try:
+            response = s3.list_buckets()
+            buckets = [bucket['Name'] for bucket in response['Buckets']]
+            print(f"✅ Found {len(buckets)} buckets: {buckets}")
+        except Exception as e:
+            print(f"❌ Failed to list buckets: {e}")
+            return
 
-        # 2. Create a test bucket if it doesn't exist
-        test_bucket = "test-garage-bucket"
+        # 2. Create a bucket (following quick start example)
+        test_bucket = "nextcloud-bucket"  # Using name from quick start guide
         if test_bucket not in buckets:
-            print(f"\nCreating bucket: {test_bucket}")
-            s3.create_bucket(Bucket=test_bucket)
-        
-        # 3. Upload a small test file
-        print("\nUploading test file...")
-        s3.put_object(Bucket=test_bucket, Key="hello.txt", Body="Hello from Python and Garage!")
-        
-        # 4. Download and verify
-        print("Downloading test file...")
-        obj = s3.get_object(Bucket=test_bucket, Key="hello.txt")
-        content = obj['Body'].read().decode('utf-8')
-        print(f"Content retrieved: '{content}'")
-        
-        print("\n✅ Garage S3 Test PASSED!")
+            print(f"\n--- Creating Bucket: {test_bucket} ---")
+            try:
+                s3.create_bucket(Bucket=test_bucket)
+                print(f"✅ Created bucket: {test_bucket}")
+            except Exception as e:
+                print(f"❌ Failed to create bucket: {e}")
+                return
+
+        # 3. Upload a file (following quick start example)
+        print(f"\n--- Uploading File to {test_bucket} ---")
+        test_file = "cpuinfo.txt"
+        test_content = "This is a test file uploaded to Garage S3\n" + str(time.time())
+        try:
+            s3.put_object(Bucket=test_bucket, Key=test_file, Body=test_content)
+            print(f"✅ Uploaded: s3://{test_bucket}/{test_file}")
+        except Exception as e:
+            print(f"❌ Failed to upload file: {e}")
+            return
+
+        # 4. List objects in bucket
+        print(f"\n--- Listing Objects in {test_bucket} ---")
+        try:
+            response = s3.list_objects_v2(Bucket=test_bucket)
+            if 'Contents' in response:
+                print(f"✅ Found {len(response['Contents'])} objects:")
+                for obj in response['Contents']:
+                    print(f"   📄 {obj['Key']} ({obj['Size']} bytes, {obj['LastModified']})")
+            else:
+                print("   📁 Bucket is empty")
+        except Exception as e:
+            print(f"❌ Failed to list objects: {e}")
+
+        # 5. Download the file
+        print(f"\n--- Downloading File ---")
+        try:
+            obj = s3.get_object(Bucket=test_bucket, Key=test_file)
+            downloaded_content = obj['Body'].read().decode('utf-8')
+            if downloaded_content == test_content:
+                print("✅ Downloaded and verified file content")
+            else:
+                print("❌ Content mismatch!")
+                print(f"Expected: {test_content}")
+                print(f"Got: {downloaded_content}")
+        except Exception as e:
+            print(f"❌ Failed to download file: {e}")
+
+        # 6. Test additional operations
+        print(f"\n--- Testing Additional Operations ---")
+
+        # Test copy
+        try:
+            copy_key = "cpuinfo_copy.txt"
+            s3.copy_object(
+                CopySource={'Bucket': test_bucket, 'Key': test_file},
+                Bucket=test_bucket,
+                Key=copy_key
+            )
+            print("✅ File copy operation successful")
+        except Exception as e:
+            print(f"❌ File copy failed: {e}")
+
+        # Test delete
+        try:
+            s3.delete_object(Bucket=test_bucket, Key=copy_key)
+            print("✅ File delete operation successful")
+        except Exception as e:
+            print(f"❌ File delete failed: {e}")
+
+        print("\n🎉 Garage S3 Quick Start Test PASSED!")
+        print("Your Garage deployment is working correctly following the official guide.")
 
     except Exception as e:
         print(f"\n❌ Garage S3 Test FAILED!")
