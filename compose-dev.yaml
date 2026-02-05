@@ -375,11 +375,11 @@ services:
       - "3903:3903"
     volumes:
       # External persistent storage (data survives project deletion)
-      - /home/pi/garage-data/data:/var/lib/garage/data
-      - /home/pi/garage-data/meta:/var/lib/garage/meta
+      - /home/mattrovio/garage-data/data:/var/lib/garage/data
+      - /home/mattrovio/garage-data/meta:/var/lib/garage/meta
       # Internal project config
       - ./garage/config:/etc/garage
-    command: ["garage", "server", "--config", "/etc/garage/garage.toml"]
+    command: ["/garage", "server", "--config", "/etc/garage/garage.toml"]
     networks:
       app_network:
         ipv4_address: 172.20.0.60
