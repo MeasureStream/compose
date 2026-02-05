@@ -379,9 +379,9 @@ services:
       # External persistent storage (data survives project deletion)
       - /home/mattrovio/garage-data/data:/var/lib/garage/data
       - /home/mattrovio/garage-data/meta:/var/lib/garage/meta
-      # Internal project config
-      - ./garage/config:/etc/garage
-    command: ["/garage", "-c", "/etc/garage/garage.toml", "server"]
+      # Internal project config (mounted at default location)
+      - ./garage/config/garage.toml:/etc/garage.toml
+    command: ["/garage", "server"]
     networks:
       app_network:
         ipv4_address: 172.20.0.60
