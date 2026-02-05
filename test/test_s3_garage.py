@@ -1,19 +1,37 @@
 import boto3
 import sys
+import socket
 from botocore.client import Config
 
 # Configuration
-GARAGE_IP = "100.127.76.43"
-GARAGE_S3_PORT = "3900"
-ENDPOINT_URL = f"http://{GARAGE_IP}:{GARAGE_S3_PORT}"
+GARAGE_HOST = "localhost"
+GARAGE_S3_PORT = 3900
+ENDPOINT_URL = f"http://{GARAGE_HOST}:{GARAGE_S3_PORT}"
 
-# These must be created via Garage CLI:
-# garage key create my_test_key
-# garage key list
-ACCESS_KEY = "PLACEHOLDER_ACCESS_KEY"
-SECRET_KEY = "PLACEHOLDER_SECRET_KEY"
+ACCESS_KEY = "GKf73ab171533f1f5e902c8d1e"
+SECRET_KEY = "c41c033a237b9732854328fcc533fd15b67ca23cbd51142c77dc2b7c32599137"
+
+def check_port():
+    print(f"Checking connectivity to {GARAGE_HOST}:{GARAGE_S3_PORT}...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(3)
+    try:
+        # Resolve localhost to IPv4
+        s.connect(('127.0.0.1', GARAGE_S3_PORT))
+        s.close()
+        print("✅ Port is OPEN")
+        return True
+    except Exception as e:
+        print(f"❌ Port is CLOSED or UNREACHABLE: {e}")
+        return False
 
 def test_garage_s3():
+    if not check_port():
+        print("\nPossible fixes:")
+        print("1. Ensure the container is running: 'docker ps | grep garage'")
+        print("2. Check container logs: 'docker logs garage'")
+        return
+    
     print(f"Connecting to Garage S3 at {ENDPOINT_URL}...")
     
     try:
@@ -53,11 +71,6 @@ def test_garage_s3():
     except Exception as e:
         print(f"\n❌ Garage S3 Test FAILED!")
         print(f"Error: {e}")
-        print("\nNote: Make sure you have created an access key and bucket permissions in Garage.")
-        print("Use: garage key create <name> AND garage bucket create <bucket-name>")
-        print("AND garage bucket allow <bucket-name> --key <key-id> --read --write")
 
 if __name__ == "__main__":
-    if ACCESS_KEY == "PLACEHOLDER_ACCESS_KEY":
-        print("Please update the ACCESS_KEY and SECRET_KEY in the script with values from 'garage key list'")
     test_garage_s3()
