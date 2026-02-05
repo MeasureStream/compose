@@ -10,11 +10,11 @@ rpc_public_addr = "172.21.35.78:3901"
 [s3_api]
 bind_addr = "[::]:3900"
 s3_region = "garage"
-
+root_domain = ".s3.garage.localhost"
 
 [s3_web]
 bind_addr = "[::]:3902"
-
+root_domain = ".web.garage.localhost"
 index = "index.html"
 
 [admin]
