@@ -189,9 +189,15 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      GEMIMEG_BACKEND_URL: "http://gemimeg-backend:10001"
-      GATEWAY_IAM_URL: "http://gateway-iam:8080"
-      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      GEMIMEG_BACKEND_URL: ${GEMIMEG_BACKEND_URL:-http://gemimeg-backend:10001}
+      GATEWAY_IAM_URL: ${GATEWAY_IAM_URL:-http://gateway-iam:8080}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_DEFAULT_REGION}
+      S3_ENDPOINT: "http://garage:3900"
+      S3_BUCKET: "dccs"
+      S3_PUBLIC_URL: "http://172.20.0.60:3900/dccs"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
@@ -386,6 +392,26 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.60
+
+  
+  garage-webui:
+    image: khairul169/garage-webui:latest
+    container_name: garage-webui-integrated
+
+    volumes:
+      - ./garage/config/garage.toml:/etc/garage.toml
+    depends_on:
+      - garage
+    ports:
+      - 3909:3909
+    environment:
+      API_BASE_URL: "http://garage:3903"
+      S3_ENDPOINT_URL: "http://garage:3900"
+      AUTH_USER_PASS: ${AUTH_USER_PASS}
+    restart: unless-stopped
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.61
 
 volumes:
   postgres-data:

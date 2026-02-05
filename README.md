@@ -1,101 +1,62 @@
-# compose
-The final docker compose file to start MeasureStream
+# MeasureStream Compose
 
-## Manual Setup for Garage Service
+## 1. Host Setup (Debian/Raspberry Pi)
+Prepare persistent data folders on the host:
+```bash
+mkdir -p /home/mattrovio/garage-data/{data,meta}
+sudo chown -R $USER:$USER /home/mattrovio/garage-data
+# sudo ufw allow 3900:3903/tcp
+```
 
-Before running the stack, you must prepare the external persistent data folders on the host (e.g., Raspberry Pi):
+## 2. Garage Initialization (One-time)
+After `docker compose up -d garage`:
+```bash
+# 1. Get Node ID
+docker exec -it garage /garage status
 
-1. **Create Data Folders:**
-   ```bash
-   mkdir -p /home/mattrovio/garage-data/{data,meta}
-   ```
+# 2. Assign Role (replace <ID>)
+docker exec -it garage /garage layout assign <ID> -z dc1 -c 10G
 
-2. **Set Permissions:**
-   ```bash
-   sudo chown -R $USER:$USER /home/mattrovio/garage-data
-   ```
+# 3. Apply Layout
+docker exec -it garage /garage layout apply --version 1
+```
 
-3. **Verify Paths:**
-   The `compose-dev.yaml` is currently configured for user `mattrovio`. If your username is different, update the paths in the `volumes` section of the `garage` service.
+## 3. S3 Credentials & Permissions
+```bash
+# 1. Create Key
+docker exec -it garage /garage key create testkey
 
-## Testing Garage S3
+# 2. Grant Full Permissions (replace <KEY_ID>)
+docker exec -it garage /garage key allow <KEY_ID> --create-bucket 
 
-A test script is provided in `test/test_s3_garage.py`.
+# 3. Create & Link Bucket
+docker exec -it garage /garage bucket create nextcloud-bucket
+docker exec -it garage /garage bucket allow nextcloud-bucket --key <KEY_ID> --read --write
+```
 
-Get your Node ID:
-    docker exec -it garage /garage status
-Look for the long string under ID (e.g., 0297f928...).
-Assign the node to a zone (Replace <NODE_ID> with the ID from step 1):
-    docker exec -it garage /garage layout assign 1bb21a0db701cac2 -z dc1 -c 10G
-Apply the layout:
-    docker exec -it garage /garage layout apply --version 1
-Try creating the key again:
 
-1. **Create S3 Credentials:**
-   Inside the Garage container:
-   ```bash
-   docker exec -it garage /garage key create testkey
-   docker exec -it garage /garage key list
-   ```
+### AWS CLI (Windows)
+```cmd
+# Command Prompt
+aws_garage_config.bat
+aws s3 ls
 
-docker exec -it garage /garage key list
-==== ACCESS KEY INFORMATION ====
-Key ID:              GKe8afbd2d80a1ee88b135c9cf
-Key name:            testkey
-Secret key:          0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b
-Created:             2026-02-05 21:11:28.908 +00:00
-Validity:            valid
-Expiration:          never
+# PowerShell
+.\aws_garage_config.ps1
+aws s3 ls
+```
 
-Can create buckets:  false
+## 5. Reference Credentials
+**Current Test Key:**
+- **Key ID:** `GKc9fcbf56ea74a98a1e5913fb`
+- **Secret:** `ad518281ffd8be8b4417bc722ec171be423feb4c376ef1c406f059fcdc69c40c`
 
-    docker exec -it garage /garage key allow GKf73ab171533f1f5e902c8d1e --create-bucket
-        docker exec -it garage /garage bucket create test-garage-bucket
-    docker exec -it garage /garage bucket allow test-garage-bucket --key GK1a9713e6f98e7106e900d157 --read --write
-2. **Give Key Maximum Permissions:**
-   ```bash
-   docker exec -it garage /garage key allow GK1a9713e6f98e7106e900d157 --create-bucket
-   docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --admin
-   docker exec -it garage /garage bucket list
-   ```
+- **Endpoint:** `http://100.127.76.43:3900`
+- **Endpoint:** `http://100.127.76.43:3909`
 
-3. **Run Test:**
-
-   #### Option A: Python Test Script
-   ```bash
-   # Install dependencies if needed
-   pip3 install boto3
-
-   # Run the script (connects to 100.127.76.43:3900)
-   python test/test_s3_garage.py
-   ```
-
-   #### Option B: AWS CLI Configuration
-   Use the provided configuration files to access Garage S3 with standard AWS CLI tools.
-
-   
-   **Windows (Command Prompt):**
-   ```cmd
-   aws_garage_config.bat
-   aws s3 ls
-   aws s3 cp test.txt s3://nextcloud-bucket/
-   ```
-
-   **Windows (PowerShell):**
-   ```powershell
-   .\aws_garage_config.ps1
-   aws s3 ls
-   aws s3 cp test.txt s3://nextcloud-bucket/
-   ```
-
-   **Linux/macOS (Bash):**
-   ```bash
-   source aws_garage_config.sh
-   aws s3 ls
-   aws s3 cp test.txt s3://nextcloud-bucket/
-   ```
-export AWS_ACCESS_KEY_ID=GKe8afbd2d80a1ee88b135c9cf
-export AWS_SECRET_ACCESS_KEY=0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b
-export AWS_DEFAULT_REGION='garage'
-export AWS_ENDPOINT_URL='http://100.127.76.43:3900'
-
+## 6. Admin Utilities
+**WebUI Auth (htpasswd):**
+```bash
+# user: measure / pass: aaaakkkk
+measure:$2y$10$27Dez92XK3V5pKKYpV01pOZbz0gyUgZ1WoLOecJRh24qF2JbaMw.O
+```

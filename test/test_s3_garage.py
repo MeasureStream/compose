@@ -10,8 +10,8 @@ GARAGE_S3_PORT = 3900
 ENDPOINT_URL = f"http://{GARAGE_HOST}:{GARAGE_S3_PORT}"
 
 # These should match your garage key info output
-ACCESS_KEY = "GK1a9713e6f98e7106e900d157"
-SECRET_KEY = "11c7e1021e37c87a845e9ebaf3eda41f8b1309284f9407ece5ef3fcccd61ce89"
+ACCESS_KEY = "GKc9fcbf56ea74a98a1e5913fb"
+SECRET_KEY = "ad518281ffd8be8b4417bc722ec171be423feb4c376ef1c406f059fcdc69c40c"
 
 # def check_port():
 #     """Check if Garage S3 port is accessible"""
