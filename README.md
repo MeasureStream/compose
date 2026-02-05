@@ -55,13 +55,42 @@ Can create buckets:  false
 2. **Give Key Maximum Permissions:**
    ```bash
    docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --create-bucket
+   docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --admin
    docker exec -it garage /garage bucket list
    ```
 
 3. **Run Test:**
-   Install dependencies: `pip install boto3`
-   Update the placeholders in `test/test_s3_garage.py` and run:
+
+   #### Option A: Python Test Script
    ```bash
+   # Install dependencies if needed
+   pip3 install boto3
+
+   # Run the script (connects to 100.127.76.43:3900)
    python test/test_s3_garage.py
+   ```
+
+   #### Option B: AWS CLI Configuration
+   Use the provided configuration files to access Garage S3 with standard AWS CLI tools.
+
+   **Windows (Command Prompt):**
+   ```cmd
+   aws_garage_config.bat
+   aws s3 ls
+   aws s3 cp test.txt s3://nextcloud-bucket/
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   .\aws_garage_config.ps1
+   aws s3 ls
+   aws s3 cp test.txt s3://nextcloud-bucket/
+   ```
+
+   **Linux/macOS (Bash):**
+   ```bash
+   source aws_garage_config.sh
+   aws s3 ls
+   aws s3 cp test.txt s3://nextcloud-bucket/
    ```
 
