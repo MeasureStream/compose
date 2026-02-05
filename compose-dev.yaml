@@ -366,7 +366,7 @@ services:
         ipv4_address: 172.20.0.13
 
   garage:
-    image: dxflrs/garage:latest
+    image:  "docker.io/dxflrs/garage:v2.2.0"
     container_name: garage
     restart: unless-stopped
     ports:
