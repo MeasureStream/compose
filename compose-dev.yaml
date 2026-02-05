@@ -379,7 +379,7 @@ services:
       - /home/mattrovio/garage-data/meta:/var/lib/garage/meta
       # Internal project config
       - ./garage/config:/etc/garage
-    command: ["/garage", "server", "--config", "/etc/garage/garage.toml"]
+    command: ["/garage", "-c", "/etc/garage/garage.toml", "server"]
     networks:
       app_network:
         ipv4_address: 172.20.0.60
