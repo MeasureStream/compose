@@ -6,36 +6,36 @@ from botocore.client import Config
 
 # Configuration - Following Garage Quick Start Guide
 GARAGE_HOST = "100.127.76.43"
-GARAGE_S3_PORT = 3901
+GARAGE_S3_PORT = 3900
 ENDPOINT_URL = f"http://{GARAGE_HOST}:{GARAGE_S3_PORT}"
 
 # These should match your garage key info output
-ACCESS_KEY = "GKe8afbd2d80a1ee88b135c9cf"
-SECRET_KEY = "0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b"
+ACCESS_KEY = "GK1a9713e6f98e7106e900d157"
+SECRET_KEY = "11c7e1021e37c87a845e9ebaf3eda41f8b1309284f9407ece5ef3fcccd61ce89"
 
-def check_port():
-    """Check if Garage S3 port is accessible"""
-    print(f"Checking connectivity to {GARAGE_HOST}:{GARAGE_S3_PORT}...")
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(3)
-    try:
-        # Connect to the remote Garage server
-        s.connect((GARAGE_HOST, GARAGE_S3_PORT))
-        s.close()
-        print("✅ Port is OPEN")
-        return True
-    except Exception as e:
-        print(f"❌ Port is CLOSED or UNREACHABLE: {e}")
-        print(f"💡 Make sure Garage is running on {GARAGE_HOST}: 'docker ps | grep garage'")
-        print(f"💡 And that port 3900 is open in the firewall: 'sudo ufw allow 3900/tcp'")
-        return False
+# def check_port():
+#     """Check if Garage S3 port is accessible"""
+#     print(f"Checking connectivity to {GARAGE_HOST}:{GARAGE_S3_PORT}...")
+#     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#     s.settimeout(3)
+#     try:
+#         # Connect to the remote Garage server
+#         s.connect((GARAGE_HOST, GARAGE_S3_PORT))
+#         s.close()
+#         print("✅ Port is OPEN")
+#         return True
+#     except Exception as e:
+#         print(f"❌ Port is CLOSED or UNREACHABLE: {e}")
+#         print(f"💡 Make sure Garage is running on {GARAGE_HOST}: 'docker ps | grep garage'")
+#         print(f"💡 And that port 3900 is open in the firewall: 'sudo ufw allow 3900/tcp'")
+#         return False
 
 def test_garage_s3():
     """Test Garage S3 functionality following the official Quick Start guide"""
     print("=== Garage S3 Quick Start Test ===")
 
-    if not check_port():
-        return
+    # if not check_port():
+    #     return
 
     try:
         # Configure S3 client following Garage Quick Start guide
@@ -44,7 +44,7 @@ def test_garage_s3():
             endpoint_url=ENDPOINT_URL,
             aws_access_key_id=ACCESS_KEY,
             aws_secret_access_key=SECRET_KEY,
-            aws_default_region='garage',  # Matches s3_region from garage.toml
+            region_name='garage',
             config=Config(signature_version='s3v4'),
             verify=False  # Skip SSL verification for local testing
         )
@@ -53,6 +53,7 @@ def test_garage_s3():
         print("\n--- Listing Buckets ---")
         try:
             response = s3.list_buckets()
+            print(response)
             buckets = [bucket['Name'] for bucket in response['Buckets']]
             print(f"✅ Found {len(buckets)} buckets: {buckets}")
         except Exception as e:

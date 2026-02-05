@@ -26,7 +26,7 @@ Get your Node ID:
     docker exec -it garage /garage status
 Look for the long string under ID (e.g., 0297f928...).
 Assign the node to a zone (Replace <NODE_ID> with the ID from step 1):
-    docker exec -it garage /garage layout assign <NODE_ID> -z dc1 -c 10G
+    docker exec -it garage /garage layout assign 1bb21a0db701cac2 -z dc1 -c 10G
 Apply the layout:
     docker exec -it garage /garage layout apply --version 1
 Try creating the key again:
@@ -51,10 +51,10 @@ Can create buckets:  false
 
     docker exec -it garage /garage key allow GKf73ab171533f1f5e902c8d1e --create-bucket
         docker exec -it garage /garage bucket create test-garage-bucket
-    docker exec -it garage /garage bucket allow test-garage-bucket --key GKf73ab171533f1f5e902c8d1e --read --write
+    docker exec -it garage /garage bucket allow test-garage-bucket --key GK1a9713e6f98e7106e900d157 --read --write
 2. **Give Key Maximum Permissions:**
    ```bash
-   docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --create-bucket
+   docker exec -it garage /garage key allow GK1a9713e6f98e7106e900d157 --create-bucket
    docker exec -it garage /garage key allow GKe8afbd2d80a1ee88b135c9cf --admin
    docker exec -it garage /garage bucket list
    ```
@@ -73,6 +73,7 @@ Can create buckets:  false
    #### Option B: AWS CLI Configuration
    Use the provided configuration files to access Garage S3 with standard AWS CLI tools.
 
+   
    **Windows (Command Prompt):**
    ```cmd
    aws_garage_config.bat
@@ -93,4 +94,8 @@ Can create buckets:  false
    aws s3 ls
    aws s3 cp test.txt s3://nextcloud-bucket/
    ```
+export AWS_ACCESS_KEY_ID=GKe8afbd2d80a1ee88b135c9cf
+export AWS_SECRET_ACCESS_KEY=0b432bb89dc684efc3793bb32c6b696e53576c0fff8a03f61077e7e02b01c34b
+export AWS_DEFAULT_REGION='garage'
+export AWS_ENDPOINT_URL='http://100.127.76.43:3900'
 
