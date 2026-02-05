@@ -6,6 +6,7 @@ replication_factor = 1
 rpc_bind_addr = "[::]:3901"
 rpc_public_addr = "garage:3901"
 
+
 [s3_api]
 bind_addr = "[::]:3900"
 s3_region = "garage"

@@ -373,6 +373,8 @@ services:
       - "3900:3900"
       - "3901:3901"
       - "3903:3903"
+    environment:
+      - RPC_SECRET=${RPC_SECRET}
     volumes:
       # External persistent storage (data survives project deletion)
       - /home/mattrovio/garage-data/data:/var/lib/garage/data
