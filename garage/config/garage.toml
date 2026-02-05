@@ -2,7 +2,7 @@ metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 
 replication_factor = 1
-rpc_secret = "aaaakkkkaaaakkkkaaaakkkkaaaakkkk"
+rpc_secret = "9f4c1a7b82d0e5c3a1f6b9e7d4c8f2a91b0c3d6e5f7a8b9c0d1e2f3a4b5c6d7e8f9"
 rpc_bind_addr = "[::]:3901"
 rpc_public_addr = "garage:3901"
 
