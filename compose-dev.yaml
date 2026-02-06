@@ -182,6 +182,7 @@ services:
     depends_on:
       - postgres
       - kafka
+      - garage
     expose:
       - "8080"
     environment:
