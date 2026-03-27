@@ -68,6 +68,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       OS: "raspberrypi"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+    volumes:
+      - /home/measurestream/templates/sensor-templates:/app/templates:ro
     networks:
       app_network:
         ipv4_address: 172.20.0.10
