@@ -270,8 +270,10 @@ services:
     image: bitnamilegacy/kafka:3.8.0
     hostname: kafka
     restart: unless-stopped
-    ports:
-      - "9092:9092"
+    expose:
+      - 9092
+    # ports:
+    #  - "9092:9092"
     volumes:
       - kafka_data:/bitnami
     environment:
