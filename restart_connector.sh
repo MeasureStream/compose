@@ -30,3 +30,15 @@ echo "=================================\n"
 echo "Creating connector from config..."
 HTTP_CODE=$(echo "$CONFIG_CONTENT" | curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL")
 echo "Connector created (HTTP code: $HTTP_CODE)."
+
+CONNECTOR_NAME="ttn-mqtt-sink"
+CONFIG_FILE="kafka-mqtt-sink.json"
+CONNECT_URL="http://localhost:8083/connectors"
+
+# Elimina e ricrea (stessa logica del tuo script)
+echo "Deleting sink connector: $CONNECTOR_NAME..."
+curl -s -X DELETE "$CONNECT_URL/$CONNECTOR_NAME"
+
+echo "Creating sink connector from config..."
+CONFIG_CONTENT=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$CONFIG_FILE")
+echo "$CONFIG_CONTENT" | curl -s -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL"
