@@ -312,7 +312,8 @@ services:
       CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
-      CONNECT_LOG4J_LOGGERS: "org.reflections=ERROR"
+      CONNECT_LOG4J_LOGGERS: "org.reflections=ERROR,org.apache.kafka.connect.runtime.WorkerSinkTask=DEBUG,io.lenses.streamreactor.connect.mqtt=DEBUG"
+      #CONNECT_LOG4J_LOGGERS: "org.reflections=ERROR"
     volumes:
       - ./connect-plugins:/usr/share/confluent-hub-components
     networks:
