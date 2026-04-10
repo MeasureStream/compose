@@ -10,7 +10,7 @@
     "connect.mqtt.client.id": "kafka-backend-sink",
     "connect.mqtt.clean": "true",
     "connect.mqtt.service.quality": "1",
-    "connect.mqtt.kcql": "INSERT INTO v3/stm32wl-end-node-demo-mslab@ttn/devices/lora-e5/down/push SELECT * FROM ttn-downlink IGNORE device_id",
+    "connect.mqtt.kcql": "INSERT INTO v3/stm32wl-end-node-demo-mslab@ttn/devices/{{_key}}/down/push SELECT * FROM ttn-downlink IGNORE device_id",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false"
