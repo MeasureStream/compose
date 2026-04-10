@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Load environment variables from .env
+# 1. Carica variabili d'ambiente
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
 else
@@ -8,37 +8,38 @@ else
   exit 1
 fi
 
-# Define connector name and config file
-CONNECTOR_NAME="ttn-mqtt-source"
-CONFIG_FILE="kafka-mqtt-source.json"
+CONTAINER_NAME="kafka-connect"
 CONNECT_URL="http://localhost:8083/connectors"
 
-# Delete the connector if it exists
-echo "Deleting connector: $CONNECTOR_NAME..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$CONNECT_URL/$CONNECTOR_NAME")
-echo "Connector deleted (HTTP code: $HTTP_CODE)."
+# 2. Funzione per attendere che l'API sia pronta
+echo "Attesa che Kafka Connect sia pronto..."
+until docker exec $CONTAINER_NAME curl -s -f http://localhost:8083/ >/dev/null; do
+  printf '.'
+  sleep 2
+done
+echo -e "\nKafka Connect è ONLINE!"
 
-# Create connector from JSON file with environment variable substitution
-echo "Preparing connector configuration..."
-#CONFIG_CONTENT=$(envsubst <"$CONFIG_FILE")
-CONFIG_CONTENT=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$CONFIG_FILE")
+# --- CONFIGURAZIONE SOURCE ---
+CONNECTOR_SOURCE="ttn-mqtt-source"
+FILE_SOURCE="kafka-mqtt-source.json"
 
-echo -e "\n==== Connector Configuration ===="
-echo "$CONFIG_CONTENT"
-echo "=================================\n"
+echo "Eliminazione vecchio Source: $CONNECTOR_SOURCE..."
+docker exec $CONTAINER_NAME curl -s -X DELETE "$CONNECT_URL/$CONNECTOR_SOURCE"
 
-echo "Creating connector from config..."
-HTTP_CODE=$(echo "$CONFIG_CONTENT" | curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL")
-echo "Connector created (HTTP code: $HTTP_CODE)."
+echo "Creazione nuovo Source..."
+CONFIG_SOURCE=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$FILE_SOURCE")
+echo "$CONFIG_SOURCE" | docker exec -i $CONTAINER_NAME curl -s -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL"
 
-CONNECTOR_NAME="ttn-mqtt-sink"
-CONFIG_FILE="kafka-mqtt-sink.json"
-CONNECT_URL="http://localhost:8083/connectors"
+# --- CONFIGURAZIONE SINK ---
+CONNECTOR_SINK="ttn-mqtt-sink"
+FILE_SINK="kafka-mqtt-sink.json"
 
-# Elimina e ricrea (stessa logica del tuo script)
-echo "Deleting sink connector: $CONNECTOR_NAME..."
-curl -s -X DELETE "$CONNECT_URL/$CONNECTOR_NAME"
+echo "Eliminazione vecchio Sink: $CONNECTOR_SINK..."
+docker exec $CONTAINER_NAME curl -s -X DELETE "$CONNECT_URL/$CONNECTOR_SINK"
 
-echo "Creating sink connector from config..."
-CONFIG_CONTENT=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$CONFIG_FILE")
-echo "$CONFIG_CONTENT" | curl -s -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL"
+echo "Creazione nuovo Sink..."
+CONFIG_SINK=$(envsubst '${MQTT_BROKER} ${MQTT_USERNAME} ${MQTT_PASSWORD}' <"$FILE_SINK")
+echo "$CONFIG_SINK" | docker exec -i $CONTAINER_NAME curl -s -X POST -H "Content-Type: application/json" --data @- "$CONNECT_URL"
+
+echo -e "\nOperazione completata. Verifica stati:"
+docker exec $CONTAINER_NAME curl -s "$CONNECT_URL?expand=status" | grep -E "name|state"
