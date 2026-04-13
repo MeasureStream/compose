@@ -327,6 +327,10 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_APPLICATION_NAME: kafka-stream
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_BROKER_URL: ${MQTT_BROKER}
+
     depends_on:
       - kafka
     networks:
