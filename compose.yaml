@@ -351,6 +351,19 @@ services:
       app_network:
         ipv4_address: 172.20.0.51
 
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "100.x.y.z:1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.80
+
   settings:
     image: "docker.io/christiand9699/settings:latest"
     restart: unless-stopped
