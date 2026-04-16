@@ -356,7 +356,7 @@ services:
     container_name: mosquitto
     restart: unless-stopped
     ports:
-      - "100.x.y.z:1883:1883"
+      - "100.78.181.75:1883:1883"
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
