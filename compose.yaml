@@ -335,6 +335,7 @@ services:
 
   kafkastream:
     image: "docker.io/christiand9699/kafkastream:latest"
+    container_name: "kafkastream"
     restart: unless-stopped
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -353,6 +354,7 @@ services:
   settings:
     image: "docker.io/christiand9699/settings:latest"
     restart: unless-stopped
+    profiles: ["disabled"]
     expose:
       - 8080
     environment:
