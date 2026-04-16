@@ -2,3 +2,4 @@
 connect-plugins/*
 gateway/*
 mqtt-source.json
+mosquitto/*
