@@ -15,6 +15,7 @@ services:
   settings-db:
     image: "postgres:17"
     restart: unless-stopped
+    profiles: ["disabled"]
     environment:
       - "POSTGRES_DB=SETTINGS"
       - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
@@ -27,6 +28,7 @@ services:
 
   calibrator-db:
     image: "postgres:17"
+    profiles: ["disabled"]
     restart: unless-stopped
     environment:
       - "POSTGRES_DB=CALIBRATOR"
@@ -41,6 +43,7 @@ services:
   calibrator-manager:
     image: "docker.io/christiand9699/calibrator-manager:latest"
     restart: unless-stopped
+    profiles: ["disabled"]
     depends_on:
       - calibrator-db
     expose:
@@ -380,6 +383,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
+    profiles: ["disabled"]
     restart: unless-stopped
     ports:
       - "9443:9443" # HTTPS
