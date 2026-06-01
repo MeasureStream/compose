@@ -446,7 +446,7 @@ services:
       # analisi_calib_data.py inside the container (copied via volume or baked into image)
       CALIBRATION_SCRIPT_PATH: "/app/calibration/scripts/analisi_calib_data.py"
       CALIBRATION_MODELS_PATH: "/app/calibration/models_in"
-      CALIBRATION_RUNS_PATH: "/app/calibration-runs"
+      CALIBRATION_RUNS_PATH: "/tmp/calibration-runs"
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport"
     volumes:
       # Mount calibration scripts and models (read-only)
@@ -454,7 +454,7 @@ services:
       - ../../calibration/models_in:/app/calibration/models_in:ro
       # Calibration Python dependencies (venv or site-packages must include numpy, reportlab, scipy)
       # Mount persistent runs output directory
-      - calibration_runs_data:/app/calibration-runs
+      - calibration_runs_data:/tmp/calibration-runs
     networks:
       app_network:
         ipv4_address: 172.20.0.81
