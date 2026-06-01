@@ -19,7 +19,7 @@ After `docker compose up -d garage`:
 docker exec -it garage /garage status
 
 # 2. Assign Role (replace <ID>)
-docker exec -it garage /garage layout assign <ID> -z dc1 -c 10G
+docker exec -it garage /garage layout assign 47ea164e519f57da -z dc1 -c 10G
 
 # 3. Apply Layout
 docker exec -it garage /garage layout apply --version 1
@@ -32,11 +32,11 @@ docker exec -it garage /garage layout apply --version 1
 docker exec -it garage /garage key create testkey
 
 # 2. Grant Full Permissions (replace <KEY_ID>)
-docker exec -it garage /garage key allow <KEY_ID> --create-bucket
+docker exec -it garage /garage key allow GK673ade7764d03c5d8641b5c8 --create-bucket
 
 # 3. Create & Link Bucket
-docker exec -it garage /garage bucket create nextcloud-bucket
-docker exec -it garage /garage bucket allow nextcloud-bucket --key <KEY_ID> --read --write
+docker exec -it garage /garage bucket create dccs
+docker exec -it garage /garage bucket allow dccs --key <KEY_ID> --read --write
 ```
 
 ### AWS CLI (Windows)

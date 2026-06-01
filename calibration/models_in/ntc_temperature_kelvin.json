@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.0.1",
+
+  "modelName": "TemperatureSensorNTC_Kelvin",
+
+  "mpn": "NTCLP450E3",
+  "manufacturer": "Vishay",
+  "datasheet": "https://www.vishay.com/docs/29110/ntclp450e3.pdf",
+  "templateId": 201,
+
+  "type": "temperature",
+
+  "unit": "\\kelvin",
+
+  "elecUnit": "\\one",
+
+  "ranges": {
+
+    "phys": {
+      "min": 233.15,
+      "max": 378.15,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\kelvin"
+    },
+
+    "physROC": {
+      "min": 0.0,
+      "max": 378.15,
+      "siExp": 0,
+      "si": [0, 0, -1, 0, 1, 0, 0, 0],
+      "dsi": "\\kelvin\\per\\second"
+    },
+
+    "elec": {
+      "min": 0.0,
+      "max": 65535.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 0, 0, 0, 0],
+      "dsi": "\\one"
+    },
+
+    "sampling": {
+      "min": 0.001,
+      "max": 0.0,
+      "siExp": 0,
+      "si": [0, 0, 1, 0, 0, 0, 0, 0],
+      "dsi": "\\second"
+    },
+
+    "threshold": {
+      "min": 233.15,
+      "max": 378.15
+    }
+
+  },
+  "properties": {
+
+    "responseTime": 0.16,
+    "responseTimeSiExp": 0,
+    "responseTimeSi": [0, 0, 1, 0, -1, 0, 0, 0],
+    "responseTimeDsi": "\\second\\per\\kelvin",
+
+    "selfHeat": 0.0,
+    "selfHeatSiExp": 0,
+    "selfHeatSi": [0, 0, -1, 0, 1, 0, 0, 0],
+    "selfHeatDsi": "\\kelvin\\per\\second",
+
+    "readingConsumption": 0.5,
+    "readingConsumptionSiExp": -9,
+    "readingConsumptionSi": [0, 0, 1, 1, 0, 0, 0, 0],
+    "readingConsumptionDsi": "\\coulomb"
+  },
+  "calibration": {
+
+    "type": "qubic-interpolation",
+    "coefficients": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "calibrationCoefficients": {
+      "A": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\kelvin" },
+      "B": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\kelvin" },
+      "C": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\kelvin" },
+      "D": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\kelvin" }
+    }
+  },
+  "metrology": {
+
+    "sensorAccuracy": [
+      { "tempMin": 293.15, "tempMax": 323.15, "maxError": 0.30, "unit": "\\kelvin", "description": "Maximum calibration error from 323 K to 378 K" },
+      { "tempMin": 263.15, "tempMax": 353.15, "maxError": 0.45, "unit": "\\kelvin", "description": "Maximum calibration error from 273 K to 323 K" },
+      { "tempMin": 233.15, "tempMax": 378.15, "maxError": 0.60, "unit": "\\kelvin", "description": "Maximum calibration error from 233 K to 273 K" }
+    ],
+
+    "evaluationFormula": "uB",
+
+    "requiredInputs": [],
+
+    "readingUncertainty": [
+        { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
+        { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
+        { "varName": "uB", "value": 0.30,  "PDF": "normal", "description": "" },
+        {"varName": "coverageFactor", "value": 2.0, "description": ""}
+    ],
+
+    "UncertaintyPdf": "normal",
+    "Uncertainty": [
+      { "referenceValue": 0,
+        "absUncertainty": 0,
+        "uc": 0,
+        "k": 2.0
+      }
+    ],
+
+    "calDate": 0,
+    "calPeriod": 365,
+    "certificateId": ""
+  }
+}

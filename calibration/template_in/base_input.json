@@ -1,0 +1,79 @@
+{
+  "_comment": "Two kinds of content: (1) generic structural PDF labels that are identical across all measurands and labs — these never change unless the PDF layout changes; (2) runtime-computed placeholders (0.0 / 0) overwritten by analisi_calib_data.py at every pipeline run.",
+
+  "calibration_specific_data_computed": {
+    "page_number": 1,
+    "total_pages": 4
+  },
+
+  "calculated_calibration_values": {
+    "measurements": [
+      [1,  0.0, 0.0, 0, 0.0, 0.0],
+      [2,  0.0, 0.0, 0, 0.0, 0.0],
+      [3,  0.0, 0.0, 0, 0.0, 0.0],
+      [4,  0.0, 0.0, 0, 0.0, 0.0],
+      [5,  0.0, 0.0, 0, 0.0, 0.0],
+      [6,  0.0, 0.0, 0, 0.0, 0.0]
+    ],
+    "observations_base": [
+      "Results refer exclusively to the instrument identified in this certificate.",
+      "Calibration is valid under the declared conditions and on the execution date."
+    ]
+  },
+
+  "_calibration_result": {
+    "_A_cal": 0.0,
+    "_B_cal_degC": 0.0,
+    "_interp_unc_sum_abs_degC": 0.0,
+    "_interp_unc_fixed_2sig_degC": 0.0,
+    "_expanded_uncertainties_degC": []
+  },
+
+  "pdf_template_data_base": {
+    "contact_labels": {
+      "phone": "Tel.",
+      "email": "e-mail"
+    },
+    "general_data_labels": [
+      "Date of issue",
+      "Customer",
+      "Receiver",
+      "Request number",
+      "Request date",
+      "Date of receipt of item",
+      "Date of measurements",
+      "Item",
+      "Manufacturer",
+      "Model",
+      "Serial number"
+    ],
+    "statements_title": "Statements",
+    "statements_base": [
+      "The reported results are valid only under the calibration conditions stated in this certificate.",
+      "Partial or full reproduction is permitted only with written authorization from the laboratory."
+    ],
+    "page2_title": "Calibration procedure",
+    "procedure_text_template": "Procedure N. {procedure_code}<br/>Traceability starts from first-line standards N. {chain_ids}<br/>with valid calibration certificates N. {cert_ids} issued by {cert_labs} with A.",
+    "procedure_row_labels": [
+      "TRACEABILITY",
+      "PROCEDURE",
+      "Traceability",
+      "Environmental calibration conditions",
+      "Calibration conditions"
+    ],
+    "additional_notes_title": "Additional notes",
+    "page3_title": "Calibration results",
+    "meta_labels": [
+      "Object",
+      "Model",
+      "Serial number"
+    ],
+    "approval_title": "Approval",
+    "approval_labels": [
+      "Executed by",
+      "Authorized by",
+      "Signature name"
+    ],
+    "coeff_table_headers": ["Parameter", "Value"]
+  }
+}

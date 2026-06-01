@@ -1,0 +1,31 @@
+{
+  "_comment": "Per-job data. Fill in a new copy for every calibration order. Everything here is specific to a single job: certificate and request identifiers, all dates, lab environment readings on the day, and the personnel who executed and authorised this particular job.",
+
+  "calibration_specific_data": {
+    "certificate_id": "MS-CAL-2026-00419",
+    "certificate_number": "2026/CAL/00419",
+    "asset_id": "MST-ASSET-00103",
+    "lab_reference": "LAB-REF-2026-0419",
+    "document_id": "MS-CAL-2026-00419",
+    "issue_date": "2026-04-09",
+    "request_number": "RQ-2026-0081",
+    "request_date": "2026-03-28",
+    "receipt_date": "2026-03-31",
+    "measurement_dates": "2026-04-07",
+    "environment": {
+      "temperature": "(23.0 +/- 1.5) \u00b0C",
+      "relative_humidity": "(50 +/- 10) %"
+    }
+  },
+
+  "sensor_method_template": {
+    "model": "0001-3",
+    "serial_number": "00010001-3"
+  },
+
+  "organization_data": {
+    "authorised_by": "Ing. Giovanni Ferrari",
+    "executed_by": "Dott. Marco Esposito",
+    "signature_name": "Marco Esposito"
+  }
+}

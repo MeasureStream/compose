@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0.0",
+  
+  "modelName": "FieldMetrologyWell_9142",
+  
+  "mpn": "9142",
+  "manufacturer": "Fluke / Hart Scientific",
+  "datasheet": "fluke_well_9142.pdf",
+  "templateId": 301,
+
+  "type": "temperature_calibrator",
+
+  "unit": "\\degreeCelsius",
+  "elecUnit": "\\degreeCelsius",
+
+  "ranges": {
+    "phys": {
+      "min": -25.0,
+      "max": 150.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius"
+    },
+    "operatingEnvironment": {
+      "min": 0.0,
+      "max": 50.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius"
+    }
+  },
+  
+  "properties": {
+    "immersionDepth": 150.0,
+    "immersionDepthSiExp": -3,
+    "immersionDepthSi": [0, 1, 0, 0, 0, 0, 0, 0],
+    "immersionDepthDsi": "\\meter",
+
+    "heatingTimeMax": 1500.0,
+    "heatingTimeSiExp": 0,
+    "heatingTimeSi": [0, 0, 1, 0, 0, 0, 0, 0],
+    "heatingTimeDsi": "\\second",
+
+    "coolingTimeMax": 900.0,
+    "coolingTimeSiExp": 0,
+    "coolingTimeSi": [0, 0, 1, 0, 0, 0, 0, 0],
+    "coolingTimeDsi": "\\second"
+  },
+  
+  "calibration": {
+    "type": "none"
+    },
+  
+  "metrology": {
+    "evaluationFormula": "RSS",
+    "requiredInputs": ["setpoint_temperature"],
+
+    "readingUncertainty": [
+        { "varName": "resolution", "value": 0.01, "PDF": "uniform", "description": "Risoluzione del display" },
+        { "varName": "displayAccuracy", "value": 0.2, "PDF": "normal", "k": 2.0, "description": "Precisione display (gamma completa)" },
+        { "varName": "stability", "value": 0.01, "PDF": "uniform", "description": "Stabilità (gamma completa)" },
+        { "varName": "axialUniformity", "value": 0.05, "PDF": "uniform", "description": "Uniformità assiale a 40 mm (gamma completa)" },
+        { "varName": "radialUniformity", "value": 0.01, "PDF": "uniform", "description": "Uniformità radiale (da pozzetto a pozzetto)" },
+        { "varName": "loadingEffect", "value": 0.006, "PDF": "uniform", "description": "Effetto di carico (con sonda rif. 6,35mm e tre sonde 6,35mm)" },
+        { "varName": "hysteresis", "value": 0.025, "PDF": "uniform", "description": "Isteresi termica" }
+    ],
+
+    "UncertaintyPdf": "gaussian",
+    "Uncertainty": [
+      { 
+        "referenceValue": 0,
+        "absUncertainty": 0.2,
+        "ub": 0.0325,
+        "k": 2.0
+      }
+    ],
+
+    "calDate": 0,
+    "calPeriod": 365,
+    "certificateId": ""
+  }
+}

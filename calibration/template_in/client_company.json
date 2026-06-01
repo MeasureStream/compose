@@ -1,0 +1,9 @@
+{
+  "_comment": "Static client identity. Stable across all calibration jobs for this customer. Create one file per customer and reuse it. Only the company name, address, default receiver and location live here — nothing that changes order-to-order.",
+
+  "calibration_specific_data": {
+    "customer": "ThermoTech Industries S.p.A. | Via Industriale 88, 25030 Brescia (BS), Italy",
+    "receiver": "---",
+    "location": "Milan, Italy"
+  }
+}

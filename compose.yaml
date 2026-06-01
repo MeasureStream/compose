@@ -385,6 +385,80 @@ services:
       app_network:
         ipv4_address: 172.20.0.70
 
+  # ── PTB DCC services ──────────────────────────────────────────────────────
+
+  gemimeg-backend:
+    # Build from source: docker build -t gemimeg-backend ./gemimeg-backend/
+    # Or use a pre-built image if available
+    build:
+      context: ../../gemimeg-backend
+      dockerfile: Dockerfile
+    image: gemimeg-backend:local
+    restart: unless-stopped
+    expose:
+      - "10001"
+    environment:
+      SERVER_PORT: "10001"
+      SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/gemimeg-backend"
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      LOGGING_LEVEL_ROOT: INFO
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:+UseContainerSupport"
+    volumes:
+      - gemimeg_h2_data:/app/data
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.80
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:10001/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  dcc-service:
+    # Build from source: docker build -t dcc-service ./dcc_service/
+    build:
+      context: ../../dcc_service
+      dockerfile: Dockerfile
+    image: dcc-service:local
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - kafka
+      - gemimeg-backend
+    ports:
+      - "8085:8080"  # Exposed on host:8085 to avoid conflict with gateway-iam (8080)
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_ISSUER_URI: "https://auth.christiandellisanti.uk/realms/measurestream"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      GEMIMEG_BACKEND_URL: "http://gemimeg-backend:10001"
+      GATEWAY_IAM_URL: "http://gateway-iam:8080"
+      S3_ENDPOINT: "http://garage:3900"
+      S3_BUCKET: "dccs"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      PYTHON_CMD: "python3"
+      # analisi_calib_data.py inside the container (copied via volume or baked into image)
+      CALIBRATION_SCRIPT_PATH: "/app/calibration/scripts/analisi_calib_data.py"
+      CALIBRATION_MODELS_PATH: "/app/calibration/models_in"
+      CALIBRATION_RUNS_PATH: "/app/calibration-runs"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport"
+    volumes:
+      # Mount calibration scripts and models (read-only)
+      - ../../calibration/scripts:/app/calibration/scripts:ro
+      - ../../calibration/models_in:/app/calibration/models_in:ro
+      # Calibration Python dependencies (venv or site-packages must include numpy, reportlab, scipy)
+      # Mount persistent runs output directory
+      - calibration_runs_data:/app/calibration-runs
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.81
+
 volumes:
   postgres-data:
   keycloak-db-data:
@@ -392,6 +466,8 @@ volumes:
   grafana_data:
   kafka_data:
   portainer_data:
+  gemimeg_h2_data:
+  calibration_runs_data:
 
 networks:
   app_network:

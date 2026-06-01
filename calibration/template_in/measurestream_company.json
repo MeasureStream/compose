@@ -1,0 +1,22 @@
+{
+  "_comment": "Static identity data for Measurestream S.r.l. — the calibration laboratory. Contains only lab-level constants: address, contact details, accreditation line, and legal/organisational text. Nothing instrument-, method-, or layout-specific lives here.",
+
+  "company_data": {
+    "org_name": "Measurestream S.r.l.",
+    "department": "Laboratory measurestream 001",
+    "address_lines": [
+      "Corso Duca degli Abruzzi, 24",
+      "10129 Torino, Italy"
+    ],
+    "phone": "+39 02 3456 7890",
+    "email": "calibration@measurestream.it",
+    "website": "www.measurestream.it",
+    "accreditation_line": "Accredited Calibration Laboratory validated by Accredia  LAT No. 042 (fake)"
+  },
+
+  "organization_data": {
+    "accreditation_body": "Certificate issued by internal laboratory procedure validated by Accredia LAT No. 042",
+    "reproduction_conditions": "Partial or full reproduction requires written authorization from the laboratory.",
+    "traceability_statement": "Metrological traceability chain linked to INRIM national standards via accredited calibration certificates."
+  }
+}

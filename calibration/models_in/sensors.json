@@ -1,0 +1,102 @@
+[
+    {
+        "id": 102,
+        "networkId": 1677721601,
+        "model": 100,
+        "nodeId": 1,
+        "sensors": [
+            {
+                "type": "ACCELEROMETER",
+                "id": 102,
+                "modelName": "LSM6DSM",
+                "sensorIndex": 1,
+                "templateId": 204,
+                "unitCode": 4,
+                "sensitivityX": 0.061,
+                "sensitivityY": 0.061,
+                "sensitivityZ": 0.061,
+                "biasX": 0.0,
+                "biasY": 0.0,
+                "biasZ": 0.0,
+                "fullScaleRange": 2,
+                "outputDataRate": 104.0,
+                "calDate": 0
+            },
+            {
+                "type": "NTC",
+                "id": 103,
+                "modelName": "NTC",
+                "sensorIndex": 2,
+                "templateId": 201,
+                "unitCode": 1,
+                "minPhysVal": 0.0,
+                "maxPhysVal": 0.0,
+                "minElecVal": 0.0,
+                "maxElecVal": 0.0,
+                "coeffA": 0.0,
+                "coeffB": 0.0,
+                "coeffC": 0.0,
+                "calDate": 0,
+                "calPeriod": 365,
+                "calInitials": null,
+                "refResOhm": 100000.0,
+                "refTempC": 25.0,
+                "responseTime": 0.0,
+                "selfHeat": 0.0,
+                "exciteNom": 0.0,
+                "exciteMax": 0.0,
+                "measLocId": 0
+            }
+        ]
+    },
+    {
+        "id": 103,
+        "networkId": 1677721602,
+        "model": 100,
+        "nodeId": 1,
+        "sensors": [
+            {
+                "type": "ACCELEROMETER",
+                "id": 104,
+                "modelName": "LSM6DSM",
+                "sensorIndex": 1,
+                "templateId": 204,
+                "unitCode": 4,
+                "sensitivityX": 0.061,
+                "sensitivityY": 0.061,
+                "sensitivityZ": 0.061,
+                "biasX": 0.0,
+                "biasY": 0.0,
+                "biasZ": 0.0,
+                "fullScaleRange": 2,
+                "outputDataRate": 104.0,
+                "calDate": 0
+            },
+            {
+                "type": "NTC",
+                "id": 105,
+                "modelName": "NTC",
+                "sensorIndex": 2,
+                "templateId": 201,
+                "unitCode": 1,
+                "minPhysVal": 0.0,
+                "maxPhysVal": 0.0,
+                "minElecVal": 0.0,
+                "maxElecVal": 0.0,
+                "coeffA": 0.0,
+                "coeffB": 0.0,
+                "coeffC": 0.0,
+                "calDate": 0,
+                "calPeriod": 365,
+                "calInitials": null,
+                "refResOhm": 100000.0,
+                "refTempC": 25.0,
+                "responseTime": 0.0,
+                "selfHeat": 0.0,
+                "exciteNom": 0.0,
+                "exciteMax": 0.0,
+                "measLocId": 0
+            }
+        ]
+    }
+]

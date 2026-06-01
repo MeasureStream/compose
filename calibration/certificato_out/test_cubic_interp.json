@@ -1,0 +1,555 @@
+{
+  "template_parts": {
+    "company_data": {
+      "org_name": "Measurestream S.r.l.",
+      "department": "Laboratory measurestream 001",
+      "address_lines": [
+        "Corso Duca degli Abruzzi, 24",
+        "10129 Torino, Italy"
+      ],
+      "phone": "+39 02 3456 7890",
+      "email": "calibration@measurestream.it",
+      "website": "www.measurestream.it",
+      "document_id": "MS-CAL-2026-00419",
+      "accreditation_line": "Accredited Calibration Laboratory validated by Accredia  LAT No. 042 (fake)"
+    },
+    "organization_data": {
+      "accreditation_body": "Certificate issued by internal laboratory procedure validated by Accredia LAT No. 042",
+      "reproduction_conditions": "Partial or full reproduction requires written authorization from the laboratory.",
+      "traceability_statement": "Metrological traceability chain linked to INRIM national standards via accredited calibration certificates.",
+      "authorised_by": "Ing. Giovanni Ferrari",
+      "executed_by": "Dott. Marco Esposito",
+      "signature_name": "Marco Esposito"
+    },
+    "sensor_method_template": {
+      "device_type": "DIGITAL thermometer",
+      "item": "DIGITAL thermometer",
+      "manufacturer": "Measurestream electronics",
+      "model": "0001-3",
+      "serial_number": "00010001-3",
+      "calibration_method": "Internal procedure validated by the quality service laboratory approved by Accredia based on the comparison method in a controlled oven with a reference, Pt100 platinum resistance thermometer read by Fluke 1502A metrology well.",
+      "measurement_conditions": [
+        "Calibration range: 0 °C to 125 °C",
+        "Temperature steps: 0, 25, 50, 75, 100, 125 °C — 6 calibration points",
+        "Reference standard: Pt100 Platinum Resistance Thermometer read by Fluke 1502A readout (U=0.065 °C, k=2)",
+        "Sensor under calibration: DIGITAL thermometer (Measurestream electronics, model 0001-3)",
+        "Resolution: 0.01 °C",
+        "Settling period: 10 min between each acquisition step"
+      ],
+      "procedure_code": "PRO-CAL-MST-003",
+      "traceability_chain_ids": [
+        "INRIM-PT100-REF-0042",
+        "FLUKE-1502A-REF-0017"
+      ],
+      "traceability_certificate_ids": [
+        "LAT-042-2025-0318",
+        "LAT-042-2025-0319"
+      ],
+      "traceability_labs": [
+        "INRIM - Istituto Nazionale di Ricerca Metrologica, Turin",
+        "Accredia LAT No. 042 - Measurestream S.r.l."
+      ],
+      "traceability": "Metrological traceability linked to INRIM national standards via accredited certificates LAT-042-2025-0318 and LAT-042-2025-0319.",
+      "starting_uncertainties": "Reference PT100/Fluke 1502A: U=0.065 °C, k=2. NTC ADC: half-width d=0.30 °C (uniform). Coverage factor k=2, confidence level ~95%.",
+      "measurement_current": "0.1 mA",
+      "connection_terminals": "2",
+      "notes_template": [
+        "Results refer to the instrument under calibration under the declared conditions.",
+        "Uncertainties are determined according to ISO/IEC Guide 98-3 (GUM) and EA-4/02.",
+        "Coverage factor k = 2, confidence level about 95 %.",
+        "Reference instrument: Fluke 1502A thermometer readout + Pt100 probe (U=0.065 °C, k=2).",
+        "Sensor under calibration: DIGITAL thermometer (Measurestream electronics, model 0001-3)."
+      ],
+      "ntc_model": {
+        "R25": 10000.0,
+        "B25_85": 3950.0,
+        "A_steinhart": 0.001129148,
+        "B_steinhart": 0.000234125,
+        "C_steinhart": 8.76741e-08,
+        "alpha_25": -0.04443,
+        "uncertainty_limit": "within 0.10 C",
+        "calibration_formula": "T = A * dout + B",
+        "calibration_procedure": "qubic-interpolation",
+        "method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+        "formula_steinhart": "1/T = A_sh + B_sh*ln(R) + C_sh*(ln R)^3",
+        "formula_beta": "R(T) = R25 * exp[B25_85 * (1/T - 1/T25)]",
+        "observations": [
+          "Results refer exclusively to the instrument identified in this certificate.",
+          "Calibration is valid under the declared conditions and on the execution date.",
+          "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+          "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+        ],
+        "_calib_model": "cubic_interp",
+        "_x_nodes": [
+          15981.982812499999,
+          25864.93913043478,
+          54820.0869047619,
+          64265.80256410256
+        ],
+        "_y_nodes": [
+          0.258249146875,
+          25.14286285,
+          98.301705225,
+          122.11914698846157
+        ],
+        "_node_steps": [
+          0.0,
+          25.0,
+          100.0,
+          125.0
+        ],
+        "_rmse_degC": 0.024874183198791228,
+        "_u_H_degC": 0.024874183198791228
+      },
+      "_notes_computed": [
+        "Results refer to the instrument under calibration under the declared conditions.",
+        "Uncertainties are determined according to ISO/IEC Guide 98-3 (GUM) and EA-4/02.",
+        "Coverage factor k = 2, confidence level about 95 %.",
+        "Reference instrument: Fluke 1502A thermometer readout + Pt100 probe (U=0.065 °C, k=2).",
+        "Sensor under calibration: DIGITAL thermometer (Measurestream electronics, model 0001-3)."
+      ]
+    },
+    "calibration_specific_data": {
+      "certificate_title": "CALIBRATION CERTIFICATE",
+      "certificate_title_en": "Certificate of Calibration",
+      "certificate_id": "MS-CAL-2026-00419",
+      "certificate_number": "2026/CAL/00419",
+      "asset_id": "MST-ASSET-00103",
+      "lab_reference": "LAB-REF-2026-0419",
+      "issue_date": "2026-04-09",
+      "page_number": 1,
+      "total_pages": 4,
+      "customer": "ThermoTech Industries S.p.A. | Via Industriale 88, 25030 Brescia (BS), Italy",
+      "receiver": "---",
+      "request_number": "RQ-2026-0081",
+      "request_date": "2026-03-28",
+      "receipt_date": "2026-03-31",
+      "measurement_dates": "2026-04-07",
+      "environment": {
+        "temperature": "(23.0 +/- 1.5) °C",
+        "relative_humidity": "(50 +/- 10) %"
+      },
+      "conditions": [
+        "Calibration range: 0 °C to 125 °C",
+        "Temperature steps: 0, 25, 50, 75, 100, 125 °C — 6 calibration points",
+        "Reference: Fluke 1502A readout + Pt100 probe (U=0.065 °C, k=2)",
+        "Sensor: DIGITAL thermometer (Measurestream electronics, model 0001-3), resolution 0.01 °C",
+        "Settling period: 10 min per step"
+      ],
+      "location": "Milan, Italy"
+    },
+    "calculated_calibration_values": {
+      "_measurements": [
+        [
+          1.0,
+          0.258249146875,
+          0.258249146875,
+          -4.897182422033316,
+          0.0,
+          0.06555354026811765
+        ],
+        [
+          2.0,
+          25.14286285,
+          25.14286285,
+          -7.915180330536458,
+          0.0,
+          0.06585968958259775
+        ],
+        [
+          3.0,
+          49.66639189375,
+          49.62300144053185,
+          -10.988611413853747,
+          -0.04339045321815149,
+          0.06534059065424028
+        ],
+        [
+          4.0,
+          73.97829340000001,
+          73.93551935987793,
+          -14.021759799829425,
+          -0.04277404012208308,
+          0.06556035373628084
+        ],
+        [
+          5.0,
+          98.301705225,
+          98.301705225,
+          -17.00907378850843,
+          0.0,
+          0.06554806137991327
+        ],
+        [
+          6.0,
+          122.11914698846157,
+          122.11914698846157,
+          -19.927320150972108,
+          0.0,
+          0.08437184457504258
+        ]
+      ],
+      "measurements": [
+        [
+          1.0,
+          0.258249146875,
+          0.258249146875,
+          -4.897182422033316,
+          0.0,
+          0.06555354026811765
+        ],
+        [
+          2.0,
+          25.14286285,
+          25.14286285,
+          -7.915180330536458,
+          0.0,
+          0.06585968958259775
+        ],
+        [
+          3.0,
+          49.66639189375,
+          49.62300144053185,
+          -10.988611413853747,
+          -0.04339045321815149,
+          0.06534059065424028
+        ],
+        [
+          4.0,
+          73.97829340000001,
+          73.93551935987793,
+          -14.021759799829425,
+          -0.04277404012208308,
+          0.06556035373628084
+        ],
+        [
+          5.0,
+          98.301705225,
+          98.301705225,
+          -17.00907378850843,
+          0.0,
+          0.06554806137991327
+        ],
+        [
+          6.0,
+          122.11914698846157,
+          122.11914698846157,
+          -19.927320150972108,
+          0.0,
+          0.08437184457504258
+        ]
+      ],
+      "_observations": [
+        "Results refer exclusively to the instrument identified in this certificate.",
+        "Calibration is valid under the declared conditions and on the execution date.",
+        "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+        "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+      ],
+      "observations": [
+        "Results refer exclusively to the instrument identified in this certificate.",
+        "Calibration is valid under the declared conditions and on the execution date.",
+        "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+        "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+      ],
+      "conclusions": "Expanded uncertainty U(E) with coverage factor k = 2, confidence level about 95 %."
+    },
+    "pdf_template_data": {
+      "footer_left_text": "Calibration Centre Measurestream 001 — Calibration certificate MS-CAL-2026-00419",
+      "contact_labels": {
+        "phone": "Tel.",
+        "email": "e-mail"
+      },
+      "general_data_labels": [
+        "Date of issue",
+        "Customer",
+        "Receiver",
+        "Request number",
+        "Request date",
+        "Date of receipt of item",
+        "Date of measurements",
+        "Item",
+        "Manufacturer",
+        "Model",
+        "Serial number"
+      ],
+      "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A \\u00b7 D + B. The calibration was determined over 6 calibration points (0 °C to 125 °C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer.",
+      "statements_title": "Statements",
+      "statements": [
+        "The reported results are valid only under the calibration conditions stated in this certificate.",
+        "Partial or full reproduction is permitted only with written authorization from the laboratory.",
+        "Expanded uncertainty is expressed with coverage factor k = 2 (confidence level about 95%)."
+      ],
+      "page2_title": "Calibration procedure",
+      "procedure_text_template": "Procedure N. {procedure_code}<br/>Traceability starts from first-line standards N. {chain_ids}<br/>with valid calibration certificates N. {cert_ids} issued by {cert_labs} with A.",
+      "procedure_row_labels": [
+        "TRACEABILITY",
+        "PROCEDURE",
+        "Traceability",
+        "Environmental calibration conditions",
+        "Calibration conditions"
+      ],
+      "additional_notes_title": "Additional notes",
+      "page3_title": "Calibration results",
+      "meta_labels": [
+        "Object",
+        "Model",
+        "Serial number"
+      ],
+      "results_headers": [
+        "Point",
+        "T_ref / °C\nReference temperature",
+        "T_c / °C\nsensor value as left",
+        "M_e pre / °C\nError as found",
+        "M_e post / °C\nError as left",
+        "U(E) / °C\nMeasurement Uncertainty"
+      ],
+      "notes_title": "Notes",
+      "notes_lines": [
+        "Temperatures are expressed in Celsius degrees according to the ITS-90 scale.",
+        "Reference temperature T_ref: mean of PT100 (Fluke 1502A) readings at each calibration step.",
+        "T_c: reading of the DIGITAL thermometer under calibration at each step.",
+        "M_e = T_c - T_ref (signed temperature difference in °C).",
+        "Measurement uncertainty U(E) is expanded (k=2), confidence level about 95 %."
+      ],
+      "measurement_note_template": "Calibration was performed with measurement current {measurement_current} and a {connection_terminals}-terminal connection.",
+      "page4_title": "Tabulazione T/°C = f(D/LSB)",
+      "page4_intro_text": "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:",
+      "approval_title": "Approval",
+      "approval_labels": [
+        "Executed by",
+        "Authorized by",
+        "Signature name"
+      ],
+      "coeff_table_headers": [
+        "Parameter",
+        "Value"
+      ],
+      "coeff_labels": {
+        "r25": "R25",
+        "b25_85": "B25/85",
+        "alpha25": "alpha (25 degC)",
+        "interp": "Interpolation uncertainty"
+      }
+    }
+  },
+  "_calibration_result": {
+    "_calib_model": "cubic_interp",
+    "_calibration_procedure": "qubic-interpolation",
+    "_method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+    "_lsb_per_c": 451.9655172413793,
+    "_adc_bits": 16,
+    "_phys_unit_symbol": "°C",
+    "_phys_unit_dsi": "\\degreecelsius",
+    "_expanded_uncertainties": [
+      0.06555354026811765,
+      0.06585968958259775,
+      0.06534059065424028,
+      0.06556035373628084,
+      0.06554806137991327,
+      0.08437184457504258
+    ],
+    "_interp_unc_sum_abs": 0.011134699015793089,
+    "_interp_unc_fixed_2sig": 0.011,
+    "_ref_temp_means": [
+      0.258249146875,
+      25.14286285,
+      49.66639189375,
+      73.97829340000001,
+      98.301705225,
+      122.11914698846157
+    ],
+    "_temp_nominali": [
+      0.0,
+      25.0,
+      50.0,
+      75.0,
+      100.0,
+      125.0
+    ],
+    "_variant": "funzione",
+    "_expanded_uncertainties_degC": [
+      0.06555354026811765,
+      0.06585968958259775,
+      0.06534059065424028,
+      0.06556035373628084,
+      0.06554806137991327,
+      0.08437184457504258
+    ],
+    "_interp_unc_sum_abs_degC": 0.011134699015793089,
+    "_interp_unc_fixed_2sig_degC": 0.011,
+    "_ref_temp_means_degC": [
+      0.258249146875,
+      25.14286285,
+      49.66639189375,
+      73.97829340000001,
+      98.301705225,
+      122.11914698846157
+    ],
+    "_x_nodes": [
+      15981.982812499999,
+      25864.93913043478,
+      54820.0869047619,
+      64265.80256410256
+    ],
+    "_y_nodes": [
+      0.258249146875,
+      25.14286285,
+      98.301705225,
+      122.11914698846157
+    ],
+    "_node_steps": [
+      0.0,
+      25.0,
+      100.0,
+      125.0
+    ],
+    "_rmse_degC": 0.024874183198791228,
+    "_u_H_degC": 0.024874183198791228,
+    "_per_step_budget": [
+      {
+        "t_nominal": 0.0,
+        "is_node": true,
+        "uA_ref_degC": 0.002481404954991345,
+        "uA_i_degC": 0.0017706974066550205,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.03259459112415211,
+        "mu_T_i": 0.003450983898872153,
+        "mu_E": 0.03277677013405882,
+        "U_E": 0.06555354026811765,
+        "u_interp_degC": 0.032665271742460596,
+        "U_interp_degC": 0.06533054348492119,
+        "residual_degC": 0.0
+      },
+      {
+        "t_nominal": 25.0,
+        "is_node": true,
+        "uA_ref_degC": 0.0028489879684889547,
+        "uA_i_degC": 0.0033517197033909197,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.03262463382851361,
+        "mu_T_i": 0.0044730242045442755,
+        "mu_E": 0.03292984479129887,
+        "U_E": 0.06585968958259775,
+        "u_interp_degC": 0.03285632964057127,
+        "U_interp_degC": 0.06571265928114255,
+        "residual_degC": 0.0
+      },
+      {
+        "t_nominal": 50.0,
+        "is_node": false,
+        "uA_ref_degC": 0.0011561311499449453,
+        "uA_i_degC": 0.000993799255903519,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.0325205571790502,
+        "mu_T_i": 0.0031243491362801337,
+        "mu_E": 0.03267029532712014,
+        "U_E": 0.06534059065424028,
+        "u_interp_degC": 0.03830169702125617,
+        "U_interp_degC": 0.07660339404251235,
+        "residual_degC": -0.04339045321815149
+      },
+      {
+        "t_nominal": 75.0,
+        "is_node": false,
+        "uA_ref_degC": 0.002220544253076036,
+        "uA_i_degC": 0.0021413215924655457,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.03257577039426496,
+        "mu_T_i": 0.0036550210295837166,
+        "mu_E": 0.03278017686814042,
+        "U_E": 0.06556035373628084,
+        "u_interp_degC": 0.03913388858280979,
+        "U_interp_degC": 0.07826777716561958,
+        "residual_degC": -0.04277404012208308
+      },
+      {
+        "t_nominal": 100.0,
+        "is_node": true,
+        "uA_ref_degC": 0.0019373857401098968,
+        "uA_i_degC": 0.002315103366136741,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.03255769438252625,
+        "mu_T_i": 0.003759471260727723,
+        "mu_E": 0.032774030689956636,
+        "U_E": 0.06554806137991327,
+        "u_interp_degC": 0.03267348026120108,
+        "U_interp_degC": 0.06534696052240216,
+        "residual_degC": 0.0
+      },
+      {
+        "t_nominal": 125.0,
+        "is_node": true,
+        "uA_ref_degC": 0.020694997962899954,
+        "uA_i_degC": 0.01692173684939025,
+        "uB_ref_degC": 0.0325,
+        "uB_i_degC": 0.0006637674525062944,
+        "u_res_degC": 0.002886751345948129,
+        "mu_T_ref": 0.0385296371730183,
+        "mu_T_i": 0.017179030780703312,
+        "mu_E": 0.04218592228752129,
+        "U_E": 0.08437184457504258,
+        "u_interp_degC": 0.0430794256944742,
+        "U_interp_degC": 0.0861588513889484,
+        "residual_degC": 0.0
+      }
+    ]
+  },
+  "_calibration_done": "done",
+  "_sensor_accuracy_check": {
+    "all_in_range": false,
+    "per_point": [
+      {
+        "point": 1,
+        "T_ref_degC": 0.258249146875,
+        "as_found_error_degC": -4.897182422033316,
+        "max_allowed_error_degC": 0.45,
+        "in_range": false
+      },
+      {
+        "point": 2,
+        "T_ref_degC": 25.14286285,
+        "as_found_error_degC": -7.915180330536458,
+        "max_allowed_error_degC": 0.3,
+        "in_range": false
+      },
+      {
+        "point": 3,
+        "T_ref_degC": 49.66639189375,
+        "as_found_error_degC": -10.988611413853747,
+        "max_allowed_error_degC": 0.3,
+        "in_range": false
+      },
+      {
+        "point": 4,
+        "T_ref_degC": 73.97829340000001,
+        "as_found_error_degC": -14.021759799829425,
+        "max_allowed_error_degC": 0.45,
+        "in_range": false
+      },
+      {
+        "point": 5,
+        "T_ref_degC": 98.301705225,
+        "as_found_error_degC": -17.00907378850843,
+        "max_allowed_error_degC": 0.6,
+        "in_range": false
+      },
+      {
+        "point": 6,
+        "T_ref_degC": 122.11914698846157,
+        "as_found_error_degC": -19.927320150972108,
+        "max_allowed_error_degC": Infinity,
+        "in_range": true
+      }
+    ]
+  }
+}

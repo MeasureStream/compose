@@ -1,4 +1,17 @@
 services:
+  mongo-gui:
+    container_name: "mongo-gui"
+    image: ugleiton/mongo-gui
+    restart: always
+    ports:
+      - "4321:4321"
+    environment:
+      - MONGO_URL=mongodb://root:aaaa@mongodb:27017/?authSource=admin
+      - USERNAME=root
+      - PASSWORD=aaaa
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.54
   postgres:
     image: "postgres:17"
     restart: unless-stopped
@@ -33,7 +46,7 @@ services:
         ipv4_address: 172.20.0.15
 
   sensor-manager:
-    image: "docker.io/christiand9699/sensor-manager:latest-dev-mario"
+    image: "docker.io/christiand9699/sensor-manager-mario:latest"
     restart: unless-stopped
     depends_on:
       - postgres
@@ -46,6 +59,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       OS: "dev"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+    volumes:
+      - /home/mattrovio/templates/sensor-templates:/app/templates:ro
     networks:
       app_network:
         ipv4_address: 172.20.0.10
@@ -135,7 +150,21 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.22
-
+  grafana2:
+    image: grafana/grafana-enterprise
+    restart: always
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - /var/lib/grafana/plugins
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.72
   grafana:
     image: grafana/grafana-enterprise
     profiles:
@@ -148,7 +177,7 @@ services:
       - 3000:3000
     environment:
       - GF_SERVER_ROOT_URL=https://grafana.christiandellisanti.uk
-      - GF_SERVER_DOMAIN=grafana.christiandellisanti.uk
+      - GF_SERVER_DOMAIN=grafana-dev.christiandellisanti.uk
       - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
@@ -192,13 +221,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       GEMIMEG_BACKEND_URL: ${GEMIMEG_BACKEND_URL:-http://gemimeg-backend:10001}
       GATEWAY_IAM_URL: ${GATEWAY_IAM_URL:-http://gateway-iam:8080}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      KAFKA_BOOTSTRAP_SERVERS: "100.78.181.75:9092"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_DEFAULT_REGION}
       S3_ENDPOINT: "http://garage:3900"
       S3_BUCKET: "dccs"
-      S3_PUBLIC_URL: "http://172.20.0.60:3900/dccs"
+      S3_PUBLIC_URL: "http://dev.christiandellisanti.uk/s3/dccs"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
     networks:
       app_network:
@@ -299,7 +328,7 @@ services:
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
       - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:29092,CONTROLLER://:9093,PLAINTEXT_HOST://0.0.0.0:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://100.78.181.75:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://100.127.76.43:9092
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
@@ -394,7 +423,7 @@ services:
       app_network:
         ipv4_address: 172.20.0.60
 
-  
+
   garage-webui:
     image: khairul169/garage-webui:latest
     container_name: garage-webui-integrated
@@ -414,12 +443,41 @@ services:
       app_network:
         ipv4_address: 172.20.0.61
 
+  calibration:
+    image: python:3.11-slim
+    profiles:
+      - calibration
+    working_dir: /app/calibration
+    environment:
+      - CALIBRATION_SCRIPT_PATH=/app/calibration/scripts/analisi_calib_data.py
+      - CALIBRATION_MODELS_PATH=/app/calibration/models_in
+      - CALIBRATION_RUNS_PATH=/app/calibration-runs
+      - PYTHON_CMD=python3
+      - PIP_NO_CACHE_DIR=1
+    volumes:
+      - ./calibration:/app/calibration
+      - calibration_runs:/app/calibration-runs
+    command: >
+      sh -c "
+        pip install --quiet numpy scipy matplotlib reportlab &&
+        python3 scripts/analisi_calib_data.py
+          --input test/data_in/export2_tmp126_lsb16.json
+          --sensor models_in/ntc_temperature.json
+          --ref models_in/fluke_9142.json
+          --cert-input template_in/certificato_funzione_input.json
+          --cert-output certificato_out/certificato_funzione_filled.json
+          --pdf certificato_out/ntc_cert_funzione.pdf
+          --xml certificato_out/ntc_calibration_certificate.xml
+          --conformity-output certificato_out/conformity.json
+      "
+
 volumes:
   postgres-data:
   keycloak-db-data:
   mongo_data:
   grafana_data:
   kafka_data:
+  calibration_runs:
 
 networks:
   app_network:
