@@ -441,7 +441,10 @@ def main() -> None:
         help="Previous calibration coefficient D / a3 (overrides sensor JSON coeffD if provided)")
     args = parser.parse_args()
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        pass
 
     # Allow --images-dir to override the default image output directories
     _images_calib_dir  = IMAGES_CALIB_DIR
