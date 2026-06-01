@@ -228,7 +228,15 @@ services:
       S3_ENDPOINT: "http://garage:3900"
       S3_BUCKET: "dccs"
       S3_PUBLIC_URL: "http://dev.christiandellisanti.uk/s3/dccs"
+      PYTHON_CMD: "python3"
+      CALIBRATION_SCRIPT_PATH: "/app/calibration/scripts/analisi_calib_data.py"
+      CALIBRATION_MODELS_PATH: "/app/calibration/models_in"
+      CALIBRATION_RUNS_PATH: "/app/calibration-runs"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+    volumes:
+      - ./calibration/scripts:/app/calibration/scripts:ro
+      - ./calibration/models_in:/app/calibration/models_in:ro
+      - calibration_runs_data:/app/calibration-runs
     networks:
       app_network:
         ipv4_address: 172.20.0.14
@@ -478,6 +486,7 @@ volumes:
   grafana_data:
   kafka_data:
   calibration_runs:
+  calibration_runs_data:
 
 networks:
   app_network:
