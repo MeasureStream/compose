@@ -152,7 +152,12 @@ def _is_placeholder(value: Any) -> bool:
 
 
 def _fmt(values: List[float], decimals: int = 6) -> str:
-    return " ".join(f"{v:.{decimals}f}" for v in values)
+    def _strip(v):
+        s = f"{v:.{decimals}f}".rstrip("0")
+        if s.endswith("."):
+            s = s[:-1]
+        return s if s else "0"
+    return " ".join(_strip(v) for v in values)
 
 
 def _extract_center_tolerance(

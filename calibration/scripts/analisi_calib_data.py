@@ -34,7 +34,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from VAR_REF_SENSOR import SENSOR_model, RIFERIMENTO_model, VAR_extra  # noqa: E402
 from model_calibration.unit_checks import dsi_to_symbol, dsi_to_xml_unit  # noqa: E402
-from calib_utils import SensorAccuracyChecker, lsb_to_degc, round_to_significant_figures  # noqa: E402
+from calib_utils import JsonView, SensorAccuracyChecker, lsb_to_degc, round_to_significant_figures  # noqa: E402
 
 
 def _get_accuracy_ranges(sensor_json: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -45,8 +45,6 @@ def _worst_accuracy_limit(accuracy_ranges: List[Dict[str, Any]]) -> float | None
     """Return the largest maxError across all accuracy ranges, or None if empty."""
     limits = [r.get("maxError") for r in accuracy_ranges if r.get("maxError") is not None]
     return float(max(limits)) if limits else None
-
-
 
 def _build_cert_filled(
     cert_input: Dict[str, Any],
@@ -109,10 +107,12 @@ def _build_cert_filled(
         u_A = calib_result["u_A"]
         u_B = calib_result["u_B"]   # [°C] directly
         cov_AB = calib_result["cov_AB"]
+        A_r = round_to_significant_figures(A, 4)
+        B_r = round_to_significant_figures(B, 4)
         ntc_model.update({
-            "_A_cal": A, "_B_cal": B, "_u_A": u_A, "_u_B": u_B, "_cov_AB": cov_AB,
-            "_B_cal_phys": B, "_u_B_phys": u_B,
-            "_B_cal_degC": B, "_u_B_degC": u_B,
+            "_A_cal": A_r, "_B_cal": B_r, "_u_A": u_A, "_u_B": u_B, "_cov_AB": cov_AB,
+            "_B_cal_phys": B_r, "_u_B_phys": u_B,
+            "_B_cal_degC": B_r, "_u_B_degC": u_B,
         })
     elif calib_model == "cubic":
         ntc_model.update({
@@ -206,9 +206,19 @@ def _build_cert_filled(
             float(i + 1), ref_t, t_sensor_post, error_pre, error_post, expanded_uncertainties[i],
         ])
 
+    measurements_rounded = [
+        [int(row[0]),
+         round(row[1], 2),
+         round(row[2], 2),
+         round(row[3], 2),
+         round(row[4], 2),
+         round(row[5], 2)]
+        for row in measurements
+    ]
+
     tp["calculated_calibration_values"] = {
         "_measurements": measurements,
-        "measurements": measurements,
+        "measurements": measurements_rounded,
         "_observations": sensor.obs_list,
         "observations": sensor.obs_list,
         "conclusions": "Expanded uncertainty U(E) with coverage factor k = 2, confidence level about 95 %.",
@@ -243,12 +253,20 @@ def _build_cert_filled(
     }
 
     if calib_model == "linear":
+        u_budget_raw = calib_result.get("u_budget_per_step", [])
+        u_budget_rounded = [
+            {**b,
+             "uA_ref_degC": round_to_significant_figures(b["uA_ref_degC"], 2),
+             "uA_i_degC": round_to_significant_figures(b["uA_i_degC"], 2),
+             "u_c_degC": round_to_significant_figures(b["u_c_degC"], 2)}
+            for b in u_budget_raw
+        ]
         cal_result_entry.update({
-            "_A": A, "_B": B,
-            "_B_phys": B, "_u_B_phys": u_B,
+            "_A": A_r, "_B": B_r,
+            "_B_phys": B_r, "_u_B_phys": u_B,
             "_u_A": u_A, "_u_B": u_B, "_cov_AB": cov_AB,
-            "_u_budget_per_step": calib_result.get("u_budget_per_step", []),
-            "_B_degC": B, "_u_B_degC": u_B,
+            "_u_budget_per_step": u_budget_rounded,
+            "_B_degC": B_r, "_u_B_degC": u_B,
         })
     elif calib_model == "cubic":
         cal_result_entry.update({
@@ -346,11 +364,13 @@ def _apply_calibration_skipped(cert_filled: Dict, calib_result: Dict,
     if model == "linear":
         init_A = old_A if old_A is not None else 1.0
         init_B = old_B if old_B is not None else 0.0
+        init_A_r = round_to_significant_figures(init_A, 4)
+        init_B_r = round_to_significant_figures(init_B, 4)
         # B is now in °C directly — no lpc division
-        cal.update({"_A": init_A, "_B": init_B, "_B_degC": init_B,
+        cal.update({"_A": init_A_r, "_B": init_B_r, "_B_degC": init_B_r,
                     "_u_A": 0.0, "_u_B": 0.0, "_u_B_degC": 0.0, "_cov_AB": 0.0})
         ntc = cert_filled["template_parts"]["sensor_method_template"]["ntc_model"]
-        ntc.update({"_A_cal": init_A, "_B_cal": init_B, "_B_cal_degC": init_B,
+        ntc.update({"_A_cal": init_A_r, "_B_cal": init_B_r, "_B_cal_degC": init_B_r,
                     "_u_A": 0.0, "_u_B": 0.0, "_u_B_degC": 0.0, "_cov_AB": 0.0})
     elif model == "cubic":
         init_a0 = old_A if old_A is not None else 0.0
@@ -463,8 +483,8 @@ def main() -> None:
     extra  = VAR_extra()
 
     # we pass the company data json
-    sensor_json: Dict[str, Any] = sensor._data
-    ref_json: Dict[str, Any]    = fluke._data
+    sensor_json: JsonView = JsonView(sensor._data)
+    ref_json: JsonView    = JsonView(fluke._data)
 
     if args.verbose:
         print(f"sensor model: {args.sensor}")
@@ -482,16 +502,20 @@ def main() -> None:
     print(f"LSB temperature range: [{lsb_min}, {lsb_max}] °C")
     lsb_per_c = adc_max / (lsb_max - lsb_min)   # informational
 
+    sensor_metrology_json = sensor_json.get("metrology", JsonView({}))
+    ref_metrology_json = ref_json.get("metrology", JsonView({}))
+
     # Reference (PT100/Fluke) uncertainty in native °C — no conversion to LSB
-    ub_pt_degc = extra._U_pt_c / extra._k_pt     # [°C] standard uncertainty
+    ub_pt_degc = ref_metrology_json.get("Uncertainty", JsonView([])).one(JsonView({})).get("ub", 0.0)
 
-    # NTC ADC uncertainty in native LSB — from sensor JSON (already /k)
-    ub_tmp_lsb = sensor.uB                        # [LSB] standard uncertainty
 
-    # Interpolation uncertainty: Fluke abs + NTC abs (sensor-side in °C via mean sensitivity)
-    # We use lsb_per_c here only as a rough estimate for the certificate; it is
+    # NTC ADC uncertainty in native °C — from sensor JSON (already /k)
+    ub_tmp_degc = sensor_metrology_json.get("readingUncertainty", JsonView([])).find("varName", "uB", JsonView({})).get("value", float(sensor.uB))
+    # ub_tmp_lsb = ub_tmp_degc * lsb_per_c
+    ub_tmp_lsb = ub_tmp_degc
+    # Interpolation uncertainty: Fluke abs + NTC abs (sensor-side in °C via mean sensitivity) We use lsb_per_c here only as a rough estimate for the certificate; it is
     # already informational (absUncertainty is a pre-calibration datasheet bound).
-    ntc_abs_lsb   = float(sensor.absUncertainty)
+    ntc_abs_lsb   = sensor_metrology_json.get("readingUncertainty", JsonView([])).find("varName", "absUncertainty", JsonView({})).get("value", float(sensor.absUncertainty))
     ntc_abs_c     = ntc_abs_lsb / lsb_per_c      # informational estimate
     abs_unc_sum_c = ub_pt_degc + ntc_abs_c
 

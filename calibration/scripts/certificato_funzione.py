@@ -617,8 +617,8 @@ def build_story(styles):
     cal_coeff_data = [
         [coeff_headers[0], coeff_headers[1]],
         [coeff_labels.get("interp", "Interpolation uncertainty"), interp_unc_text],
-        [f"A / ({PHYS_UNIT_SYMBOL}/LSB)", f"{NTC_MODEL.get('_A_cal', 0):.10f}"],
-        [f"B / {PHYS_UNIT_SYMBOL}", f"{_B_cal_display:.10f}"],
+        [f"A / ({PHYS_UNIT_SYMBOL}/LSB)", f"{NTC_MODEL.get('_A_cal', 0):.10f}".rstrip("0").rstrip(".")],
+        [f"B / {PHYS_UNIT_SYMBOL}", f"{_B_cal_display:.10f}".rstrip("0").rstrip(".")],
     ]
 
     cal_coeff_tbl = Table(cal_coeff_data, colWidths=[mmv(55), mmv(90)], hAlign="LEFT")

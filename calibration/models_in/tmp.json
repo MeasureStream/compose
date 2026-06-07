@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.0.1",
+  
+  "modelName": "TemperatureSensorNTC",
+  
+  "mpn": "NTCLP450E3",
+  "manufacturer": "Vishay",
+  "datasheet": "https://www.vishay.com/docs/29110/ntclp450e3.pdf",
+  "templateId": 201,
+
+  "type": "temperature",
+
+  "unit": "\\degreeCelsius",
+
+  "elecUnit": "\\one",
+
+  "ranges": {
+
+    "phys": {
+      "min": -40.0,
+      "max": 125.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius"
+    },
+
+    "physROC": {
+      "min": 0.0,
+      "max": 125.0,
+      "siExp": 0,
+      "si": [0, 0, -1, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius\\per\\second"
+    },
+
+    "elec": {
+      "min": 0.0,
+      "max": 65535.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 0, 0, 0, 0],
+      "dsi": "\\one"
+    },
+
+    "sampling": {
+      "min": 0.001,
+      "max": 0.0,
+      "siExp": 0,
+      "si": [0, 0, 1, 0, 0, 0, 0, 0],
+      "dsi": "\\second"
+    },
+
+    "threshold": {
+      "min": -40.0,
+      "max": 125.0
+    }
+
+  },
+  "properties": {
+
+    "responseTime": 0.16,
+    "responseTimeSiExp": 0,
+    "responseTimeSi": [0, 0, 1, 0, -1, 0, 0, 0],
+    "responseTimeDsi": "\\second\\per\\degreeCelsius",
+
+    "selfHeat": 0.0,
+    "selfHeatSiExp": 0,
+    "selfHeatSi": [0, 0, -1, 0, 1, 0, 0, 0],
+    "selfHeatDsi": "\\kelvin\\per\\second",
+
+    "readingConsumption": 0.5,
+    "readingConsumptionSiExp": -9,
+    "readingConsumptionSi": [0, 0, 1, 1, 0, 0, 0, 0],
+    "readingConsumptionDsi": "\\coulomb"
+  },
+  "calibration": {
+
+    "type": "qubic-interpolation",
+    "coefficients": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "calibrationCoefficients": {
+      "A": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\degreeCelsius" },
+      "B": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\degreeCelsius" },
+      "C": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\degreeCelsius" },
+      "D": { "siExp": 0, "si": [0, 0, 0, 0, 1, 0, 0, 0], "dsi": "\\degreeCelsius" }
+    }
+  },
+  "metrology": {
+
+    "sensorAccuracy": [
+      { "tempMin":  20.0, "tempMax": 50.0, "maxError": 0.30, "unit": "\\degreeCelsius", "description": "Maximum calibration error from 50 °C to 105 °C" },
+      { "tempMin":   -10.0, "tempMax":  80.0, "maxError": 0.45, "unit": "\\degreeCelsius", "description": "Maximum calibration error from 0 °C to 50 °C" },
+      { "tempMin": -40.0, "tempMax":   125.0, "maxError": 0.90, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
+    ],
+
+    "evaluationFormula": "uB",
+
+    "requiredInputs": [],
+
+    "readingUncertainty": [
+        { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
+        { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
+        { "varName": "uB", "value": 0.173,  "PDF": "normal", "description": "" },
+        {"varName": "coverageFactor", "value": 2.0, "description": ""}
+    ],
+
+    "UncertaintyPdf": "normal",
+    "Uncertainty": [
+      { "referenceValue": 0,
+        "absUncertainty": 0,
+        "uc": 0,
+        "k": 2.0
+      }
+    ],
+
+    "calDate": 0,
+    "calPeriod": 365,
+    "certificateId": ""
+  }
+}

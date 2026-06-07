@@ -109,6 +109,25 @@ python scripts/analisi_calib_data.py `
   --charts-interactive `
   --verbose
 ```
+```powershell
+python scripts/analisi_calib_data.py `
+  --input                              data_in/export2_tmp126_lsb16.json `
+  --sensor                             models_in/tmp.json `
+  --ref                                models_in/p100.json `
+  --cert-input                         template_in/certificato_funzione_input.json `
+  --cert-output                        certificato_out/certificato_funzione_filled.json `
+  --pdf                                certificato_out/ntc_cert_funzione.pdf `
+  --xml                                certificato_out/ntc_calibration_certificate.xml `
+  --conformity-output                  certificato_out/conformity_results.json `
+  --images-dir                         ./images/calibration `
+  --procedure                          linear `
+  --check-units `
+  --convert-units `
+  --charts `
+  --verbose
+```
+
+
 
 > `--charts` and `--verbose` default to **`True`**; pass `--no-charts` or `--no-verbose` to suppress them.
 > `--charts-interactive` is **off by default** and requires a GUI display.

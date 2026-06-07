@@ -238,7 +238,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-22.511725 19.997175 29.997825 40.001000 45.001710 50.001600 94.504450</si:valueXMLList>
+                                        <si:valueXMLList>0.260000 25.140000 49.670000 73.980000 98.300000 122.120000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -249,7 +249,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>30.792036 32.952232 45.035582 44.951499 34.707616 34.111104 34.441966</si:valueXMLList>
+                                        <si:valueXMLList>0.240000 25.190000 49.660000 73.950000 98.290000 122.140000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -260,7 +260,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-17.361116 -54.745336 -36.080391 -46.283037 -75.585534 -82.000544 -125.718482</si:valueXMLList>
+                                        <si:valueXMLList>-0.020000 -0.020000 -0.140000 -0.230000 -0.280000 -0.310000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -271,12 +271,12 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>53.303761 12.955057 15.037757 4.950499 -10.294094 -15.890496 -60.062484</si:valueXMLList>
+                                        <si:valueXMLList>-0.020000 0.050000 -0.000000 -0.030000 -0.010000 0.020000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                         <si:expandedUncXMLList>
-                                            <si:uncertaintyXMLList>0.065291 0.065274 0.796422 0.257689 0.065261 0.065303 0.065259</si:uncertaintyXMLList>
-                                            <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
-                                            <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
+                                            <si:uncertaintyXMLList>0.010000 0.010000 0.010000 0.010000 0.010000 0.060000</si:uncertaintyXMLList>
+                                            <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
+                                            <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
                                             <si:distributionXMLList>normal</si:distributionXMLList>
                                         </si:expandedUncXMLList>
                                     </si:realListXMLList>
@@ -288,7 +288,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.00102500 0.00047500 0.00067500 0.00020000 0.00021000 0.00080000 0.00005000</si:valueXMLList>
+                                        <si:valueXMLList>0.00250000 0.00280000 0.00120000 0.00220000 0.00190000 0.02100000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -299,7 +299,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.00000562 0.00050093 0.39687134 0.12464431 0.00018737 0.00088493 0.00003335</si:valueXMLList>
+                                        <si:valueXMLList>0.00200000 0.00380000 0.00110000 0.00240000 0.00260000 0.01900000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -310,7 +310,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.03264561 0.03263682 0.39821100 0.12884459 0.03263073 0.03265132 0.03262957</si:valueXMLList>
+                                        <si:valueXMLList>0.00430000 0.00560000 0.00330000 0.00440000 0.00440000 0.02800000</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -321,7 +321,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:valueXMLList>
+                                        <si:valueXMLList>2.0 2.0 2.0 2.0 2.0 2.0</si:valueXMLList>
                                         <si:unitXMLList>\one</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
