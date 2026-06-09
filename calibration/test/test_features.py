@@ -24,13 +24,13 @@ CALIB_ROOT  = TESTS_DIR.parent
 SCRIPTS_DIR = CALIB_ROOT / "scripts"
 MODELS_DIR  = CALIB_ROOT / "models_in"
 
-for p in (str(SCRIPTS_DIR), str(MODELS_DIR)):
+for p in (str(SCRIPTS_DIR),):
     if p not in sys.path:
         sys.path.insert(0, p)
 
 INPUT_JSON  = TESTS_DIR / "data_in" / "export2_tmp126_lsb16.json"
-SENSOR_JSON = MODELS_DIR / "ntc_temperature.json"
-REF_JSON    = MODELS_DIR / "fluke_9142.json"
+SENSOR_JSON = MODELS_DIR / "sensors" / "ntc_temperature.json"
+REF_JSON    = MODELS_DIR / "references" / "fluke_9142.json"
 
 ADC_BITS  = 16
 ADC_MAX   = float((1 << ADC_BITS) - 1)
@@ -48,13 +48,12 @@ def _load_payload():
 
 
 def _default_uncertainties():
-    """Return (ub_pt_degc [°C], ub_tmp_lsb [LSB]) — correct physical domains."""
-    from VAR_REF_SENSOR import VAR_extra, SENSOR_model
-    extra  = VAR_extra()
-    sensor = SENSOR_model()
-    ub_pt_degc = extra._U_pt_c / extra._k_pt   # [°C] standard uncertainty of reference
-    ub_tmp_lsb = sensor.uB                       # [LSB] standard uncertainty of NTC ADC
-    return ub_pt_degc, ub_tmp_lsb
+    """Return (ub_ref_y [°C], ub_sensor_lsb [LSB]) — correct physical domains."""
+    sensor_json = json.loads(SENSOR_JSON.read_text(encoding="utf-8"))
+    _sensor_ru = sensor_json.get("metrology", {}).get("readingUncertainty", [])
+    ub_ref_y = 0.0325   # [°C] standard uncertainty of reference
+    ub_sensor_lsb = float(next((it["value"] for it in _sensor_ru if it.get("varName") == "uB"), 0.30))  # [LSB]
+    return ub_ref_y, ub_sensor_lsb
 
 
 # ===========================================================================
@@ -66,14 +65,14 @@ class TestCubicCalibration:
     @pytest.fixture(scope="class")
     def result(self):
         from model_calibration.cubic_calibration import calibrate
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
+        ub_ref_y, ub_sensor_lsb = _default_uncertainties()
         return calibrate(
             payload=_load_payload(),
             lsb_scale_sensor_info=LSB_SCALE,
             sample_size=SAMPLE_SIZE,
             adc_max=ADC_MAX,
-            ub_pt_degc=ub_pt_degc,
-            ub_tmp_lsb=ub_tmp_lsb,
+            ub_ref_y=ub_ref_y,
+            ub_sensor_lsb=ub_sensor_lsb,
             verbose=False,
         )
 
@@ -108,11 +107,11 @@ class TestCubicCalibration:
         assert theta[3] == pytest.approx(result["a3"])
 
     def test_fit_residuals_small(self, result):
-        from model_calibration.cubic_calibration import cubic_predict_degc
+        from model_calibration.cubic_calibration import cubic_predict_y
         theta = np.array(result["theta"])
         for i, t in enumerate(result["temp_nominali"]):
-            pmean_log = result["risultati_elaborati"][t]["pmean_log"]
-            t_cal = cubic_predict_degc(float(pmean_log), theta, LSB_SCALE, ADC_MAX)
+            pmean_sensor = result["risultati_elaborati"][t]["pmean_sensor"]
+            t_cal = cubic_predict_y(float(pmean_sensor), theta, LSB_SCALE, ADC_MAX)
             t_ref = result["ref_temp_means"][i]
             # polynomial fit residual in degC domain
             assert abs(t_cal - t_ref) < 5.0, f"large residual at step {t}: {t_cal - t_ref}"
@@ -128,79 +127,9 @@ class TestCubicCalibration:
         from model_calibration.cubic_calibration import cubic_uncertainty
         theta = np.array(result["theta"])
         cov   = np.array(result["cov_theta"])
-        x_mid = np.mean([result["risultati_elaborati"][t]["pmean_log"]
+        x_mid = np.mean([result["risultati_elaborati"][t]["pmean_sensor"]
                          for t in result["temp_nominali"]])
         u = cubic_uncertainty(float(x_mid), 10.0, theta, cov, LSB_PER_C)
-        assert u >= 0.0
-
-
-# ===========================================================================
-# Cube-log (Steinhart-Hart) calibration
-# ===========================================================================
-
-class TestCubeLogCalibration:
-
-    @pytest.fixture(scope="class")
-    def result(self):
-        from model_calibration.cube_log_calibration import calibrate
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
-        return calibrate(
-            payload=_load_payload(),
-            lsb_scale_sensor_info=LSB_SCALE,
-            sample_size=SAMPLE_SIZE,
-            adc_max=ADC_MAX,
-            ub_pt_degc=ub_pt_degc,
-            ub_tmp_lsb=ub_tmp_lsb,
-            verbose=False,
-        )
-
-    def test_model_label(self, result):
-        assert result["model"] == "cube-log"
-
-    def test_has_steinhart_coefficients(self, result):
-        for k in ("C0", "C1", "C3"):
-            assert k in result
-
-    def test_has_coefficient_uncertainties(self, result):
-        for k in ("u_C0", "u_C1", "u_C3"):
-            assert k in result
-            assert result[k] >= 0.0
-
-    def test_covariance_matrix_shape(self, result):
-        cov = np.array(result["cov_theta"])
-        assert cov.shape == (3, 3)
-
-    def test_six_expanded_uncertainties(self, result):
-        assert len(result["expanded_uncertainties"]) == 6
-        for u in result["expanded_uncertainties"]:
-            assert u > 0.0
-            assert u < 1.0
-
-    def test_theta_contains_three_values(self, result):
-        assert len(result["theta"]) == 3
-
-    def test_steinhart_hart_predict_in_range(self, result):
-        from model_calibration.cube_log_calibration import steinhart_hart_predict_degc
-        theta = np.array(result["theta"])
-        for t in result["temp_nominali"]:
-            x = result["risultati_elaborati"][t]["pmean_log"]
-            t_cal = steinhart_hart_predict_degc(float(x), theta)
-            # generous tolerance since Steinhart-Hart fit may extrapolate a bit
-            assert LSB_MIN - 20 <= t_cal <= LSB_MAX + 20
-
-    def test_predict_raises_on_non_positive_lsb(self):
-        from model_calibration.cube_log_calibration import steinhart_hart_predict
-        theta = np.array([1e-3, 2e-4, 1e-7])
-        with pytest.raises(ValueError):
-            steinhart_hart_predict(0.0, theta)
-
-    def test_steinhart_hart_uncertainty_non_negative(self, result):
-        from model_calibration.cube_log_calibration import steinhart_hart_uncertainty
-        theta = np.array(result["theta"])
-        cov   = np.array(result["cov_theta"])
-        x_mid = np.mean([result["risultati_elaborati"][t]["pmean_log"]
-                         for t in result["temp_nominali"]])
-        u = steinhart_hart_uncertainty(float(x_mid), 10.0, theta, cov)
         assert u >= 0.0
 
 
@@ -215,34 +144,34 @@ def _make_row(punto, t_ref, t_sensor, me_pre, me_post, u_exp):
 class TestCheckA:
 
     def test_pass_when_residual_within_uncertainty(self):
-        from verifica_conformita import check_A
+        from checks_helper import check_A
         rows = [_make_row(1, 25.0, 25.05, 0.0, 0.05, 0.10)]
         status, detail = check_A(rows, verbose=False)
         assert status == "PASS"
         assert detail[0]["pass"] is True
 
     def test_fail_when_residual_exceeds_uncertainty(self):
-        from verifica_conformita import check_A
+        from checks_helper import check_A
         rows = [_make_row(1, 25.0, 25.15, 0.0, 0.15, 0.10)]
         status, detail = check_A(rows, verbose=False)
         assert status == "FAIL"
         assert detail[0]["pass"] is False
 
     def test_uses_me_post_column(self):
-        from verifica_conformita import check_A
+        from checks_helper import check_A
         rows = [_make_row(1, 25.0, 25.0, 999.0, 0.05, 0.10)]
         status, _ = check_A(rows, verbose=False)
         assert status == "PASS"
 
     def test_multi_point_all_pass(self):
-        from verifica_conformita import check_A
+        from checks_helper import check_A
         rows = [_make_row(i, 25.0 * i, 25.0 * i + 0.01, 0.0, 0.01, 0.10) for i in range(1, 5)]
         status, detail = check_A(rows, verbose=False)
         assert status == "PASS"
         assert all(r["pass"] for r in detail)
 
     def test_multi_point_one_fail(self):
-        from verifica_conformita import check_A
+        from checks_helper import check_A
         rows = [
             _make_row(1, 25.0, 25.05, 0.0, 0.05, 0.10),
             _make_row(2, 50.0, 50.20, 0.0, 0.20, 0.10),
@@ -256,131 +185,24 @@ class TestCheckA:
 class TestCheckB:
 
     def test_pass_when_uncertainty_within_limit(self):
-        from verifica_conformita import check_B
+        from checks_helper import check_B
         rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.08)]
-        status, detail = check_B(rows, limit_degc=0.10, verbose=False)
+        status, detail = check_B(rows, limit_y=0.10, verbose=False)
         assert status == "PASS"
         assert detail[0]["pass"] is True
 
     def test_fail_when_uncertainty_exceeds_limit(self):
-        from verifica_conformita import check_B
+        from checks_helper import check_B
         rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.15)]
-        status, detail = check_B(rows, limit_degc=0.10, verbose=False)
+        status, detail = check_B(rows, limit_y=0.10, verbose=False)
         assert status == "FAIL"
         assert detail[0]["pass"] is False
 
     def test_excess_stored_correctly(self):
-        from verifica_conformita import check_B
+        from checks_helper import check_B
         rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.12)]
-        _, detail = check_B(rows, limit_degc=0.10, verbose=False)
+        _, detail = check_B(rows, limit_y=0.10, verbose=False)
         assert detail[0]["excess"] == pytest.approx(0.02, abs=1e-9)
-
-
-class TestCheckD:
-
-    def test_pass_on_realistic_values(self):
-        from verifica_conformita import check_D
-        rows = [_make_row(i, 25.0 * i, 25.0 * i, 0.0, 0.0, 0.35) for i in range(1, 5)]
-        u_exp_list = [0.35] * 4
-        # check_D passes when u_B components alone don't exceed u_std (u_A2_est >= 0)
-        _, detail = check_D(rows, u_exp_list, LSB_MIN, LSB_MAX, 0.1, verbose=False)
-        for r in detail:
-            assert r["u_A_est"] >= 0.0
-
-    def test_result_has_all_budget_keys(self):
-        from verifica_conformita import check_D
-        rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.35)]
-        _, detail = check_D(rows, [0.35], LSB_MIN, LSB_MAX, 0.1, verbose=False)
-        for key in ("u_B_ref", "u_B_sensor", "u_res", "u_A_est", "u_ricostruita", "pass"):
-            assert key in detail[0]
-
-    def test_u_components_are_positive(self):
-        from verifica_conformita import check_D
-        rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.35)]
-        _, detail = check_D(rows, [0.35], LSB_MIN, LSB_MAX, 0.1, verbose=False)
-        assert detail[0]["u_B_ref"] > 0.0
-        assert detail[0]["u_B_sensor"] > 0.0
-        assert detail[0]["u_res"] > 0.0
-
-
-class TestCheckE:
-
-    def test_pass_when_k2_in_notes(self):
-        from verifica_conformita import check_E
-        notes = ["Coverage factor k = 2, confidence level about 95 %."]
-        status, result = check_E(notes, [0.35], verbose=False)
-        assert status == "PASS"
-        assert result["k_declared_in_notes"] is True
-
-    def test_fail_when_k_not_declared(self):
-        from verifica_conformita import check_E
-        notes = ["Some note without coverage factor declaration."]
-        status, result = check_E(notes, [0.35], verbose=False)
-        assert result["k_declared_in_notes"] is False
-
-    def test_plausibility_range(self):
-        from verifica_conformita import check_E
-        notes = ["k = 2 coverage"]
-        _, result = check_E(notes, [0.35], verbose=False)
-        assert result["plausible"] is True
-
-    def test_implausible_uncertainty(self):
-        from verifica_conformita import check_E
-        notes = ["k = 2 coverage"]
-        _, result = check_E(notes, [100.0], verbose=False)
-        assert result["plausible"] is False
-
-
-class TestCheckC:
-
-    def test_pass_when_post_cal_residuals_are_near_zero(self):
-        from verifica_conformita import check_C
-        rows = [
-            _make_row(i, 25.0 * i, 25.0 * i + 1e-12, 0.0, 1e-12, 0.35)
-            for i in range(1, 4)
-        ]
-        status, result = check_C(rows, A_cert=1.0, B_cert=-1000.0,
-                                  min_phys=LSB_MIN, max_phys=LSB_MAX, verbose=False)
-        assert status == "PASS"
-
-    def test_result_has_note(self):
-        from verifica_conformita import check_C
-        rows = [_make_row(1, 25.0, 25.0, 0.0, 0.0, 0.35)]
-        _, result = check_C(rows, A_cert=1.0, B_cert=0.0,
-                             min_phys=LSB_MIN, max_phys=LSB_MAX, verbose=False)
-        assert "note" in result
-
-
-class TestCheckF:
-
-    def test_pass_when_me_post_consistent_with_formula(self):
-        from verifica_conformita import check_F
-        t_ref = 25.0
-        t_sensor = 25.0 + 1e-12
-        me_post = t_sensor - t_ref
-        rows = [_make_row(1, t_ref, t_sensor, 0.0, me_post, 0.35)]
-        status, detail = check_F(rows, A=2.0, B=-30000.0,
-                                  min_phys=LSB_MIN, max_phys=LSB_MAX,
-                                  variant="funzione", verbose=False)
-        assert status == "PASS"
-
-    def test_fail_when_me_post_inconsistent(self):
-        from verifica_conformita import check_F
-        rows = [_make_row(1, 25.0, 25.5, 0.0, 0.999, 0.35)]
-        status, detail = check_F(rows, A=2.0, B=-30000.0,
-                                  min_phys=LSB_MIN, max_phys=LSB_MAX,
-                                  variant="funzione", verbose=False)
-        assert status == "FAIL"
-
-    def test_delta_me_stored(self):
-        from verifica_conformita import check_F
-        t_ref, t_sensor = 25.0, 25.1
-        me_post = t_sensor - t_ref
-        rows = [_make_row(1, t_ref, t_sensor, 0.0, me_post, 0.35)]
-        _, detail = check_F(rows, A=2.0, B=-30000.0,
-                             min_phys=LSB_MIN, max_phys=LSB_MAX,
-                             variant="funzione", verbose=False)
-        assert detail[0]["delta_me"] == pytest.approx(0.0, abs=1e-9)
 
 
 class TestCheckG:
@@ -389,25 +211,25 @@ class TestCheckG:
         return [{"tempMin": -40.0, "tempMax": 125.0, "maxError": 0.5}]
 
     def test_pass_when_as_found_within_limit(self):
-        from verifica_conformita import check_G
+        from checks_helper import check_G
         rows = [_make_row(1, 25.0, 25.0, 0.1, 0.0, 0.35)]
         status, result = check_G(rows, self._accuracy_ranges(), "linear", verbose=False)
         assert status == "PASS"
 
     def test_fail_when_as_found_exceeds_limit(self):
-        from verifica_conformita import check_G
+        from checks_helper import check_G
         rows = [_make_row(1, 25.0, 25.0, 0.8, 0.0, 0.35)]
         status, result = check_G(rows, self._accuracy_ranges(), "linear", verbose=False)
         assert status == "FAIL"
 
     def test_na_when_no_accuracy_ranges(self):
-        from verifica_conformita import check_G
+        from checks_helper import check_G
         rows = [_make_row(1, 25.0, 25.0, 0.1, 0.0, 0.35)]
         status, result = check_G(rows, [], "linear", verbose=False)
         assert status == "N/A"
 
     def test_warn_when_point_outside_coverage(self):
-        from verifica_conformita import check_G
+        from checks_helper import check_G
         # Only covers 0-50, point at 80 is outside
         accuracy_ranges = [{"tempMin": 0.0, "tempMax": 50.0, "maxError": 0.5}]
         rows = [_make_row(1, 80.0, 80.0, 0.1, 0.0, 0.35)]
@@ -416,7 +238,7 @@ class TestCheckG:
         assert result["G2_all_covered"] is False
 
     def test_uses_me_pre_column(self):
-        from verifica_conformita import check_G
+        from checks_helper import check_G
         # me_pre far exceeds limit, me_post within limit
         rows = [_make_row(1, 25.0, 25.0, 0.9, 0.01, 0.35)]
         status, _ = check_G(rows, self._accuracy_ranges(), "linear", verbose=False)
@@ -433,14 +255,14 @@ class TestLinearCalibrationOutput:
     @pytest.fixture(scope="class")
     def result(self):
         from model_calibration.linear_calibration import calibrate
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
+        ub_ref_y, ub_sensor_lsb = _default_uncertainties()
         return calibrate(
             payload=_load_payload(),
             lsb_scale_sensor_info=LSB_SCALE,
             sample_size=SAMPLE_SIZE,
             adc_max=ADC_MAX,
-            ub_pt_degc=ub_pt_degc,
-            ub_tmp_lsb=ub_tmp_lsb,
+            ub_ref_y=ub_ref_y,
+            ub_sensor_lsb=ub_sensor_lsb,
             verbose=False,
         )
 
@@ -450,24 +272,24 @@ class TestLinearCalibrationOutput:
         nominal_a = (LSB_MAX - LSB_MIN) / ADC_MAX
         assert nominal_a * 0.5 < result["A"] < nominal_a * 1.5
 
-    def test_lsb_per_c_computed_correctly(self, result):
+    def test_lsb_per_y_computed_correctly(self, result):
         expected = ADC_MAX / (LSB_MAX - LSB_MIN)
-        assert result["lsb_per_c"] == pytest.approx(expected, rel=1e-9)
+        assert result["lsb_per_y"] == pytest.approx(expected, rel=1e-9)
 
     def test_all_ref_temps_within_plausible_range(self, result):
         # ref_temp_means now in native °C; calibration points go up to 125°C nominal
         for t in result["ref_temp_means"]:
             assert LSB_MIN - 5 <= t <= 135.0, f"ref_temp {t} implausible"
 
-    def test_ub_pt_degc_and_ub_tmp_lsb_echoed(self, result):
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
-        assert result["ub_pt_degc"] == pytest.approx(ub_pt_degc, rel=1e-9)
-        assert result["ub_tmp_lsb"] == pytest.approx(ub_tmp_lsb, rel=1e-9)
+    def test_ub_ref_y_and_ub_sensor_lsb_echoed(self, result):
+        ub_ref_y, ub_sensor_lsb = _default_uncertainties()
+        assert result["ub_ref_y"] == pytest.approx(ub_ref_y, rel=1e-9)
+        assert result["ub_sensor_lsb"] == pytest.approx(ub_sensor_lsb, rel=1e-9)
 
     def test_all_step_stats_present(self, result):
         for t in result["temp_nominali"]:
             r = result["risultati_elaborati"][t]
-            for key in ("pmean_rtd", "pmean_log", "pstd_rtd", "pstd_log"):
+            for key in ("pmean_ref", "pmean_sensor", "pstd_ref", "pstd_sensor"):
                 assert key in r
 
 
@@ -791,12 +613,12 @@ class TestLinearPrechecks:
 
     def test_calibrate_raises_on_too_few_steps(self):
         from model_calibration.linear_calibration import calibrate, MIN_STEPS_LINEAR
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
+        ub_ref_y, ub_sensor_lsb = _default_uncertainties()
         with pytest.raises(ValueError, match=str(MIN_STEPS_LINEAR)):
             calibrate(
                 payload=_payload_with_n_steps(MIN_STEPS_LINEAR - 1),
                 lsb_scale_sensor_info=LSB_SCALE, sample_size=20,
-                adc_max=ADC_MAX, ub_pt_degc=ub_pt_degc, ub_tmp_lsb=ub_tmp_lsb,
+                adc_max=ADC_MAX, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
                 verbose=False,
             )
 
@@ -842,62 +664,13 @@ class TestCubicPrechecks:
 
     def test_calibrate_raises_on_too_few_steps(self):
         from model_calibration.cubic_calibration import calibrate, _N_COEFFS
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
+        ub_ref_y, ub_sensor_lsb = _default_uncertainties()
         with pytest.raises(ValueError, match=str(_N_COEFFS)):
             calibrate(
                 payload=_payload_with_n_steps(_N_COEFFS - 1),
                 lsb_scale_sensor_info=LSB_SCALE, sample_size=20,
-                adc_max=ADC_MAX, ub_pt_degc=ub_pt_degc, ub_tmp_lsb=ub_tmp_lsb,
+                adc_max=ADC_MAX, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
                 verbose=False,
             )
 
 
-class TestCubeLogPrechecks:
-
-    def test_ok_with_enough_steps(self):
-        from model_calibration.cube_log_calibration import run_prechecks, MIN_STEPS_CUBE_LOG
-        result = run_prechecks(_payload_with_n_steps(MIN_STEPS_CUBE_LOG + 3))
-        assert result["ok"] is True
-        assert result["steps_ok"] is True
-
-    def test_fail_with_too_few_steps(self):
-        from model_calibration.cube_log_calibration import run_prechecks, MIN_STEPS_CUBE_LOG
-        result = run_prechecks(_payload_with_n_steps(MIN_STEPS_CUBE_LOG - 1))
-        assert result["ok"] is False
-        assert result["steps_ok"] is False
-        assert len(result["errors"]) == 1
-
-    def test_exactly_minimum_steps_passes(self):
-        from model_calibration.cube_log_calibration import run_prechecks, MIN_STEPS_CUBE_LOG
-        result = run_prechecks(_payload_with_n_steps(MIN_STEPS_CUBE_LOG))
-        assert result["steps_ok"] is True
-
-    def test_unit_check_passes_with_good_jsons(self):
-        from model_calibration.cube_log_calibration import run_prechecks, MIN_STEPS_CUBE_LOG
-        result = run_prechecks(
-            _payload_with_n_steps(MIN_STEPS_CUBE_LOG),
-            sensor_json=_good_sensor_json(), ref_json=_good_ref_json(),
-            check_units=True,
-        )
-        assert result["unit_check"].ok is True
-        assert result["ok"] is True
-
-    def test_unit_check_fails_with_bad_ref(self):
-        from model_calibration.cube_log_calibration import run_prechecks, MIN_STEPS_CUBE_LOG
-        result = run_prechecks(
-            _payload_with_n_steps(MIN_STEPS_CUBE_LOG),
-            sensor_json=_good_sensor_json(), ref_json=_bad_ref_json(),
-            check_units=True,
-        )
-        assert result["ok"] is False
-
-    def test_calibrate_raises_on_too_few_steps(self):
-        from model_calibration.cube_log_calibration import calibrate, MIN_STEPS_CUBE_LOG
-        ub_pt_degc, ub_tmp_lsb = _default_uncertainties()
-        with pytest.raises(ValueError, match=str(MIN_STEPS_CUBE_LOG)):
-            calibrate(
-                payload=_payload_with_n_steps(MIN_STEPS_CUBE_LOG - 1),
-                lsb_scale_sensor_info=LSB_SCALE, sample_size=20,
-                adc_max=ADC_MAX, ub_pt_degc=ub_pt_degc, ub_tmp_lsb=ub_tmp_lsb,
-                verbose=False,
-            )

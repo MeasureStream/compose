@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+
+  "modelName": "DigitalPressureGauge_DPG500",
+
+  "mpn": "DPG500-30ATM",
+  "manufacturer": "ExampleRefCo",
+  "datasheet": "dpg500_pressure_ref.pdf",
+  "templateId": 302,
+
+  "type": "pressure_calibrator",
+
+  "unit": "\\atm",
+  "elecUnit": "\\atm",
+
+  "ranges": {
+    "phys": {
+      "min": 0.0,
+      "max": 25.0,
+      "siExp": 0,
+      "si": [-1, 1, -2, 0, 0, 0, 0, 0],
+      "dsi": "\\atm"
+    },
+    "operatingEnvironment": {
+      "min": 0.0,
+      "max": 50.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius"
+    }
+  },
+
+  "properties": {
+    "immersionDepth": 0.0,
+    "immersionDepthSiExp": -3,
+    "immersionDepthSi": [0, 1, 0, 0, 0, 0, 0, 0],
+    "immersionDepthDsi": "\\meter",
+
+    "heatingTimeMax": 300.0,
+    "heatingTimeSiExp": 0,
+    "heatingTimeSi": [0, 0, 1, 0, 0, 0, 0, 0],
+    "heatingTimeDsi": "\\second",
+
+    "coolingTimeMax": 180.0,
+    "coolingTimeSiExp": 0,
+    "coolingTimeSi": [0, 0, 1, 0, 0, 0, 0, 0],
+    "coolingTimeDsi": "\\second"
+  },
+
+  "calibration": {
+    "type": "none"
+  },
+
+  "metrology": {
+    "evaluationFormula": "RSS",
+    "requiredInputs": ["setpoint_pressure"],
+
+    "readingUncertainty": [
+        { "varName": "resolution", "value": 0.001, "PDF": "uniform", "description": "Display resolution" },
+        { "varName": "displayAccuracy", "value": 0.005, "PDF": "normal", "k": 2.0, "description": "Display accuracy (full scale)" },
+        { "varName": "stability", "value": 0.001, "PDF": "uniform", "description": "Stability (full scale)" },
+        { "varName": "hysteresis", "value": 0.002, "PDF": "uniform", "description": "Pressure hysteresis" }
+    ],
+
+    "UncertaintyPdf": "gaussian",
+    "Uncertainty": [
+      {
+        "referenceValue": 0,
+        "absUncertainty": 0.01,
+        "ub": 0.01,
+        "k": 2.0
+      }
+    ],
+
+    "calDate": 0,
+    "calPeriod": 365,
+    "certificateId": ""
+  }
+}

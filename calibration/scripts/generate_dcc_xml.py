@@ -100,6 +100,13 @@ def load_input_data(path: Path) -> Dict[str, Any]:
         # and stored outside template_parts at the root of the filled JSON).
         calib_result = raw.get("_calibration_result", {})
         data["_u_budget_per_step"] = calib_result.get("_u_budget_per_step", [])
+        data["_rmse"] = calib_result.get("_rmse", 0.0)
+        data["_calib_model"] = calib_result.get("_calib_model", "linear")
+        # Calibration coefficients for the method statement
+        data["_coeffs"] = {}
+        for k in ("_A", "_B", "_a0", "_a1", "_a2", "_a3"):
+            if k in calib_result:
+                data["_coeffs"][k] = calib_result[k]
         # Physical unit DSI for XML unit elements — read from sensor JSON via orchestrator.
         # Default: "\\degreecelsius" (PTB DCC lowercase convention).
         data["_phys_unit_dsi"] = calib_result.get("_phys_unit_dsi", "\\degreecelsius")
@@ -354,6 +361,41 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         declaration = ET.SubElement(statement, "{https://ptb.de/dcc}declaration")
         _lang_text(declaration, text, "en")
 
+    # Calibration function statement with coefficients and regression uncertainty
+    calib_model = data.get("_calib_model", "linear")
+    rmse = data.get("_rmse", 0.0)
+    coeffs = data.get("_coeffs", {})
+
+    if calib_model == "cubic":
+        _a0 = coeffs.get("_a0", 0)
+        _a1 = coeffs.get("_a1", 0)
+        _a2 = coeffs.get("_a2", 0)
+        _a3 = coeffs.get("_a3", 0)
+        func_text = (
+            f"Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + D*D^3. "
+            f"Coefficients: A={_a0:.6e}, B={_a1:.6e}, "
+            f"C={_a2:.6e}, D={_a3:.6e}."
+        )
+    else:
+        _A = coeffs.get("_A", 0)
+        _B = coeffs.get("_B", 0)
+        func_text = (
+            f"Calibration function (linear): Y = A*D + B. "
+            f"Coefficients: A={_A:.6e}, B={_B:.6e}."
+        )
+    reg_text = (
+        f"Regression uncertainty (expanded, k=2): u_reg = {2.0 * rmse:.2e}. "
+        f"RMSE = {rmse:.2e}."
+    )
+
+    func_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+    func_decl = ET.SubElement(func_statement, "{https://ptb.de/dcc}declaration")
+    _lang_text(func_decl, func_text, "en")
+
+    reg_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+    reg_decl = ET.SubElement(reg_statement, "{https://ptb.de/dcc}declaration")
+    _lang_text(reg_decl, reg_text, "en")
+
     meas_results = ET.SubElement(root, "{https://ptb.de/dcc}measurementResults")
     meas_result = ET.SubElement(meas_results, "{https://ptb.de/dcc}measurementResult")
     result_name = ET.SubElement(meas_result, "{https://ptb.de/dcc}name")
@@ -569,9 +611,9 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     # Each quantity carries one uncertainty component as a realListXMLList so
     # that machine-readable consumers can reconstruct the full GUM budget.
     if u_budget and len(u_budget) == len(rows):
-        uA_ref_list = [b["uA_ref_degC"] for b in u_budget]
-        uA_i_list   = [b["uA_i_degC"]   for b in u_budget]
-        u_c_list    = [b["u_c_degC"]     for b in u_budget]
+        uA_ref_list = [b["uA_ref"]    for b in u_budget]
+        uA_i_list   = [b["uA_sensor"] for b in u_budget]
+        u_c_list    = [b["u_c"]       for b in u_budget]
         k_list      = [b["k"]            for b in u_budget]
 
         # ── Quantity 5: Type A standard uncertainty – reference (PT100) ──
@@ -584,7 +626,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         uA_ref_hybrid = ET.SubElement(uA_ref_q, "{https://ptb.de/si}hybrid")
         uA_ref_real = ET.SubElement(uA_ref_hybrid, "{https://ptb.de/si}realListXMLList")
         _text(uA_ref_real, "{https://ptb.de/si}valueXMLList", _fmt(uA_ref_list, 8))
-        _text(uA_ref_real, "{https://ptb.de/si}unitXMLList", "\\degreecelsius")
+        _text(uA_ref_real, "{https://ptb.de/si}unitXMLList", phys_unit_dsi)
 
         # ── Quantity 6: Type A standard uncertainty – sensor (NTC) ──
         uA_i_q = ET.SubElement(
@@ -596,7 +638,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         uA_i_hybrid = ET.SubElement(uA_i_q, "{https://ptb.de/si}hybrid")
         uA_i_real = ET.SubElement(uA_i_hybrid, "{https://ptb.de/si}realListXMLList")
         _text(uA_i_real, "{https://ptb.de/si}valueXMLList", _fmt(uA_i_list, 8))
-        _text(uA_i_real, "{https://ptb.de/si}unitXMLList", "\\degreecelsius")
+        _text(uA_i_real, "{https://ptb.de/si}unitXMLList", phys_unit_dsi)
 
         # ── Quantity 7: Combined standard uncertainty u_c(E) ──
         u_c_q = ET.SubElement(
@@ -608,7 +650,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         u_c_hybrid = ET.SubElement(u_c_q, "{https://ptb.de/si}hybrid")
         u_c_real = ET.SubElement(u_c_hybrid, "{https://ptb.de/si}realListXMLList")
         _text(u_c_real, "{https://ptb.de/si}valueXMLList", _fmt(u_c_list, 8))
-        _text(u_c_real, "{https://ptb.de/si}unitXMLList", "\\degreecelsius")
+        _text(u_c_real, "{https://ptb.de/si}unitXMLList", phys_unit_dsi)
 
         # ── Quantity 8: Coverage factor k ──
         k_q = ET.SubElement(
@@ -622,6 +664,23 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         _text(k_real, "{https://ptb.de/si}valueXMLList", _fmt(k_list, 1))
         _text(k_real, "{https://ptb.de/si}unitXMLList", "\\one")
 
+    # ── Quantity 9: Regression fit uncertainty (RMSE) ──
+    _rmse_val = data.get("_rmse", 0.0)
+    rmse_q = ET.SubElement(
+        dcc_list, "{https://ptb.de/dcc}quantity",
+        {"refType": "gp_regressionUncertainty"},
+    )
+    rmse_q_name = ET.SubElement(rmse_q, "{https://ptb.de/dcc}name")
+    _lang_text(rmse_q_name, "Regression fit uncertainty RMSE", "en")
+    rmse_hybrid = ET.SubElement(rmse_q, "{https://ptb.de/si}hybrid")
+    rmse_real = ET.SubElement(rmse_hybrid, "{https://ptb.de/si}real")
+    _text(rmse_real, "{https://ptb.de/si}value", f"{_rmse_val:.6e}")
+    _text(rmse_real, "{https://ptb.de/si}unit", phys_unit_dsi)
+    rmse_exp = ET.SubElement(rmse_real, "{https://ptb.de/si}expandedUnc")
+    _text(rmse_exp, "{https://ptb.de/si}uncertainty", f"{2.0 * _rmse_val:.6e}")
+    _text(rmse_exp, "{https://ptb.de/si}coverageFactor", "2.0")
+    _text(rmse_exp, "{https://ptb.de/si}coverageProbability", "0.95")
+
     measurement_metadata = ET.SubElement(
         meas_result, "{https://ptb.de/dcc}measurementMetaData"
     )
@@ -634,7 +693,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate a digital calibration certificate XML from certificato-copy input JSON."
+        description="Generate a digital calibration certificate XML from calibration input JSON."
     )
     parser.add_argument(
         "--input", type=Path, default=DEFAULT_INPUT_JSON, help="Input JSON path"

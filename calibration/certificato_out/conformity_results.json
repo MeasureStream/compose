@@ -1,70 +1,66 @@
 {
   "summary": {
-    "G": "PASS",
-    "A": "FAIL",
-    "B": "PASS",
-    "C": "FAIL",
-    "D": "FAIL",
-    "E": "WARN",
-    "F": "FAIL",
-    "H": "FAIL",
+    "G": "WARN",
+    "A": "PASS",
+    "B": "FAIL",
+    "H": "PASS",
     "calibration_done": "done",
     "overall": "NON CONFORME"
   },
   "check_G": {
-    "status": "PASS",
+    "status": "WARN",
     "calib_model": "linear",
     "note": "Interpolation model: all calibration points are within the declared physical range.",
     "G1_all_in_range": true,
-    "G2_all_covered": true,
+    "G2_all_covered": false,
     "per_point": [
       {
         "punto": 1,
-        "T_ref_degC": 0.26,
-        "M_e_pre_degC": -0.02,
-        "max_allowed_error_degC": 0.45,
+        "T_ref_y": 0.26,
+        "M_e_pre_y": -0.11,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       },
       {
         "punto": 2,
-        "T_ref_degC": 25.14,
-        "M_e_pre_degC": -0.02,
-        "max_allowed_error_degC": 0.3,
+        "T_ref_y": 25.14,
+        "M_e_pre_y": -0.04,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       },
       {
         "punto": 3,
-        "T_ref_degC": 49.67,
-        "M_e_pre_degC": -0.14,
-        "max_allowed_error_degC": 0.3,
+        "T_ref_y": 49.67,
+        "M_e_pre_y": -0.09,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       },
       {
         "punto": 4,
-        "T_ref_degC": 73.98,
-        "M_e_pre_degC": -0.23,
-        "max_allowed_error_degC": 0.45,
+        "T_ref_y": 73.98,
+        "M_e_pre_y": -0.12,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       },
       {
         "punto": 5,
-        "T_ref_degC": 98.3,
-        "M_e_pre_degC": -0.28,
-        "max_allowed_error_degC": 0.9,
+        "T_ref_y": 98.3,
+        "M_e_pre_y": -0.1,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       },
       {
         "punto": 6,
-        "T_ref_degC": 122.12,
-        "M_e_pre_degC": -0.31,
-        "max_allowed_error_degC": 0.9,
+        "T_ref_y": 122.12,
+        "M_e_pre_y": -0.07,
+        "max_allowed_error_y": null,
         "G1_in_range": true,
-        "G2_covered": true
+        "G2_covered": false
       }
     ]
   },
@@ -74,23 +70,23 @@
       "T_ref": 0.26,
       "T_sensor": 0.24,
       "M_e": -0.02,
-      "U_exp": 0.01,
-      "pass": false
+      "U_exp": 0.07,
+      "pass": true
     },
     {
       "punto": 2,
       "T_ref": 25.14,
       "T_sensor": 25.19,
       "M_e": 0.05,
-      "U_exp": 0.01,
-      "pass": false
+      "U_exp": 0.07,
+      "pass": true
     },
     {
       "punto": 3,
       "T_ref": 49.67,
       "T_sensor": 49.66,
       "M_e": -0.0,
-      "U_exp": 0.01,
+      "U_exp": 0.07,
       "pass": true
     },
     {
@@ -98,15 +94,15 @@
       "T_ref": 73.98,
       "T_sensor": 73.95,
       "M_e": -0.03,
-      "U_exp": 0.01,
-      "pass": false
+      "U_exp": 0.07,
+      "pass": true
     },
     {
       "punto": 5,
       "T_ref": 98.3,
       "T_sensor": 98.29,
       "M_e": -0.01,
-      "U_exp": 0.01,
+      "U_exp": 0.07,
       "pass": true
     },
     {
@@ -114,327 +110,142 @@
       "T_ref": 122.12,
       "T_sensor": 122.14,
       "M_e": 0.02,
-      "U_exp": 0.06,
+      "U_exp": 0.09,
       "pass": true
     }
   ],
   "check_B": [
     {
       "punto": 1,
-      "U_exp": 0.01,
-      "limit": 0.1,
-      "excess": -0.09000000000000001,
-      "pass": true
-    },
-    {
-      "punto": 2,
-      "U_exp": 0.01,
-      "limit": 0.1,
-      "excess": -0.09000000000000001,
-      "pass": true
-    },
-    {
-      "punto": 3,
-      "U_exp": 0.01,
-      "limit": 0.1,
-      "excess": -0.09000000000000001,
-      "pass": true
-    },
-    {
-      "punto": 4,
-      "U_exp": 0.01,
-      "limit": 0.1,
-      "excess": -0.09000000000000001,
-      "pass": true
-    },
-    {
-      "punto": 5,
-      "U_exp": 0.01,
-      "limit": 0.1,
-      "excess": -0.09000000000000001,
-      "pass": true
-    },
-    {
-      "punto": 6,
-      "U_exp": 0.06,
-      "limit": 0.1,
-      "excess": -0.04000000000000001,
-      "pass": true
-    }
-  ],
-  "check_C": {
-    "n_punti": 6,
-    "trivial": true,
-    "A_cert": 0.002525,
-    "B_cert": -40.11,
-    "B_cert_degc": -0.10098649576562142,
-    "max_residuo_degc": 0.05000000000000071,
-    "pass": false,
-    "note": "Check limitato: il JSON filled contiene T_sensor post-calibrazione. Per un check genuino di A/B occorrono i dati grezzi LSB pre-calibrazione."
-  },
-  "check_D": [
-    {
-      "punto": 1,
-      "U_exp": 0.008663446674011619,
-      "u_std": 0.0043317233370058095,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.17191975419817213,
-      "frac_B_ref_pct": 5629.182128740844,
-      "frac_B_sensor_pct": 159882.09596423697,
-      "frac_res_pct": 44.41169332339916,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.07,
+      "limit": 0.0,
+      "excess": 0.07,
       "pass": false
     },
     {
       "punto": 2,
-      "U_exp": 0.011183543295467148,
-      "u_std": 0.005591771647733574,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.17065970588744436,
-      "frac_B_ref_pct": 3378.0639466522875,
-      "frac_B_sensor_pct": 95945.01150255017,
-      "frac_res_pct": 26.651392084041717,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.07,
+      "limit": 0.0,
+      "excess": 0.07,
       "pass": false
     },
     {
       "punto": 3,
-      "U_exp": 0.006677327679114718,
-      "u_std": 0.003338663839557359,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.1729128136956206,
-      "frac_B_ref_pct": 9475.918900552027,
-      "frac_B_sensor_pct": 269138.52498609305,
-      "frac_res_pct": 74.76070138502585,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.07,
+      "limit": 0.0,
+      "excess": 0.07,
       "pass": false
     },
     {
       "punto": 4,
-      "U_exp": 0.008814777864248988,
-      "u_std": 0.004407388932124494,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.17184408860305345,
-      "frac_B_ref_pct": 5437.558827584183,
-      "frac_B_sensor_pct": 154439.54066511287,
-      "frac_res_pct": 42.899872406975796,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.07,
+      "limit": 0.0,
+      "excess": 0.07,
       "pass": false
     },
     {
       "punto": 5,
-      "U_exp": 0.008776349547368473,
-      "u_std": 0.004388174773684236,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.1718633027614937,
-      "frac_B_ref_pct": 5485.281107269969,
-      "frac_B_sensor_pct": 155794.96636033047,
-      "frac_res_pct": 43.27637954453624,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.07,
+      "limit": 0.0,
+      "excess": 0.07,
       "pass": false
     },
     {
       "punto": 6,
-      "U_exp": 0.056908279302313645,
-      "u_std": 0.028454139651156823,
-      "u_B_ref": 0.0325,
-      "u_B_sensor": 0.17320508075688773,
-      "u_res": 0.002886751345948129,
-      "u_A_est": 0.0,
-      "u_ricostruita": 0.17625147753517795,
-      "delta": 0.14779733788402113,
-      "frac_B_ref_pct": 130.45952850970193,
-      "frac_B_sensor_pct": 3705.3593896246693,
-      "frac_res_pct": 1.029266497117964,
-      "frac_A_est_pct": 0.0,
+      "U_exp": 0.09,
+      "limit": 0.0,
+      "excess": 0.09,
       "pass": false
-    }
-  ],
-  "check_E": {
-    "k_declared_in_notes": true,
-    "k_nominal": 2.0,
-    "conf_level_pct": 95.0,
-    "u_std_list": [
-      0.0043317233370058095,
-      0.005591771647733574,
-      0.003338663839557359,
-      0.004407388932124494,
-      0.004388174773684236,
-      0.028454139651156823
-    ],
-    "plausible": false,
-    "pass": false
-  },
-  "check_F": [
-    {
-      "punto": 1,
-      "T_ref": 0.26,
-      "T_sensor": 0.24,
-      "M_e_cert": -0.02,
-      "M_e_calc": -0.020000000000000018,
-      "delta_me": 1.734723475976807e-17,
-      "ok_coeff": true,
-      "pass": true
-    },
-    {
-      "punto": 2,
-      "T_ref": 25.14,
-      "T_sensor": 25.19,
-      "M_e_cert": 0.05,
-      "M_e_calc": 0.05000000000000071,
-      "delta_me": 7.077671781985373e-16,
-      "ok_coeff": true,
-      "pass": true
-    },
-    {
-      "punto": 3,
-      "T_ref": 49.67,
-      "T_sensor": 49.66,
-      "M_e_cert": -0.0,
-      "M_e_calc": -0.010000000000005116,
-      "delta_me": 0.010000000000005116,
-      "ok_coeff": true,
-      "pass": false
-    },
-    {
-      "punto": 4,
-      "T_ref": 73.98,
-      "T_sensor": 73.95,
-      "M_e_cert": -0.03,
-      "M_e_calc": -0.030000000000001137,
-      "delta_me": 1.1379786002407855e-15,
-      "ok_coeff": true,
-      "pass": true
-    },
-    {
-      "punto": 5,
-      "T_ref": 98.3,
-      "T_sensor": 98.29,
-      "M_e_cert": -0.01,
-      "M_e_calc": -0.009999999999990905,
-      "delta_me": 9.0951551845464e-15,
-      "ok_coeff": true,
-      "pass": true
-    },
-    {
-      "punto": 6,
-      "T_ref": 122.12,
-      "T_sensor": 122.14,
-      "M_e_cert": 0.02,
-      "M_e_calc": 0.01999999999999602,
-      "delta_me": 3.9794556538907955e-15,
-      "ok_coeff": true,
-      "pass": true
     }
   ],
   "check_H": [
     {
       "punto": 1,
-      "T_ref_degC": 0.26,
-      "M_e_pre_degC": -0.02,
-      "Ein": -0.06666666666666667,
-      "U_exp_degC": 0.01,
-      "u_std_degC": 0.005,
-      "u_Ein": 0.016666666666666666,
+      "T_ref_y": 0.26,
+      "M_e_pre_y": -0.11,
+      "Ein": -0.3666666666666667,
+      "U_exp_y": 0.07,
+      "u_std_y": 0.035,
+      "u_Ein": 0.11666666666666668,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 0.0,
+      "MAE_y": 0.3,
+      "PFA_pct": 2.8403455328257937e-06,
       "PFA_threshold_pct": 20.0,
       "pass": true
     },
     {
       "punto": 2,
-      "T_ref_degC": 25.14,
-      "M_e_pre_degC": -0.02,
-      "Ein": -0.06666666666666667,
-      "U_exp_degC": 0.01,
-      "u_std_degC": 0.005,
-      "u_Ein": 0.016666666666666666,
+      "T_ref_y": 25.14,
+      "M_e_pre_y": -0.04,
+      "Ein": -0.13333333333333333,
+      "U_exp_y": 0.07,
+      "u_std_y": 0.035,
+      "u_Ein": 0.11666666666666668,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 0.0,
+      "MAE_y": 0.3,
+      "PFA_pct": 5.488839836893166e-12,
       "PFA_threshold_pct": 20.0,
       "pass": true
     },
     {
       "punto": 3,
-      "T_ref_degC": 49.67,
-      "M_e_pre_degC": -0.14,
-      "Ein": -0.46666666666666673,
-      "U_exp_degC": 0.01,
-      "u_std_degC": 0.005,
-      "u_Ein": 0.016666666666666666,
+      "T_ref_y": 49.67,
+      "M_e_pre_y": -0.09,
+      "Ein": -0.3,
+      "U_exp_y": 0.07,
+      "u_std_y": 0.035,
+      "u_Ein": 0.11666666666666668,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 5.452080603513015e-223,
+      "MAE_y": 0.3,
+      "PFA_pct": 9.865876450377019e-08,
       "PFA_threshold_pct": 20.0,
       "pass": true
     },
     {
       "punto": 4,
-      "T_ref_degC": 73.98,
-      "M_e_pre_degC": -0.23,
-      "Ein": -0.7666666666666667,
-      "U_exp_degC": 0.01,
-      "u_std_degC": 0.005,
-      "u_Ein": 0.016666666666666666,
+      "T_ref_y": 73.98,
+      "M_e_pre_y": -0.12,
+      "Ein": -0.4,
+      "U_exp_y": 0.07,
+      "u_std_y": 0.035,
+      "u_Ein": 0.11666666666666668,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 7.793536819193025e-43,
+      "MAE_y": 0.3,
+      "PFA_pct": 1.3529569097540808e-05,
       "PFA_threshold_pct": 20.0,
       "pass": true
     },
     {
       "punto": 5,
-      "T_ref_degC": 98.3,
-      "M_e_pre_degC": -0.28,
-      "Ein": -0.9333333333333335,
-      "U_exp_degC": 0.01,
-      "u_std_degC": 0.005,
-      "u_Ein": 0.016666666666666666,
+      "T_ref_y": 98.3,
+      "M_e_pre_y": -0.1,
+      "Ein": -0.33333333333333337,
+      "U_exp_y": 0.07,
+      "u_std_y": 0.035,
+      "u_Ein": 0.11666666666666668,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 0.00316712418331209,
+      "MAE_y": 0.3,
+      "PFA_pct": 5.50828854851974e-07,
       "PFA_threshold_pct": 20.0,
       "pass": true
     },
     {
       "punto": 6,
-      "T_ref_degC": 122.12,
-      "M_e_pre_degC": -0.31,
-      "Ein": -1.0333333333333334,
-      "U_exp_degC": 0.06,
-      "u_std_degC": 0.03,
-      "u_Ein": 0.1,
+      "T_ref_y": 122.12,
+      "M_e_pre_y": -0.07,
+      "Ein": -0.23333333333333336,
+      "U_exp_y": 0.09,
+      "u_std_y": 0.045,
+      "u_Ein": 0.15,
       "u_std_mode": "combined",
-      "MAE_degC": 0.3,
-      "PFA_pct": 63.05586598182368,
+      "MAE_y": 0.3,
+      "PFA_pct": 1.6013476985516383e-05,
       "PFA_threshold_pct": 20.0,
-      "pass": false
+      "pass": true
     }
   ],
   "check_H_params": {
-    "mae_degc": 0.3,
+    "mae_y": 0.3,
     "pfa_threshold_pct": 20.0,
     "u_std_mode": "combined"
   }

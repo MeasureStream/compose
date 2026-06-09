@@ -3,7 +3,7 @@ certificato_funzione.py
 =======================
 Variante NTC_FUNZIONE del generatore di certificati di taratura.
 
-Differenze rispetto a certificato-copy.py (versione originale):
+Differenze rispetto alla versione originale del generatore PDF:
 - Pagina 3: tabella a 6 colonne in °C + LSB grezzo
   (Point, T_ref/°C, T_c/°C, D/LSB, M_e/°C, U(E)/°C)
   - Colonne Ohm e dR rimosse
@@ -41,16 +41,14 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# ============================================================
-# Variable data from input JSON
-# ============================================================
+
 DEFAULT_INPUT_JSON = Path(__file__).with_name("certificato_funzione_filled.json")
 
 CERTIFICATE_PARAMS: Dict[str, Any] = {}
 ORG: Dict[str, Any] = {}
 CERT: Dict[str, Any] = {}
 MEASUREMENTS: List[List[float]] = []
-NTC_MODEL: Dict[str, Any] = {}
+SENSOR_MODEL: Dict[str, Any] = {}
 PDF_TEMPLATE_DATA: Dict[str, Any] = {}
 CALIBRATION_RESULT: Dict[str, Any] = {}
 PHYS_UNIT_SYMBOL: str = "\u00b0C"   # default; overridden from JSON at load time
@@ -78,7 +76,7 @@ def _expand_template_parts(
     notes_data = sensor.get("_notes_computed", sensor.get("notes_template", []))
     expanded_uncertainties = calibration_result.get(
         "_expanded_uncertainties",
-        calibration_result.get("_expanded_uncertainties_degC", []),  # compat
+        calibration_result.get("_expanded_uncertainties_phys", []),
     )
     # Physical unit symbol (e.g. "°C" or "K") — written into the JSON by the
     # orchestrator from the sensor JSON ranges.phys.dsi field.
@@ -152,7 +150,7 @@ def _expand_template_parts(
         "org": company,
         "cert": cert,
         "measurements": measurements_data,
-        "ntc_model": sensor.get("ntc_model", {}),
+        "sensor_model": sensor.get("sensor_model", sensor.get("ntc_model", {})),
         "pdf_template_data": pdf_template,
         "calibration_result": calibration_result,
         "phys_unit_symbol": _unit_sym,
@@ -173,13 +171,13 @@ def load_input_data(json_path: Path) -> Dict[str, Any]:
 
 
 def configure_from_input(data: Dict[str, Any]) -> None:
-    global CERTIFICATE_PARAMS, ORG, CERT, MEASUREMENTS, NTC_MODEL, PDF_TEMPLATE_DATA, CALIBRATION_RESULT, PHYS_UNIT_SYMBOL
+    global CERTIFICATE_PARAMS, ORG, CERT, MEASUREMENTS, SENSOR_MODEL, PDF_TEMPLATE_DATA, CALIBRATION_RESULT, PHYS_UNIT_SYMBOL
 
     CERTIFICATE_PARAMS = data["certificate_params"]
     ORG = data["org"]
     CERT = data["cert"]
     MEASUREMENTS = data["measurements"]
-    NTC_MODEL = data.get("ntc_model", {})
+    SENSOR_MODEL = data.get("sensor_model", data.get("ntc_model", {}))
     PDF_TEMPLATE_DATA = data["pdf_template_data"]
     CALIBRATION_RESULT = data.get("calibration_result", {})
     PHYS_UNIT_SYMBOL = data.get(
@@ -188,9 +186,7 @@ def configure_from_input(data: Dict[str, Any]) -> None:
     )
 
 
-# ============================================================
 # Layout helpers
-# ============================================================
 
 def mmv(value: float) -> float:
     return value * mm
@@ -519,7 +515,8 @@ def build_story(styles):
         if me_pre is not None:
             data_row.append(p(f"<font size='8'>{fmt_dec(me_pre, 2)}</font>", styles["table"]))
         data_row.append(p(f"<font size='8'>{fmt_dec(me_post, 2)}</font>", styles["table"]))
-        data_row.append(p(f"<font size='8'>{fmt_sci_sig(u_exp)}</font>", styles["table"]))
+        u_exp_fmt = "0" if u_exp == 0.0 else f"{u_exp:.1e}".replace(".", ",")
+        data_row.append(p(f"<font size='8'>{u_exp_fmt}</font>", styles["table"]))
         rows.append(data_row)
 
     # Column widths — scale to fit A4 body (173 mm usable)
@@ -579,8 +576,14 @@ def build_story(styles):
     story.append(Spacer(1, mmv(4)))
 
     # Identificazione della F. taratura e sua espressione
+    _calib_model = CALIBRATION_RESULT.get("_calib_model", SENSOR_MODEL.get("_calib_model", "linear"))
+    if _calib_model == "cubic":
+        model_desc = "cubic polynomial"
+    else:
+        model_desc = "linear"
+
     story.append(p(
-        f"<font size='8.6'>After having identified the calibration function, the linear calibration function is:</font>",
+        f"<font size='8.6'>After having identified the calibration function, the {model_desc} calibration function is:</font>",
         styles["body"],
     ))
     story.append(Spacer(1, mmv(3)))
@@ -590,36 +593,57 @@ def build_story(styles):
         "page4_intro_text",
         "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:",
     )
+    if _calib_model == "cubic" and intro_p4 == "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:":
+        intro_p4 = "Nella seguente tabella sono riportati i coefficienti dell'equazione cubica di taratura:"
     story.append(p(f"<font size='8.6'>{intro_p4}</font>", styles["body"]))
     story.append(Spacer(1, mmv(2)))
 
-    # Equazione T = A · D + B
-    cal_formula = NTC_MODEL.get("calibration_formula", "T = A · D + B")
+    # Equazione — lineare o cubica
+    if _calib_model == "cubic":
+        cal_formula = "T = A + B \u00b7 D + C \u00b7 D\u00b2 + D \u00b7 D\u00b3"
+    else:
+        cal_formula = SENSOR_MODEL.get("calibration_formula", "T = A \u00b7 D + B")
     story.append(p(f"<para align='center'><font size='10'><b>{cal_formula}</b></font></para>", styles["body"]))
     story.append(Spacer(1, mmv(4)))
 
-    # Tabella coefficienti — include interpolation uncertainty + A, B/°C.
-    # Interpolation uncertainty is shown as:
-    #   sum abs = u_abs(Fluke) + u_abs(NTC converted in degC)
-    #   fixed (2 cifre significative)
+    # Helper: scientific notation with N significant digits
+    def _fmt_sci(val: float, sig: int = 4) -> str:
+        if val == 0.0:
+            return "0"
+        return f"{val:.{sig - 1}e}".replace(".", ",")
+
+    # Tabella coefficienti
     coeff_headers = text_cfg.get("coeff_table_headers", ["Parameter", "Value"])
     coeff_labels = text_cfg.get("coeff_labels", {})
 
-    interp_sum_abs_degC = float(CALIBRATION_RESULT.get("_interp_unc_sum_abs_degC", 0.0))
-    interp_fixed_2sig_degC = float(
-        CALIBRATION_RESULT.get("_interp_unc_fixed_2sig_degC", interp_sum_abs_degC)
-    )
-    interp_unc_text = f"{fmt_sci_sig(interp_fixed_2sig_degC)} {PHYS_UNIT_SYMBOL}"
+    # Regression uncertainty = 2 * RMSE, 2 significant digits
+    rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
+    reg_unc_val = 2.0 * rmse_val
+    reg_unc_text = f"{fmt_sci_sig(reg_unc_val)} {PHYS_UNIT_SYMBOL}"
 
-    # Use unit-agnostic key _B_cal_phys, fall back to legacy _B_cal_degC
-    _B_cal_display = NTC_MODEL.get("_B_cal_phys", NTC_MODEL.get("_B_cal_degC", 0))
+    if _calib_model == "cubic":
+        _a0 = SENSOR_MODEL.get("_a0", 0)
+        _a1 = SENSOR_MODEL.get("_a1", 0)
+        _a2 = SENSOR_MODEL.get("_a2", 0)
+        _a3 = SENSOR_MODEL.get("_a3", 0)
 
-    cal_coeff_data = [
-        [coeff_headers[0], coeff_headers[1]],
-        [coeff_labels.get("interp", "Interpolation uncertainty"), interp_unc_text],
-        [f"A / ({PHYS_UNIT_SYMBOL}/LSB)", f"{NTC_MODEL.get('_A_cal', 0):.10f}".rstrip("0").rstrip(".")],
-        [f"B / {PHYS_UNIT_SYMBOL}", f"{_B_cal_display:.10f}".rstrip("0").rstrip(".")],
-    ]
+        cal_coeff_data = [
+            [coeff_headers[0], coeff_headers[1]],
+            [coeff_labels.get("interp", "Regression uncertainty"), reg_unc_text],
+            [f"A / {PHYS_UNIT_SYMBOL}", _fmt_sci(_a0, 3)],
+            [f"B / ({PHYS_UNIT_SYMBOL}/LSB)", _fmt_sci(_a1, 3)],
+            [f"C / ({PHYS_UNIT_SYMBOL}/LSB\u00b2)", _fmt_sci(_a2, 3)],
+            [f"D / ({PHYS_UNIT_SYMBOL}/LSB\u00b3)", _fmt_sci(_a3, 3)],
+        ]
+    else:
+        _B_cal_display = SENSOR_MODEL.get("_B_cal", 0)
+
+        cal_coeff_data = [
+            [coeff_headers[0], coeff_headers[1]],
+            [coeff_labels.get("interp", "Regression uncertainty"), reg_unc_text],
+            [f"A / ({PHYS_UNIT_SYMBOL}/LSB)", _fmt_sci(SENSOR_MODEL.get('_A_cal', 0), 3)],
+            [f"B / {PHYS_UNIT_SYMBOL}", _fmt_sci(_B_cal_display, 3)],
+        ]
 
     cal_coeff_tbl = Table(cal_coeff_data, colWidths=[mmv(55), mmv(90)], hAlign="LEFT")
     cal_coeff_tbl.setStyle(

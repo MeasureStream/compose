@@ -167,9 +167,9 @@ if `sigma ≤ 0` → step function (1.0 if x ≥ mu else 0.0).
 
 ---
 
-## difference from run_validation.py
+## difference from checks_helper.py
 
-| aspect | run_validation.py | verify_dcc_conformity.py |
+| aspect | checks_helper.py | verify_dcc_conformity.py |
 |--------|------------------------|--------------------------|
 | input | filled cert json (`certificato_funzione_filled.json`) | dcc xml (`ntc_calibration_certificate.xml`) |
 | checks | G, A, B, H (4 checks) | G, H, overlap (3 checks) |

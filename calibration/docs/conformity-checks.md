@@ -1,15 +1,20 @@
-# Conformity Checks — verifica_conformita.py
+# Conformity Checks — checks_helper.py / verifica_conformita.py
 
-> Keep aligned with `scripts/verifica_conformita.py`. Update when check logic changes.
+> Keep aligned with `scripts/checks_helper.py` and `scripts/verifica_conformita.py`. Update when check logic changes.
 
 ---
 
 ## Overview
 
-`verifica_conformita.py` is a standalone post-pipeline tool. It reads
-`certificato_funzione_filled.json` (produced by `analisi_calib_data.py`) and
-runs seven metrological checks (G then A–F), printing a PASS / WARN / FAIL / N/A
+`checks_helper.py` provides the conformity check library invoked inline by
+`analisi_calib_data.py`. `verifica_conformita.py` is a standalone post-pipeline CLI
+that reads `certificato_funzione_filled.json` and runs the same checks. Both run
+four metrological checks (G, A, B, H), printing a PASS / WARN / FAIL / N/A
 report to stdout.
+
+A third module, `verify_dcc_conformity.py`, is a standalone DCC XML verifier that
+parses PTB DCC 3.3.0 XML and runs a different subset of checks (G, H, overlap).
+See [verify-dcc-conformity.md](verify-dcc-conformity.md).
 
 ```
 python scripts/verifica_conformita.py \
@@ -34,14 +39,13 @@ python scripts/verifica_conformita.py \
 | `EPSILON_B_DEGC` | 1×10⁻⁴ °C | Numerical tolerance on B comparison |
 
 The uncertainty limit against which Check B is judged is read from
-`SENSOR_model.uncertainty_limit` in `VAR_REF_SENSOR.py` (value: `"within 0.10 C"`
-→ 0.10 °C).
+`sensor_json.metrology.Uncertainty[0].absUncertainty` (value: 0.10 °C).
 
 ---
 
 ## Check H — Probability of False Acceptance (PFA)
 
-**Added in:** current version — runs after G and the existing A–F checks.
+**Added in:** current version — runs after G, A, B.
 
 **Purpose:** Quantifies the statistical risk that the true as-found sensor error
 exceeds the Maximum Accepted Error (MAE) even when the measured error appears
@@ -142,7 +146,7 @@ entries whose `[tempMin, tempMax]` interval contains `T_ref_i`.
 - For **interpolation** procedures (`linear`, `qubic-interpolation`) the
   calibration points are by construction inside the declared physical range and
   will always be covered by at least one `sensorAccuracy` entry.
-- For **regression** procedures (`cubic`, `cube-log`) extrapolation is possible:
+- For **regression** procedures (`cubic`) extrapolation is possible:
   a point outside every declared range gets `maxError = +inf` and is treated as
   uncovered (G2 WARN, G1 unevaluable).
 
@@ -295,6 +299,8 @@ not stored there. Only plausibility checks are performed.
 
 ## Expected outcomes (ideal 6-point dataset)
 
+Eight checks are run:
+
 | Check | Expected | Notes |
 |---|---|---|
 | G — sensorAccuracy as-found | **PASS** (interpolation) / **WARN** (regression extrapolation) | G1 always passes if as-found error ≤ maxError; G2 warns for out-of-range regression points |
@@ -361,8 +367,8 @@ as four additional `dcc:quantity` elements inside the calibration table list:
 | `gp_combinedStandardUncertainty` | Combined standard uncertainty `u_c(E) = √(u(T_ref)² + u(T_i)²)` [°C] |
 | `gp_coverageFactor` | Coverage factor `k = 2` (dimensionless, `\one`) |
 
-These are emitted only for the `linear` calibration model (cubic/cube-log do not produce
-a per-step budget yet). When the budget is absent (no `_u_budget_per_step` in the filled
+These are emitted for the `linear` and `cubic` calibration models.
+When the budget is absent (no `_u_budget_per_step` in the filled
 JSON) the four quantities are silently omitted.
 
 The relationship to the existing Quantity 4 (M_e_post + `si:expandedUncXMLList`) is:

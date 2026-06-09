@@ -248,8 +248,8 @@ def print_results_report(
 
     print("\n  EXTRACTED DATA FROM DCC XML:")
     print(
-        f"  {'Pt':>3}  {'T_ref [degC]':>12}  {'T_sensor [degC]':>14}  "
-        f"{'M_e_pre [degC]':>13}  {'M_e_post [degC]':>14}  {'U_sensor [degC]':>12}"
+        f"  {'Pt':>3}  {'T_ref':>12}  {'T_sensor':>14}  "
+        f"{'M_e_pre':>13}  {'M_e_post':>14}  {'U_sensor':>12}"
     )
     print(f"  {'-'*3}  {'-'*12}  {'-'*14}  {'-'*13}  {'-'*14}  {'-'*12}")
     for i in range(len(t_ref)):
@@ -265,7 +265,7 @@ def print_results_report(
     if g_res["status"] == NA:
         print(f"  Status: {NA} (No sensor model accuracy ranges loaded)")
     else:
-        print(f"  {'Pt':>3}  {'T_ref [degC]':>12}  {'M_e_pre [degC]':>13}  {'Limit [degC]':>12}  {'G1 (In Limit)':>13}  {'G2 (Covered)':>12}")
+        print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'Limit':>12}  {'G1 (In Limit)':>13}  {'G2 (Covered)':>12}")
         print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*13}  {'-'*12}")
         for pt in g_res["details"]:
             lim_str = f"+/-{pt['max_allowed_error']:.4f}" if pt["max_allowed_error"] is not None else "N/A"
@@ -275,9 +275,9 @@ def print_results_report(
     h_res = results["check_h"]
     print("\n" + _hr("-"))
     print(f"  [H] PROBABILITY OF FALSE ACCEPTANCE (PFA)")
-    print(f"      MAE = +/-{mae:.3f} degC,  PFA Acceptance Threshold = {pfa_threshold:.1f} %")
+    print(f"      MAE = +/-{mae:.3f},  PFA Acceptance Threshold = {pfa_threshold:.1f} %")
     print(_hr("-"))
-    print(f"  {'Pt':>3}  {'T_ref [degC]':>12}  {'M_e_pre [degC]':>13}  {'u_std [degC]':>12}  {'PFA [%]':>11}  {'Verdict':>10}")
+    print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'u_std':>12}  {'PFA [%]':>11}  {'Verdict':>10}")
     print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*11}  {'-'*10}")
     for pt in h_res["details"]:
         print(f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {pt['u_std']:>12.4f}  {pt['pfa_pct']:>10.1f}%  {PASS if pt['pass'] else FAIL:>10}")
@@ -286,13 +286,13 @@ def print_results_report(
     overlap_res = results["check_overlap"]
     print("\n" + _hr("-"))
     print(f"  UNCERTAINTIES OVERLAP & COMPATIBILITY CHECK")
-    print(f"  Reference Expanded Uncertainty (U_ref) = {u_ref:.4f} degC (k=2)")
+    print(f"  Reference Expanded Uncertainty (U_ref) = {u_ref:.4f} (k=2)")
     print(_hr("-"))
     print(
-        f"  {'Pt':>3}  {'T_ref [degC]':>12}  {'T_sensor [degC]':>14}  "
-        f"{'|Diff| [degC]':>12}  {'Simple Overlap':>15}  {'RSS Compat.':>12}"
+        f"  {'Pt':>3}  {'T_ref':>12}  {'T_sensor':>14}  "
+        f"{'|Diff|':>12}  {'Simple Overlap':>15}  {'RSS Compat.':>12}"
     )
-    print(f"  {'-'*3}  {'-'*12}  {'-'*14}  {'-'*12}  {'-'*15}  {'-'*12}")
+    print(f"  {'-'*3}  {'-'*12}  {'-'*14}  {'-'*12}  {'-'*15}  {'-'*10}")
     for pt in overlap_res["details"]:
         print(
             f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['t_sns']:>14.4f}  "
@@ -326,12 +326,10 @@ def save_charts(
     mae: float,
     pfa_threshold_pct: float,
     u_ref: float,
+    model_label: str = "Calibration model",
+    variant: str = "funzione",
 ) -> List[str]:
-    """
-    Generate and save conformity verification charts as PNG files.
 
-    Returns a list of saved file paths (as strings).
-    """
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -359,13 +357,15 @@ def save_charts(
     def _status_color(s: str) -> str:
         return COLOR_PASS if s == PASS else (COLOR_WARN if s == WARN else (COLOR_FAIL if s == FAIL else "#95a5a6"))
 
+    UNIT = "°C"
+
     # ── Fig 1: PFA Bar Chart (Check H) ────────────────────────────────────
     h_res = results["check_h"]
     if h_res["details"]:
         fig, ax = plt.subplots(figsize=(10, 5))
         pfas = [d["pfa_pct"] for d in h_res["details"]]
         colors = [COLOR_PASS if d["pass"] else COLOR_FAIL for d in h_res["details"]]
-        labels = [f"Pt {d['index']}\n{d['t_ref']:.1f}°C" for d in h_res["details"]]
+        labels = [f"Pt {d['index']}\n{d['t_ref']:.1f}{UNIT}" for d in h_res["details"]]
 
         bars = ax.bar(labels, pfas, color=colors, edgecolor="white", linewidth=0.8, zorder=3)
         ax.axhline(pfa_threshold_pct, color="#e74c3c", linewidth=1.5, linestyle="--",
@@ -378,7 +378,8 @@ def save_charts(
 
         ax.set_xlabel("Calibration Point", fontsize=11)
         ax.set_ylabel("PFA [%]", fontsize=11)
-        ax.set_title("[H] Probability of False Acceptance per Point", fontsize=13, fontweight="bold")
+        ax.set_title(f"[H] Probability of False Acceptance per Point — {model_label}",
+                     fontsize=13, fontweight="bold")
         ax.set_ylim(bottom=0, top=max(max(pfas) * 1.25, pfa_threshold_pct * 1.5))
         ax.grid(axis="y", alpha=0.4, zorder=0)
         ax.legend(fontsize=10)
@@ -410,15 +411,16 @@ def save_charts(
 
     ax.axhline(0, color="black", linewidth=0.8, linestyle="-", zorder=2)
     ax.axhline(mae, color="#e74c3c", linewidth=1.2, linestyle="--",
-               label=f"+MAE = +{mae:.3f}°C", zorder=3)
+               label=f"+MAE = +{mae:.3f}{UNIT}", zorder=3)
     ax.axhline(-mae, color="#e74c3c", linewidth=1.2, linestyle="--",
-               label=f"-MAE = -{mae:.3f}°C", zorder=3)
+               label=f"-MAE = -{mae:.3f}{UNIT}", zorder=3)
 
     ax.set_xticks(pts)
-    ax.set_xticklabels([f"Pt {i}\n{t:.1f}°C" for i, t in zip(pts, t_ref)], fontsize=8)
+    ax.set_xticklabels([f"Pt {i}\n{t:.1f}{UNIT}" for i, t in zip(pts, t_ref)], fontsize=8)
     ax.set_xlabel("Calibration Point", fontsize=11)
-    ax.set_ylabel("Measurement Error [°C]", fontsize=11)
-    ax.set_title("Pre/Post Calibration Errors with Expanded Uncertainty", fontsize=13, fontweight="bold")
+    ax.set_ylabel(f"Measurement Error [{UNIT}]", fontsize=11)
+    ax.set_title(f"Pre/Post Calibration Errors with Expanded Uncertainty — {model_label}",
+                 fontsize=13, fontweight="bold")
     ax.legend(fontsize=9)
     ax.grid(alpha=0.4, zorder=0)
     fig.tight_layout()
@@ -452,10 +454,11 @@ def save_charts(
             ax.get_children()[i].set_linewidth(1.5 if not ok else 0.5)
 
         ax.set_xticks(pts)
-        ax.set_xticklabels([f"Pt {i}\n{t:.1f}°C" for i, t in zip(pts, t_ref)], fontsize=8)
+        ax.set_xticklabels([f"Pt {i}\n{t:.1f}{UNIT}" for i, t in zip(pts, t_ref)], fontsize=8)
         ax.set_xlabel("Calibration Point", fontsize=11)
-        ax.set_ylabel("Temperature [°C]", fontsize=11)
-        ax.set_title("Uncertainty Overlap & Compatibility Check", fontsize=13, fontweight="bold")
+        ax.set_ylabel(f"Temperature [{UNIT}]", fontsize=11)
+        ax.set_title(f"Uncertainty Overlap & Compatibility Check — {model_label}",
+                     fontsize=13, fontweight="bold")
         ax.legend(fontsize=9)
         ax.grid(axis="y", alpha=0.4, zorder=0)
         fig.tight_layout()
@@ -496,9 +499,10 @@ def save_charts(
                           color="#e74c3c", linewidth=0.6, alpha=0.5, zorder=2)
 
         ax.axhline(0, color="black", linewidth=0.8, zorder=2)
-        ax.set_xlabel("Reference Temperature [°C]", fontsize=11)
-        ax.set_ylabel("As-Found Error M_e_pre [°C]", fontsize=11)
-        ax.set_title("[G] Sensor Accuracy As-Found Conformity", fontsize=13, fontweight="bold")
+        ax.set_xlabel(f"Reference Temperature [{UNIT}]", fontsize=11)
+        ax.set_ylabel(f"As-Found Error M_e_pre [{UNIT}]", fontsize=11)
+        ax.set_title(f"[G] Sensor Accuracy As-Found Conformity — {model_label} ({variant})",
+                     fontsize=13, fontweight="bold")
 
         pass_patch = mpatches.Patch(color=COLOR_PASS, label="In limit (PASS)")
         fail_patch = mpatches.Patch(color=COLOR_FAIL, label="Out of limit (FAIL)")
@@ -522,7 +526,7 @@ def main() -> None:
     parser.add_argument("--xml",    type=Path, required=True)
     parser.add_argument(
         "--sensor", type=Path,
-        default=Path(__file__).resolve().parent.parent / "models_in" / "ntc_temperature.json",
+        default=Path(__file__).resolve().parent.parent / "models_in" / "sensors" / "ntc_temperature.json",
     )
     parser.add_argument("--mae",           type=float, default=0.10)
     parser.add_argument("--pfa-threshold", type=float, default=20.0)

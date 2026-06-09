@@ -2,3 +2,6 @@
 connect-plugins/*
 gateway/*
 mqtt-source.json
+*.jpg
+*.png
+*.pdf

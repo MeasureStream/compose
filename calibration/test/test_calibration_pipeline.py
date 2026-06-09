@@ -1,13 +1,13 @@
 """
 test_calibration_pipeline.py
 ============================
-Integration tests for the NTC calibration pipeline.
+Integration tests for the calibration pipeline.
 
 Pipeline under test
 -------------------
     1. analisi_calib_data  (orchestrator)
-       -> NTC_linear_calibration.calibrate()
-       -> _build_certificato_filled()
+       -> model_calibration.linear_calibration.calibrate()
+       -> _build_cert_filled()
        -> certificato_funzione (PDF)
        -> generate_dcc_xml (DCC XML)
 
@@ -30,10 +30,10 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
+
 # Path bootstrap — give every test access to calibration/scripts/ and
 # calibration/models_in/ without needing an installed package.
-# ---------------------------------------------------------------------------
+
 TESTS_DIR   = Path(__file__).resolve().parent          # calibration/test/
 CALIB_ROOT  = TESTS_DIR.parent                         # calibration/
 SCRIPTS_DIR = CALIB_ROOT / "scripts"
@@ -43,16 +43,16 @@ DATA_DIR    = TESTS_DIR / "data_in"
 MODELS_TEST_DIR = TESTS_DIR / "models_in"
 OUT_DIR     = CALIB_ROOT / "certificato_out"
 
-for p in (str(SCRIPTS_DIR), str(MODELS_DIR)):
+for p in (str(SCRIPTS_DIR),):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-# ---------------------------------------------------------------------------
+
 # Fixtures / constants
-# ---------------------------------------------------------------------------
+
 INPUT_JSON      = DATA_DIR / "export2_tmp126_lsb16.json"
-SENSOR_JSON     = MODELS_DIR / "ntc_temperature.json"
-REF_JSON        = MODELS_DIR / "fluke_9142.json"
+SENSOR_JSON     = MODELS_DIR / "sensors" / "ntc_temperature.json"
+REF_JSON        = MODELS_DIR / "references" / "fluke_9142.json"
 CERT_INPUT_JSON = TEMPLATE_DIR / "certificato_funzione_input.json"
 CERT_OUT_JSON   = OUT_DIR / "certificato_funzione_filled_test.json"
 PDF_OUT         = str(OUT_DIR / "ntc_cert_funzione_test.pdf")
@@ -67,12 +67,11 @@ LSB_PER_C = ADC_MAX / LSB_SPAN
 
 SAMPLE_SIZE = 20
 
-# Expanded uncertainty tolerance: allow ±5 % relative from run to run
 U_EXP_REL_TOL = 0.05
 
-# ---------------------------------------------------------------------------
+
 # Helpers
-# ---------------------------------------------------------------------------
+
 
 def _lsb_scale_sensor_info():
     return {"minPhysVal": LSB_MIN, "maxPhysVal": LSB_MAX}
@@ -83,20 +82,12 @@ def _load_payload():
 
 
 def _load_calib_result():
-    """Run the calibration module and return its result dict."""
-    from NTC_linear_calibration import calibrate
-    from VAR_REF_SENSOR import VAR_extra
+    from model_calibration.linear_calibration import calibrate
 
-    extra = VAR_extra()
-    U_pt_c   = extra._U_pt_c
-    k_pt     = extra._k_pt
-    ub_pt_c  = U_pt_c / k_pt
-    ub_pt_lsb = ub_pt_c * LSB_PER_C
-
-    import numpy as np
-    d_tmp126_c = extra._d_tmp126_c
-    ub_tmp_c   = d_tmp126_c / np.sqrt(3.0)
-    ub_tmp_lsb = ub_tmp_c * LSB_PER_C
+    ub_ref_y = 0.0325   # reference type-B std uncertainty [°C]
+    sensor_json = json.loads(SENSOR_JSON.read_text(encoding="utf-8"))
+    _sensor_ru = sensor_json.get("metrology", {}).get("readingUncertainty", [])
+    ub_sensor_lsb = float(next((it["value"] for it in _sensor_ru if it.get("varName") == "uB"), 0.30))
 
     payload = _load_payload()
     return calibrate(
@@ -104,8 +95,8 @@ def _load_calib_result():
         lsb_scale_sensor_info=_lsb_scale_sensor_info(),
         sample_size=SAMPLE_SIZE,
         adc_max=ADC_MAX,
-        ub_pt_lsb=ub_pt_lsb,
-        ub_tmp_lsb=ub_tmp_lsb,
+        ub_ref_y=ub_ref_y,
+        ub_sensor_lsb=ub_sensor_lsb,
         verbose=False,
     )
 
@@ -142,20 +133,25 @@ class TestInputData:
         for step in payload["steps"]:
             assert pattern.match(step), f"Bad step format: {step!r}"
 
-    def test_var_ref_sensor_importable(self):
-        from VAR_REF_SENSOR import SENSOR_model, RIFERIMENTO_model, VAR_extra
-        s = SENSOR_model()
-        assert s.R25 == pytest.approx(10000.0)
-        assert s.B25_85 == pytest.approx(3950.0)
-        assert s._minPhyThreshold == pytest.approx(-40.0)
-        assert s._maxPhyThreshold == pytest.approx(105.0)
+    def test_sensor_json_defaults(self):
+        sensor_json = json.loads(SENSOR_JSON.read_text(encoding="utf-8"))
+        assert sensor_json.get("calibration", {}).get("calibrationCoefficients", {}).get("A", {}).get("dsi") == "\\degreeCelsius"
+        _threshold = sensor_json.get("ranges", {}).get("threshold", {})
+        assert _threshold.get("min") == pytest.approx(-40.0)
+        assert _threshold.get("max") == pytest.approx(105.0)
 
 
 # ===========================================================================
-# 2. Calibration module (NTC_linear_calibration)
+# 2. Calibration module (model_calibration.linear_calibration)
 # ===========================================================================
 
-class TestNTCLinearCalibration:
+# Mixed-domain: X [LSB] sensor, Y [physical unit] reference.
+# A [unit/LSB] ≈ LSB_SPAN / ADC_MAX ≈ 0.00221 °C/LSB
+# B [unit]     ≈ LSB_MIN + small offset ≈ near -40 °C
+_NOMINAL_A = LSB_SPAN / ADC_MAX   # expected gain ~0.002213 °C/LSB
+
+
+class TestLinearCalibration:
     @pytest.fixture(scope="class")
     def result(self):
         return _load_calib_result()
@@ -163,7 +159,8 @@ class TestNTCLinearCalibration:
     def test_returns_required_keys(self, result):
         required = {"A", "B", "u_A", "u_B", "cov_AB",
                     "temp_nominali", "dati_raw", "risultati_elaborati",
-                    "expanded_uncertainties", "ref_temp_means", "lsb_per_c"}
+                    "expanded_uncertainties", "ref_temp_means", "lsb_per_y",
+                    "ub_ref_y", "ub_sensor_lsb"}
         assert required.issubset(result.keys())
 
     def test_six_nominal_temps(self, result):
@@ -173,24 +170,24 @@ class TestNTCLinearCalibration:
         expected = [0.0, 25.0, 50.0, 75.0, 100.0, 125.0]
         assert result["temp_nominali"] == pytest.approx(expected, abs=0.1)
 
-    def test_A_is_near_one(self, result):
-        """Gain coefficient A should be close to 1 (±5 %) for a well-behaved NTC."""
-        assert result["A"] == pytest.approx(1.0, rel=0.05)
+    def test_A_is_near_nominal(self, result):
+        # A [°C/LSB] ≈ LSB_SPAN / ADC_MAX; allow ±20% for sensor nonlinearity
+        assert result["A"] == pytest.approx(_NOMINAL_A, rel=0.20)
 
-    def test_B_in_lsb_range(self, result):
-        """Offset B in LSB: sensor is not perfectly calibrated but B should be modest."""
-        assert abs(result["B"]) < 5000.0, f"B too large: {result['B']}"
+    def test_B_is_near_lsb_min(self, result):
+        # B [°C] ≈ LSB_MIN for a well-behaved sensor; allow ±5 °C
+        assert abs(result["B"] - LSB_MIN) < 5.0, f"B={result['B']:.4f} far from LSB_MIN={LSB_MIN}"
 
     def test_u_A_positive_and_small(self, result):
         assert result["u_A"] > 0.0
-        assert result["u_A"] < 0.01   # should be very small dimensionless
+        assert result["u_A"] < _NOMINAL_A * 0.01   # < 1 % of gain
 
     def test_u_B_positive(self, result):
         assert result["u_B"] > 0.0
 
-    def test_lsb_per_c_correct(self, result):
+    def test_lsb_per_y_correct(self, result):
         expected = ADC_MAX / LSB_SPAN
-        assert result["lsb_per_c"] == pytest.approx(expected, rel=1e-6)
+        assert result["lsb_per_y"] == pytest.approx(expected, rel=1e-6)
 
     def test_expanded_uncertainties_count(self, result):
         assert len(result["expanded_uncertainties"]) == 6
@@ -199,26 +196,27 @@ class TestNTCLinearCalibration:
         for u in result["expanded_uncertainties"]:
             assert u > 0.0, f"Non-positive U(E): {u}"
 
-    def test_expanded_uncertainties_reasonable_in_degC(self, result):
-        """U(E) at each step should be < 1 °C (well-designed NTC calibration)."""
+    def test_expanded_uncertainties_reasonable(self, result):
+        # U(E) at each step should be < 1 physical unit
         for u in result["expanded_uncertainties"]:
-            assert u < 1.0, f"U(E)={u} °C exceeds 1 °C — check uncertainty budget"
+            assert u < 1.0, f"U(E)={u} exceeds 1 unit — check uncertainty budget"
 
     def test_ref_temp_means_count(self, result):
         assert len(result["ref_temp_means"]) == 6
 
-    def test_ref_temp_means_within_range(self, result):
+    def test_ref_temp_means_within_physical_range(self, result):
+        # ref means native °C — within physical sensor range with buffer
         for t in result["ref_temp_means"]:
-            assert LSB_MIN <= t <= LSB_MAX, f"ref_temp_mean {t} outside LSB range"
+            assert LSB_MIN - 5 <= t <= 135.0, f"ref_temp_mean {t} implausible"
 
     def test_risultati_elaborati_has_all_steps(self, result):
         for t in result["temp_nominali"]:
             assert t in result["risultati_elaborati"]
 
-    def test_per_step_pmean_rtd_and_log_not_zero(self, result):
+    def test_per_step_pmean_ref_and_log_not_zero(self, result):
         for t, r in result["risultati_elaborati"].items():
-            assert r["pmean_rtd"] != 0.0, f"pmean_rtd is zero at {t}"
-            assert r["pmean_log"] != 0.0, f"pmean_log is zero at {t}"
+            assert r["pmean_ref"] != 0.0, f"pmean_ref is zero at {t}"
+            assert r["pmean_sensor"] != 0.0, f"pmean_sensor is zero at {t}"
 
 
 # ===========================================================================
@@ -310,12 +308,12 @@ class TestCertificatoFilledJSON:
         nominal_a = (LSB_MAX - LSB_MIN) / ADC_MAX   # ≈ 0.00221 °C/LSB
         assert cr["_A"] == pytest.approx(nominal_a, rel=0.20)
 
-    def test_ntc_model_in_sensor_method_template(self, cert_filled):
+    def test_sensor_model_in_sensor_method_template(self, cert_filled):
         smt = cert_filled["template_parts"]["sensor_method_template"]
-        assert "ntc_model" in smt
-        ntc = smt["ntc_model"]
-        assert "_A_cal" in ntc
-        assert "_B_cal" in ntc
+        assert "sensor_model" in smt
+        m = smt["sensor_model"]
+        assert "_A_cal" in m
+        assert "_B_cal" in m
 
 
 # ===========================================================================
@@ -518,9 +516,9 @@ class TestConformityCheckH:
                   [0]    [1]    [2]       [3]       [4]       [5]
     """
 
-    # ------------------------------------------------------------------
+    
     # Helpers
-    # ------------------------------------------------------------------
+    
 
     @staticmethod
     def _row(punto: int, me_pre: float, u_exp: float, t_ref: float = 25.0) -> list:
@@ -532,37 +530,37 @@ class TestConformityCheckH:
         return [float(punto), t_ref, t_ref, me_pre, 0.0, u_exp]
 
     @staticmethod
-    def _run(rows, mae_degc: float, pfa_threshold_pct: float):
-        from verifica_conformita import check_H
-        return check_H(rows, mae_degc=mae_degc, pfa_threshold_pct=pfa_threshold_pct, verbose=False)
+    def _run(rows, mae_y: float, pfa_threshold_pct: float):
+        from checks_helper import check_H
+        return check_H(rows, mae_y=mae_y, pfa_threshold_pct=pfa_threshold_pct, verbose=False)
 
-    # ------------------------------------------------------------------
+    
     # Return structure
-    # ------------------------------------------------------------------
+    
 
     def test_returns_tuple_status_list(self):
         rows = [self._row(1, me_pre=0.0, u_exp=0.10)]
-        status, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        status, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         assert isinstance(status, str)
         assert isinstance(detail, list)
 
     def test_detail_has_one_entry_per_row(self):
         rows = [self._row(i, me_pre=0.0, u_exp=0.05) for i in range(1, 5)]
-        _, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        _, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         assert len(detail) == 4
 
     def test_detail_keys_present(self):
         rows = [self._row(1, me_pre=0.0, u_exp=0.05)]
-        _, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        _, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         expected_keys = {
-            "punto", "T_ref_degC", "M_e_pre_degC", "Ein", "U_exp_degC",
-            "u_std_degC", "u_Ein", "MAE_degC", "PFA_pct", "PFA_threshold_pct", "pass",
+            "punto", "T_ref_y", "M_e_pre_y", "Ein", "U_exp_y",
+            "u_std_y", "u_Ein", "MAE_y", "PFA_pct", "PFA_threshold_pct", "pass",
         }
         assert expected_keys.issubset(detail[0].keys())
 
-    # ------------------------------------------------------------------
+    
     # Numerical correctness
-    # ------------------------------------------------------------------
+    
 
     def test_pfa_zero_error_small_uncertainty_is_low(self):
         """M_e_pre=0, U_exp << MAE → PFA ≈ 0."""
@@ -605,48 +603,48 @@ class TestConformityCheckH:
 
     def test_pfa_stored_mae_matches_parameter(self):
         mae = 0.25
-        _, detail = self._run([self._row(1, 0.0, 0.05)], mae_degc=mae, pfa_threshold_pct=20.0)
-        assert detail[0]["MAE_degC"] == pytest.approx(mae)
+        _, detail = self._run([self._row(1, 0.0, 0.05)], mae_y=mae, pfa_threshold_pct=20.0)
+        assert detail[0]["MAE_y"] == pytest.approx(mae)
 
     def test_pfa_stored_threshold_matches_parameter(self):
-        _, detail = self._run([self._row(1, 0.0, 0.05)], mae_degc=0.10, pfa_threshold_pct=15.0)
+        _, detail = self._run([self._row(1, 0.0, 0.05)], mae_y=0.10, pfa_threshold_pct=15.0)
         assert detail[0]["PFA_threshold_pct"] == pytest.approx(15.0)
 
     def test_u_std_is_u_exp_over_two(self):
         u_exp = 0.352
         _, detail = self._run([self._row(1, 0.0, u_exp)], 0.10, 20.0)
-        assert detail[0]["u_std_degC"] == pytest.approx(u_exp / 2.0, rel=1e-9)
+        assert detail[0]["u_std_y"] == pytest.approx(u_exp / 2.0, rel=1e-9)
 
     def test_u_ein_is_u_std_over_mae(self):
         """u_Ein = u_std / MAE (normalised uncertainty, dimensionless)."""
         mae = 0.10
         u_exp = 0.352
         u_std = u_exp / 2.0
-        _, detail = self._run([self._row(1, 0.0, u_exp)], mae_degc=mae, pfa_threshold_pct=20.0)
+        _, detail = self._run([self._row(1, 0.0, u_exp)], mae_y=mae, pfa_threshold_pct=20.0)
         assert detail[0]["u_Ein"] == pytest.approx(u_std / mae, rel=1e-9)
 
     def test_ein_is_me_pre_over_mae(self):
         """Ein = M_e_pre / MAE (normalised as-found error, dimensionless)."""
         mae = 0.10
         me_pre = 0.07
-        _, detail = self._run([self._row(1, me_pre=me_pre, u_exp=0.05)], mae_degc=mae, pfa_threshold_pct=20.0)
+        _, detail = self._run([self._row(1, me_pre=me_pre, u_exp=0.05)], mae_y=mae, pfa_threshold_pct=20.0)
         assert detail[0]["Ein"] == pytest.approx(me_pre / mae, rel=1e-9)
 
     def test_me_pre_stored_correctly(self):
-        """The stored M_e_pre_degC must equal the as-found error passed in column 3."""
+        """The stored M_e_pre_y must equal the as-found error passed in column 3."""
         me_pre = 0.063
         _, detail = self._run([self._row(1, me_pre=me_pre, u_exp=0.05)], 0.10, 20.0)
-        assert detail[0]["M_e_pre_degC"] == pytest.approx(me_pre)
+        assert detail[0]["M_e_pre_y"] == pytest.approx(me_pre)
 
-    # ------------------------------------------------------------------
+    
     # PASS / FAIL logic
-    # ------------------------------------------------------------------
+    
 
     def test_pass_when_pfa_below_threshold(self):
         """Very small uncertainty, zero as-found error → PFA ≈ 0 → PASS."""
         status, detail = self._run(
             [self._row(1, me_pre=0.0, u_exp=0.01)],
-            mae_degc=0.10,
+            mae_y=0.10,
             pfa_threshold_pct=20.0,
         )
         assert detail[0]["pass"] is True
@@ -656,7 +654,7 @@ class TestConformityCheckH:
         """U_exp >> MAE, zero error → PFA >> 20 % → FAIL."""
         status, detail = self._run(
             [self._row(1, me_pre=0.0, u_exp=0.70)],
-            mae_degc=0.10,
+            mae_y=0.10,
             pfa_threshold_pct=20.0,
         )
         assert detail[0]["pass"] is False
@@ -666,7 +664,7 @@ class TestConformityCheckH:
         """As-found error >> MAE → PFA high even with small uncertainty → FAIL."""
         status, detail = self._run(
             [self._row(1, me_pre=0.50, u_exp=0.04)],   # error = 5× MAE
-            mae_degc=0.10,
+            mae_y=0.10,
             pfa_threshold_pct=20.0,
         )
         assert detail[0]["PFA_pct"] > 95.0
@@ -679,12 +677,12 @@ class TestConformityCheckH:
             self._row(1, me_pre=0.0, u_exp=0.01),   # low PFA → PASS
             self._row(2, me_pre=0.0, u_exp=0.70),   # high PFA → FAIL
         ]
-        status, _ = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        status, _ = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         assert status == "FAIL"
 
     def test_overall_pass_all_points_pass(self):
         rows = [self._row(i, me_pre=0.0, u_exp=0.01) for i in range(1, 4)]
-        status, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        status, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         assert status == "PASS"
         assert all(r["pass"] for r in detail)
 
@@ -695,7 +693,7 @@ class TestConformityCheckH:
             self._row(2, me_pre=0.0, u_exp=100.0),    # nearly 100 % PFA
             self._row(3, me_pre=50.0, u_exp=0.001),   # error >> MAE → PFA ≈ 100 %
         ]
-        _, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        _, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         for r in detail:
             assert 0.0 <= r["PFA_pct"] <= 100.0
 
@@ -703,7 +701,7 @@ class TestConformityCheckH:
         """u_std=0, |M_e_pre| < MAE → PFA = 0 → PASS."""
         status, detail = self._run(
             [self._row(1, me_pre=0.05, u_exp=0.0)],   # |0.05| < MAE=0.10
-            mae_degc=0.10,
+            mae_y=0.10,
             pfa_threshold_pct=20.0,
         )
         assert detail[0]["PFA_pct"] == pytest.approx(0.0)
@@ -714,7 +712,7 @@ class TestConformityCheckH:
         """u_std=0, |M_e_pre| > MAE → PFA = 100 % → FAIL."""
         status, detail = self._run(
             [self._row(1, me_pre=0.20, u_exp=0.0)],   # |0.20| > MAE=0.10
-            mae_degc=0.10,
+            mae_y=0.10,
             pfa_threshold_pct=20.0,
         )
         assert detail[0]["PFA_pct"] == pytest.approx(100.0)
@@ -739,7 +737,7 @@ class TestConformityCheckH:
         u_exp_low = u_std_boundary * 0.99 * 2.0
         _, detail_low = self._run(
             [self._row(1, me_pre=0.0, u_exp=u_exp_low)],
-            mae_degc=mae, pfa_threshold_pct=threshold_pct,
+            mae_y=mae, pfa_threshold_pct=threshold_pct,
         )
         assert detail_low[0]["PFA_pct"] < threshold_pct
         assert detail_low[0]["pass"] is True
@@ -748,7 +746,7 @@ class TestConformityCheckH:
         u_exp_high = u_std_boundary * 1.01 * 2.0
         _, detail_high = self._run(
             [self._row(1, me_pre=0.0, u_exp=u_exp_high)],
-            mae_degc=mae, pfa_threshold_pct=threshold_pct,
+            mae_y=mae, pfa_threshold_pct=threshold_pct,
         )
         assert detail_high[0]["PFA_pct"] > threshold_pct
         assert detail_high[0]["pass"] is False
@@ -756,7 +754,7 @@ class TestConformityCheckH:
     def test_six_point_dataset_structure(self):
         """Six-row dataset (real calibration size) returns six per-point dicts."""
         rows = [self._row(i, me_pre=float(i) * 0.005, u_exp=0.352) for i in range(1, 7)]
-        status, detail = self._run(rows, mae_degc=0.10, pfa_threshold_pct=20.0)
+        status, detail = self._run(rows, mae_y=0.10, pfa_threshold_pct=20.0)
         assert len(detail) == 6
         for i, r in enumerate(detail):
             assert r["punto"] == i + 1
@@ -783,18 +781,17 @@ class TestLinearCalibUBudget:
     def calib_result(self):
         payload, lsb_scale = self._load_payload_and_info()
         from model_calibration.linear_calibration import calibrate
-        from VAR_REF_SENSOR import VAR_extra, SENSOR_model
-        extra  = VAR_extra()
-        sensor = SENSOR_model()
-        ub_pt_degc = extra._U_pt_c / extra._k_pt   # [°C] standard uncertainty
-        ub_tmp_lsb = sensor.uB                       # [LSB] from sensor JSON
+        ub_ref_y = 0.0325   # reference type-B std uncertainty [°C]
+        sensor_json = json.loads(SENSOR_JSON.read_text(encoding="utf-8"))
+        _sensor_ru = sensor_json.get("metrology", {}).get("readingUncertainty", [])
+        ub_sensor_lsb = float(next((it["value"] for it in _sensor_ru if it.get("varName") == "uB"), 0.30))
         return calibrate(
             payload=payload,
             lsb_scale_sensor_info=lsb_scale,
             sample_size=SAMPLE_SIZE,
             adc_max=ADC_MAX,
-            ub_pt_degc=ub_pt_degc,
-            ub_tmp_lsb=ub_tmp_lsb,
+            ub_ref_y=ub_ref_y,
+            ub_sensor_lsb=ub_sensor_lsb,
             verbose=False,
         )
 
@@ -807,8 +804,8 @@ class TestLinearCalibUBudget:
 
     def test_budget_entry_keys(self, calib_result):
         expected = {
-            "t_nom_degC", "uA_ref_degC", "uA_i_degC",
-            "u_T_ref_degC", "u_T_i_degC", "u_c_degC", "U_exp_degC", "k",
+            "t_nom", "uA_ref", "uA_sensor",
+            "u_ref", "u_sensor", "u_c", "U_exp", "k",
         }
         for entry in calib_result["u_budget_per_step"]:
             assert expected.issubset(entry.keys()), f"Missing keys in: {entry.keys()}"
@@ -818,18 +815,18 @@ class TestLinearCalibUBudget:
             assert entry["k"] == pytest.approx(2.0)
 
     def test_u_exp_matches_expanded_uncertainties(self, calib_result):
-        """U_exp_degC in budget must equal expanded_uncertainties list."""
+        """U_exp in budget must equal expanded_uncertainties list."""
         for entry, u_exp in zip(
             calib_result["u_budget_per_step"],
             calib_result["expanded_uncertainties"],
         ):
-            assert entry["U_exp_degC"] == pytest.approx(u_exp, rel=1e-9)
+            assert entry["U_exp"] == pytest.approx(u_exp, rel=1e-9)
 
     def test_u_c_times_k_equals_u_exp(self, calib_result):
         """k * u_c must equal U_exp (definition of expanded uncertainty)."""
         for entry in calib_result["u_budget_per_step"]:
-            assert entry["k"] * entry["u_c_degC"] == pytest.approx(
-                entry["U_exp_degC"], rel=1e-9
+            assert entry["k"] * entry["u_c"] == pytest.approx(
+                entry["U_exp"], rel=1e-9
             )
 
     def test_u_c_combines_T_ref_and_T_i(self, calib_result):
@@ -837,17 +834,17 @@ class TestLinearCalibUBudget:
         import math
         for entry in calib_result["u_budget_per_step"]:
             expected_uc = math.sqrt(
-                entry["u_T_ref_degC"] ** 2 + entry["u_T_i_degC"] ** 2
+                entry["u_ref"] ** 2 + entry["u_sensor"] ** 2
             )
-            assert entry["u_c_degC"] == pytest.approx(expected_uc, rel=1e-9)
+            assert entry["u_c"] == pytest.approx(expected_uc, rel=1e-9)
 
     def test_uA_ref_is_non_negative(self, calib_result):
         for entry in calib_result["u_budget_per_step"]:
-            assert entry["uA_ref_degC"] >= 0.0
+            assert entry["uA_ref"] >= 0.0
 
     def test_uA_i_is_non_negative(self, calib_result):
         for entry in calib_result["u_budget_per_step"]:
-            assert entry["uA_i_degC"] >= 0.0
+            assert entry["uA_sensor"] >= 0.0
 
 
 # ===========================================================================
@@ -879,13 +876,13 @@ class TestDCCXMLUncertaintyBudget:
             u_c     = math.sqrt(u_T_ref**2 + u_T_i**2)
             U_exp   = 2.0 * u_c
             budget.append({
-                "t_nom_degC":   float(-20 + i * 40),
-                "uA_ref_degC":  uA_ref,
-                "uA_i_degC":    uA_i,
-                "u_T_ref_degC": u_T_ref,
-                "u_T_i_degC":   u_T_i,
-                "u_c_degC":     u_c,
-                "U_exp_degC":   U_exp,
+                "t_nom":   float(-20 + i * 40),
+                "uA_ref":  uA_ref,
+                "uA_sensor":    uA_i,
+                "u_ref": u_T_ref,
+                "u_sensor":   u_T_i,
+                "u_c":     u_c,
+                "U_exp":   U_exp,
                 "k":            2.0,
             })
         return budget
@@ -903,7 +900,7 @@ class TestDCCXMLUncertaintyBudget:
         budget = self._make_budget(n)
         # Minimal measurements rows (6-element funzione format)
         meas = [
-            [float(i + 1), float(-20 + i * 40), float(-20 + i * 40), 0.05, 0.001, budget[i]["U_exp_degC"]]
+            [float(i + 1), float(-20 + i * 40), float(-20 + i * 40), 0.05, 0.001, budget[i]["U_exp"]]
             for i in range(n)
         ]
         data = {
@@ -941,7 +938,7 @@ class TestDCCXMLUncertaintyBudget:
                 "website": "https://example.com",
             },
             "measurements": meas,
-            "ntc_model": {},
+            "sensor_model": {},
             "_u_budget_per_step": budget,
         }
         tree = build_dcc_tree(data)
@@ -1011,7 +1008,7 @@ class TestDCCXMLUncertaintyBudget:
         q = self._find_quantity_by_reftype(quantities, "gp_uncertaintyTypeA_reference")
         vals = self._read_value_list(q)
         budget = self._make_budget(self.N_STEPS)
-        expected = [b["uA_ref_degC"] for b in budget]
+        expected = [b["uA_ref"] for b in budget]
         assert len(vals) == len(expected)
         for v, e in zip(vals, expected):
             assert v == pytest.approx(e, rel=1e-6)
@@ -1020,7 +1017,7 @@ class TestDCCXMLUncertaintyBudget:
         q = self._find_quantity_by_reftype(quantities, "gp_uncertaintyTypeA_sensor")
         vals = self._read_value_list(q)
         budget = self._make_budget(self.N_STEPS)
-        expected = [b["uA_i_degC"] for b in budget]
+        expected = [b["uA_sensor"] for b in budget]
         for v, e in zip(vals, expected):
             assert v == pytest.approx(e, rel=1e-6)
 
@@ -1028,7 +1025,7 @@ class TestDCCXMLUncertaintyBudget:
         q = self._find_quantity_by_reftype(quantities, "gp_combinedStandardUncertainty")
         vals = self._read_value_list(q)
         budget = self._make_budget(self.N_STEPS)
-        expected = [b["u_c_degC"] for b in budget]
+        expected = [b["u_c"] for b in budget]
         for v, e in zip(vals, expected):
             assert v == pytest.approx(e, rel=1e-6)
 
@@ -1084,7 +1081,7 @@ class TestDCCXMLUncertaintyBudget:
                 "website": "<website>",
             },
             "measurements": meas,
-            "ntc_model": {},
+            "sensor_model": {},
             # No '_u_budget_per_step' key
         }
         root = build_dcc_tree(data).getroot()
@@ -1112,7 +1109,7 @@ class TestCheckHUStdMode:
     Verify the u_std_mode parameter of check_H.
 
     "combined" must use U_exp / k as u_std.
-    "type_a"   must use uA_i_degC from the budget dict.
+    "type_a"   must use uA_sensor from the budget dict.
     Fallback: if "type_a" is requested but no budget supplied, "combined" is used.
     """
 
@@ -1124,22 +1121,22 @@ class TestCheckHUStdMode:
     def _budget_entry(uA_i: float) -> dict:
         """Minimal budget dict with only the key check_H needs."""
         return {
-            "t_nom_degC": 25.0,
-            "uA_ref_degC": 0.002,
-            "uA_i_degC": uA_i,
-            "u_T_ref_degC": 0.033,
-            "u_T_i_degC": 0.173,
-            "u_c_degC": 0.176,
-            "U_exp_degC": 0.352,
+            "t_nom": 25.0,
+            "uA_ref": 0.002,
+            "uA_sensor": uA_i,
+            "u_ref": 0.033,
+            "u_sensor": 0.173,
+            "u_c": 0.176,
+            "U_exp": 0.352,
             "k": 2.0,
         }
 
     @staticmethod
-    def _run(rows, budget, mae_degc, pfa_threshold_pct, u_std_mode):
-        from verifica_conformita import check_H
+    def _run(rows, budget, mae_y, pfa_threshold_pct, u_std_mode):
+        from checks_helper import check_H
         return check_H(
             rows,
-            mae_degc=mae_degc,
+            mae_y=mae_y,
             pfa_threshold_pct=pfa_threshold_pct,
             verbose=False,
             u_std_mode=u_std_mode,
@@ -1165,7 +1162,7 @@ class TestCheckHUStdMode:
         u_exp = 0.40
         rows = [self._row(1, 0.0, u_exp)]
         _, detail = self._run(rows, None, 0.10, 20.0, "combined")
-        assert detail[0]["u_std_degC"] == pytest.approx(u_exp / 2.0, rel=1e-9)
+        assert detail[0]["u_std_y"] == pytest.approx(u_exp / 2.0, rel=1e-9)
 
     def test_combined_pfa_matches_formula(self):
         from scipy.stats import norm
@@ -1180,7 +1177,7 @@ class TestCheckHUStdMode:
         ) * 100.0
         assert detail[0]["PFA_pct"] == pytest.approx(expected, abs=0.01)
 
-    # ── type_a uses uA_i_degC ──────────────────────────────────────────────
+    # ── type_a uses uA_sensor ──────────────────────────────────────────────
 
     def test_type_a_u_std_equals_uA_i(self):
         uA_i = 0.004
@@ -1188,7 +1185,7 @@ class TestCheckHUStdMode:
         rows = [self._row(1, 0.0, u_exp)]
         budget = [self._budget_entry(uA_i=uA_i)]
         _, detail = self._run(rows, budget, 0.10, 20.0, "type_a")
-        assert detail[0]["u_std_degC"] == pytest.approx(uA_i, rel=1e-9)
+        assert detail[0]["u_std_y"] == pytest.approx(uA_i, rel=1e-9)
 
     def test_type_a_pfa_matches_formula(self):
         from scipy.stats import norm
@@ -1219,7 +1216,7 @@ class TestCheckHUStdMode:
         rows = [self._row(1, 0.0, u_exp)]
         _, detail = self._run(rows, None, 0.10, 20.0, "type_a")
         assert detail[0]["u_std_mode"] == "combined"
-        assert detail[0]["u_std_degC"] == pytest.approx(u_exp / 2.0, rel=1e-9)
+        assert detail[0]["u_std_y"] == pytest.approx(u_exp / 2.0, rel=1e-9)
 
     def test_type_a_falls_back_when_budget_length_mismatch(self):
         """Budget with wrong length → falls back to combined."""
@@ -1244,8 +1241,8 @@ class TestCheckHUStdMode:
         budget = [self._budget_entry(uA_i=v) for v in uA_values]
         _, detail = self._run(rows, budget, 0.10, 20.0, "type_a")
         for i, (entry, expected_uA) in enumerate(zip(detail, uA_values)):
-            assert entry["u_std_degC"] == pytest.approx(expected_uA, rel=1e-9), (
-                f"Point {i+1}: expected u_std={expected_uA}, got {entry['u_std_degC']}"
+            assert entry["u_std_y"] == pytest.approx(expected_uA, rel=1e-9), (
+                f"Point {i+1}: expected u_std={expected_uA}, got {entry['u_std_y']}"
             )
 
 

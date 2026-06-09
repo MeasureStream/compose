@@ -125,6 +125,16 @@
                     <dcc:content lang="en">Reference PT100/Fluke 1502A: U=0.065 °C, k=2. NTC ADC: half-width d=0.30 °C (uniform). Coverage factor k=2, confidence level ~95%.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Calibration function (linear): Y = A*D + B. Coefficients: A=2.525000e-03, B=-4.011000e+01.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Regression uncertainty (expanded, k=2): u_reg = 6.42e-02. RMSE = 3.21e-02.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
         </dcc:statements>
     </dcc:administrativeData>
     <dcc:measurementResults>
@@ -238,7 +248,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.260000 25.140000 49.670000 73.980000 98.300000 122.120000</si:valueXMLList>
+                                        <si:valueXMLList>0.26 25.14 49.67 73.98 98.3 122.12</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -249,7 +259,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.240000 25.190000 49.660000 73.950000 98.290000 122.140000</si:valueXMLList>
+                                        <si:valueXMLList>0.24 25.19 49.66 73.95 98.29 122.14</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -260,7 +270,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-0.020000 -0.020000 -0.140000 -0.230000 -0.280000 -0.310000</si:valueXMLList>
+                                        <si:valueXMLList>-0.11 -0.04 -0.09 -0.12 -0.1 -0.07</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -271,10 +281,10 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-0.020000 0.050000 -0.000000 -0.030000 -0.010000 0.020000</si:valueXMLList>
+                                        <si:valueXMLList>-0.02 0.05 -0 -0.03 -0.01 0.02</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                         <si:expandedUncXMLList>
-                                            <si:uncertaintyXMLList>0.010000 0.010000 0.010000 0.010000 0.010000 0.060000</si:uncertaintyXMLList>
+                                            <si:uncertaintyXMLList>0.07 0.07 0.07 0.07 0.07 0.09</si:uncertaintyXMLList>
                                             <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
                                             <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
                                             <si:distributionXMLList>normal</si:distributionXMLList>
@@ -288,7 +298,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.00250000 0.00280000 0.00120000 0.00220000 0.00190000 0.02100000</si:valueXMLList>
+                                        <si:valueXMLList>0.0025 0.0028 0.0012 0.0022 0.0019 0.021</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -299,7 +309,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.00200000 0.00380000 0.00110000 0.00240000 0.00260000 0.01900000</si:valueXMLList>
+                                        <si:valueXMLList>0.002 0.0038 0.0011 0.0024 0.0026 0.019</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -310,7 +320,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.00430000 0.00560000 0.00330000 0.00440000 0.00440000 0.02800000</si:valueXMLList>
+                                        <si:valueXMLList>0.033 0.033 0.033 0.033 0.033 0.043</si:valueXMLList>
                                         <si:unitXMLList>\degreecelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -321,9 +331,25 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>2.0 2.0 2.0 2.0 2.0 2.0</si:valueXMLList>
+                                        <si:valueXMLList>2 2 2 2 2 2</si:valueXMLList>
                                         <si:unitXMLList>\one</si:unitXMLList>
                                     </si:realListXMLList>
+                                </si:hybrid>
+                            </dcc:quantity>
+                            <dcc:quantity refType="gp_regressionUncertainty">
+                                <dcc:name>
+                                    <dcc:content lang="en">Regression fit uncertainty RMSE</dcc:content>
+                                </dcc:name>
+                                <si:hybrid>
+                                    <si:real>
+                                        <si:value>3.209357e-02</si:value>
+                                        <si:unit>\degreecelsius</si:unit>
+                                        <si:expandedUnc>
+                                            <si:uncertainty>6.418713e-02</si:uncertainty>
+                                            <si:coverageFactor>2.0</si:coverageFactor>
+                                            <si:coverageProbability>0.95</si:coverageProbability>
+                                        </si:expandedUnc>
+                                    </si:real>
                                 </si:hybrid>
                             </dcc:quantity>
                         </dcc:list>

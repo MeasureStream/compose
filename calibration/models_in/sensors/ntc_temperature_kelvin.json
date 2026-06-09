@@ -14,6 +14,15 @@
 
   "elecUnit": "\\one",
 
+  "obsList": [
+    "Results refer exclusively to the instrument identified in this certificate.",
+    "Calibration is valid under the declared conditions and on the execution date.",
+    "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+    "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+  ],
+  "methodDescription": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+  "calibrationFormula": "T = A * dout + B",
+
   "ranges": {
 
     "phys": {
@@ -35,6 +44,7 @@
     "elec": {
       "min": 0.0,
       "max": 65535.0,
+      "adcBits": 16,
       "siExp": 0,
       "si": [0, 0, 0, 0, 0, 0, 0, 0],
       "dsi": "\\one"

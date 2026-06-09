@@ -11,9 +11,9 @@ except ImportError:
     _UREG = None
 
 
-# ---------------------------------------------------------------------------
+
 # Exception mappings
-# ---------------------------------------------------------------------------
+
 
 _DSI_EXCEPTIONS: Dict[str, str] = {
     "\\degreeCelsius":    "degC",
@@ -24,9 +24,9 @@ _DSI_EXCEPTIONS: Dict[str, str] = {
 _PINT_EXCEPTIONS: Dict[str, str] = {v: k for k, v in _DSI_EXCEPTIONS.items()}
 
 
-# ---------------------------------------------------------------------------
+
 # DSI <-> pint name conversion
-# ---------------------------------------------------------------------------
+
 
 def _dsi_to_pint_name(dsi: str) -> str:
     dsi = dsi.strip()
@@ -40,7 +40,8 @@ def _dsi_to_pint_name(dsi: str) -> str:
         if part in _DSI_EXCEPTIONS:
             converted.append(_DSI_EXCEPTIONS[part])
         else:
-            name = part.lstrip("\\")
+            tokens = [t for t in part.split("\\") if t]
+            name = "".join(tokens)
             if name:
                 converted.append(name)
     return " / ".join(converted) if converted else "dimensionless"
@@ -78,9 +79,9 @@ def _pint_to_dsi(pint_name: str) -> str:
     return "\\per".join(converted)
 
 
-# ---------------------------------------------------------------------------
+
 # Unit formatting helpers
-# ---------------------------------------------------------------------------
+
 
 def _unit_lx(unit_name: str) -> str:
     if _UREG is None:
@@ -95,14 +96,14 @@ def _dimensionality_str(quantity) -> str:
     return str(quantity.dimensionality)
 
 
-def _is_temperature(unit_name: str) -> bool:
+def _get_dimensionality(unit_name: str):
     if _UREG is None:
-        return False
+        return None
     try:
         q = _UREG.Quantity(1.0, unit_name)
-        return q.dimensionality == _UREG.degC.dimensionality
+        return q.dimensionality
     except Exception:
-        return False
+        return None
 
 
 def _is_dimensionless(unit_name: str) -> bool:
@@ -115,9 +116,9 @@ def _is_dimensionless(unit_name: str) -> bool:
         return False
 
 
-# ---------------------------------------------------------------------------
+
 # Result dataclass
-# ---------------------------------------------------------------------------
+
 
 @dataclass
 class UnitCheckResult:
@@ -147,9 +148,9 @@ class UnitCheckResult:
             print(f"{prefix} FAIL — {len(self.errors)} error(s), calibration blocked.")
 
 
-# ---------------------------------------------------------------------------
+
 # Public API — dsi_to_symbol, dsi_to_xml_unit
-# ---------------------------------------------------------------------------
+
 
 def dsi_to_symbol(dsi: str) -> str:
     dsi = dsi.strip()
@@ -167,9 +168,65 @@ def dsi_to_xml_unit(dsi: str) -> str:
     return _pint_to_dsi(pint_name).lower()
 
 
-# ---------------------------------------------------------------------------
+def sensor_type_label(sensor_type: str) -> str:
+    return sensor_type.strip().capitalize()
+
+def _check_pint_expression(expr: str, variables: dict, expected_unit, result, label: str) -> bool:
+    try:
+        q = _UREG.parse_expression(expr, **variables)
+    except Exception as exc:
+        result.add_error(f"{label}: cannot evaluate Pint expression '{expr}': {exc}")
+        return False
+
+    expected_dim = _UREG.Quantity(1.0, expected_unit).dimensionality
+    if q.dimensionality != expected_dim:
+        result.add_error(
+            f"{label}: expression '{expr}' has dimensionality "
+            f"{_dimensionality_str(q)} but expected "
+            f"{_dimensionality_str(_UREG.Quantity(1.0, expected_unit))}."
+        )
+        return False
+
+    return True
+
+
+def _flag_unit_mismatch(
+    result: UnitCheckResult,
+    sensor_phys_dsi: str,
+    y_lx: str,
+    y_ref_lx: str,
+    model_label: str,
+) -> None:
+    """Warn when sensor and reference physical units differ dimensionally,
+    signalling that ``convert_result()`` will need to apply a conversion."""
+    sensor_dim = _get_dimensionality(result.sensor_phys_unit)
+    ref_dim    = _get_dimensionality(result.ref_phys_unit)
+
+    if sensor_dim is None:
+        result.add_error(
+            f"{model_label}: sensor physical unit '{sensor_phys_dsi}' "
+            f"(siunitx: {y_lx}) is not a recognised unit."
+        )
+    elif ref_dim is not None and sensor_dim != ref_dim:
+        result.add_error(
+            f"{model_label}: output dimensionality "
+            f"{_dimensionality_str(_UREG.Quantity(1.0, result.sensor_phys_unit))} "
+            f"({y_lx}) does not match reference y_mu dimensionality "
+            f"{_dimensionality_str(_UREG.Quantity(1.0, result.ref_phys_unit))} "
+            f"({y_ref_lx})."
+        )
+
+    if result.ok and sensor_dim is not None and ref_dim is not None and sensor_dim == ref_dim:
+        if result.sensor_phys_unit != result.ref_phys_unit:
+            result.add_warning(
+                f"{model_label}: sensor unit '{result.sensor_phys_unit}' differs from "
+                f"reference unit '{result.ref_phys_unit}'. "
+                "Conversion will be applied in convert_result()."
+            )
+
+
 # Public API — check_dsi
-# ---------------------------------------------------------------------------
+
 
 def check_dsi(
     sensor_json: Dict[str, Any],
@@ -210,14 +267,20 @@ def check_dsi(
     result.sensor_elec_unit = sensor_elec_unit or "dimensionless"
     result.ref_phys_unit    = ref_phys_unit    or "degC"
 
-    # ── Check 1: reference output must be a temperature ──
-    if not _is_temperature(result.ref_phys_unit):
+    # ── Check 1: reference output must have a valid physical dimensionality ──
+    ref_dim = _get_dimensionality(result.ref_phys_unit)
+    if ref_dim is None:
         result.add_error(
             f"Reference calibrator physical unit '{ref_phys_dsi}' "
             f"(siunitx: {_unit_lx(result.ref_phys_unit)}) "
-            f"is not a temperature. "
-            f"Dimensionality: {_dimensionality_str(_UREG.Quantity(1.0, result.ref_phys_unit))}. "
-            f"Expected: [temperature] (e.g. \\degreeCelsius or \\kelvin)."
+            f"is not a recognised physical unit."
+        )
+    elif _is_dimensionless(result.ref_phys_unit):
+        result.add_error(
+            f"Reference calibrator physical unit '{ref_phys_dsi}' "
+            f"(siunitx: {_unit_lx(result.ref_phys_unit)}) "
+            f"is dimensionless. "
+            f"Expected a physical unit with dimensionality (e.g. \\degreeCelsius, \\pascal, \\volt, \\bar)."
         )
 
     # ── Check 2: sensor electrical output must be dimensionless ──
@@ -230,40 +293,68 @@ def check_dsi(
             f"Got dimensionality: {_dimensionality_str(_UREG.Quantity(1.0, result.sensor_elec_unit))}."
         )
 
-    # ── Check 3: model-specific rules ──
-    if model in ("linear", "cubic", "cubic_interp", "linear_interp"):
-        if not _is_temperature(result.sensor_phys_unit):
-            result.add_error(
-                f"Sensor physical unit '{sensor_phys_dsi}' "
-                f"(siunitx: {_unit_lx(result.sensor_phys_unit)}) "
-                f"is not a temperature. "
-                f"For model '{model}', T (output) must have [temperature] dimensionality."
-            )
-        if (
-            result.ok
-            and _is_temperature(result.sensor_phys_unit)
-            and _is_temperature(result.ref_phys_unit)
-        ):
-            if result.sensor_phys_unit != result.ref_phys_unit:
-                result.add_warning(
-                    f"Sensor physical unit '{result.sensor_phys_unit}' differs from "
-                    f"reference physical unit '{result.ref_phys_unit}'. "
-                    "Conversion will be applied in convert_result()."
-                )
+    # ── Check 3: model-specific formula dimensional analysis via pint expression ──
+    y_lx     = _unit_lx(result.sensor_phys_unit)
+    y_ref_lx = _unit_lx(result.ref_phys_unit)
 
-    elif model == "cube-log":
-        if not _is_temperature(result.ref_phys_unit):
-            result.add_error(
-                f"Reference physical unit '{ref_phys_dsi}' is not a temperature. "
-                "Steinhart-Hart model requires T_ref in Kelvin (or convertible, e.g. °C)."
+    _ref_u = result.ref_phys_unit
+    if _ref_u in ("degC", "degF"):
+        _ref_qty = _UREG.Quantity(1.0, f"delta_{_ref_u}")
+    else:
+        _ref_qty = _UREG.Quantity(1.0, _ref_u)
+
+    if model == "linear":
+        expr = "A*x + B"
+        if _check_pint_expression(
+            expr,
+            {"A": _ref_qty, "x": 1 * _UREG.dimensionless, "B": _ref_qty},
+            _ref_u,
+            result,
+            f"y = {expr}",
+        ):
+            _flag_unit_mismatch(result, sensor_phys_dsi, y_lx, y_ref_lx, "y = A*x + B")
+
+    elif model == "cubic":
+        expr = "a0 + a1*x + a2*x**2 + a3*x**3"
+        if _check_pint_expression(
+            expr,
+            {
+                "a0": _ref_qty, "a1": _ref_qty, "a2": _ref_qty, "a3": _ref_qty,
+                "x": 1 * _UREG.dimensionless,
+            },
+            _ref_u,
+            result,
+            f"y = {expr}",
+        ):
+            _flag_unit_mismatch(
+                result, sensor_phys_dsi, y_lx, y_ref_lx,
+                "y = a0 + a1*x + a2*x**2 + a3*x**3",
             )
 
     return result
 
 
-# ---------------------------------------------------------------------------
 # Public API — convert_result
-# ---------------------------------------------------------------------------
+
+
+def _delta_factor(source_unit: str, target_unit: str) -> float:
+    """Return the multiplicative factor to convert a *difference* (delta)
+    from *source_unit* to *target_unit* using pint.
+
+    Tries the ``"delta"`` context first (needed for offset units such as
+    degC / degF).  Falls back to plain unit conversion when the delta
+    context is not available (e.g. pressure, voltage, …).
+    """
+    if _UREG is None:
+        return 1.0
+    try:
+        return float(_UREG.Quantity(1.0, source_unit).to(target_unit, "delta").magnitude)
+    except Exception:
+        try:
+            return float(_UREG.Quantity(1.0, source_unit).to(target_unit).magnitude)
+        except Exception:
+            return 1.0
+
 
 def convert_result(
     calib_result: Dict[str, Any],
@@ -298,7 +389,7 @@ def convert_result(
 
     target_unit_lx = _unit_lx(target_unit)
 
-    lsb_per_c: float = float(calib_result.get("lsb_per_c", 1.0))
+    lsb_per_y: float = float(calib_result.get("lsb_per_y", 1.0))
     model: str = str(calib_result.get("model", "linear"))
 
     def _try_convert(value: float, from_unit: str, to_unit: str, key: str):
@@ -323,86 +414,39 @@ def convert_result(
     # ── expanded_uncertainties ──
     exp_unc = calib_result.get("expanded_uncertainties", [])
     if exp_unc:
-        try:
-            delta_factor = _UREG.Quantity(1.0, source_unit_temperature).to(target_unit, "delta").magnitude
-        except Exception:
-            delta_factor = 1.0
+        delta_factor = _delta_factor(source_unit_temperature, target_unit)
         out["converted"]["expanded_uncertainties"] = [float(v) * delta_factor for v in exp_unc]
         out["units"]["expanded_uncertainties"] = target_unit_lx
 
     # ── Model-specific coefficient conversions ──
     if model == "linear":
-        B_degc = calib_result.get("B", 0.0) / lsb_per_c
-        cv, _ = _try_convert(B_degc, source_unit_temperature, target_unit, "B")
-        out["converted"]["B"] = cv
+        # y = A*x + B  where x is dimensionless (LSB) and y is physical.
+        # Both A [phys/LSB] and B [phys] carry physical dimensionality;
+        # scale them together with the same multiplicative factor.
+        _lin_factor = _delta_factor(source_unit_temperature, target_unit)
+        out["converted"]["A"] = calib_result.get("A", 0.0) * _lin_factor
+        out["units"]["A"] = target_unit_lx
+        out["converted"]["B"] = calib_result.get("B", 0.0) * _lin_factor
         out["units"]["B"] = target_unit_lx
-
-        u_B_degc = calib_result.get("u_B", 0.0) / lsb_per_c
-        try:
-            df = _UREG.Quantity(1.0, source_unit_temperature).to(target_unit, "delta").magnitude
-        except Exception:
-            df = 1.0
-        out["converted"]["u_B"] = u_B_degc * df
+        out["converted"]["u_B"] = calib_result.get("u_B", 0.0) * _lin_factor
         out["units"]["u_B"] = target_unit_lx
 
-        out["converted"]["A"] = calib_result.get("A", 0.0)
-        out["units"]["A"] = _unit_lx("dimensionless")
-
     elif model == "cubic":
-        a0_lsb = calib_result.get("a0", 0.0)
-        a0_degc = a0_lsb / lsb_per_c
-        cv, _ = _try_convert(a0_degc, source_unit_temperature, target_unit, "a0")
-        out["converted"]["a0"] = cv
-        out["units"]["a0"] = target_unit_lx
-        for k in ("a1", "a2", "a3"):
-            out["converted"][k] = calib_result.get(k, 0.0)
-            out["units"][k] = "LSB / LSB^k (dimensionless polynomial coefficient)"
-
-    elif model == "cube-log":
-        _k_inv_lx = _unit_lx("1/kelvin")
-        for k in ("C0", "C1", "C3"):
-            out["converted"][k] = calib_result.get(k, 0.0)
-            out["units"][k] = _k_inv_lx
-        for k in ("u_C0", "u_C1", "u_C3"):
-            out["converted"][k] = calib_result.get(k, 0.0)
-            out["units"][k] = _k_inv_lx
-
-    elif model in ("cubic_interp", "linear_interp"):
-        try:
-            delta_factor = _UREG.Quantity(1.0, source_unit_temperature).to(
-                target_unit, "delta"
-            ).magnitude
-        except Exception:
-            delta_factor = 1.0
-
-        y_nodes = calib_result.get("y_nodes", [])
-        if y_nodes:
-            out["converted"]["y_nodes"] = [float(v) * delta_factor for v in y_nodes]
-            out["units"]["y_nodes"] = target_unit_lx
-
-        x_nodes = calib_result.get("x_nodes", [])
-        if x_nodes:
-            out["converted"]["x_nodes"] = list(x_nodes)
-            out["units"]["x_nodes"] = _unit_lx("dimensionless")
-
-        try:
-            delta_factor = _UREG.Quantity(1.0, source_unit_temperature).to(
-                target_unit, "delta"
-            ).magnitude
-        except Exception:
-            delta_factor = 1.0
-        for k in ("rmse_degC", "u_H_degC"):
-            v = calib_result.get(k)
-            if v is not None:
-                out["converted"][k] = float(v) * delta_factor
-                out["units"][k] = target_unit_lx
+        # In y = a0 + a1*x + a2*x² + a3*x³  where x is dimensionless (LSB)
+        # and y is physical, ALL coefficients carry the physical dimensionality
+        # of y.  Scale them together with the same multiplicative factor.
+        _cubic_factor = _delta_factor(source_unit_temperature, target_unit)
+        for k in ("a0", "a1", "a2", "a3"):
+            v = calib_result.get(k, 0.0)
+            out["converted"][k] = v * _cubic_factor
+            out["units"][k] = target_unit_lx
 
     return out
 
 
-# ---------------------------------------------------------------------------
+
 # Self-test
-# ---------------------------------------------------------------------------
+
 
 if __name__ == "__main__":
     import json
@@ -600,8 +644,8 @@ if __name__ == "__main__":
     # ── Part 7: check_dsi with real model JSONs ──
     print("\n--- Part 7: check_dsi with real model JSONs ---")
     calib_root = Path(__file__).resolve().parent.parent.parent
-    sensor_path = calib_root / "models_in" / "ntc_temperature.json"
-    ref_path    = calib_root / "models_in" / "fluke_9142.json"
+    sensor_path = calib_root / "models_in" / "sensors" / "ntc_temperature.json"
+    ref_path    = calib_root / "models_in" / "references" / "fluke_9142.json"
 
     sensor_json = json.loads(sensor_path.read_text(encoding="utf-8"))
     ref_json    = json.loads(ref_path.read_text(encoding="utf-8"))
@@ -618,28 +662,13 @@ if __name__ == "__main__":
                 _safe_print(f"{prefix} PASS — all dimensional checks passed.")
             else:
                 _safe_print(f"{prefix} FAIL — {len(r.errors)} error(s), calibration blocked.")
-
-    for model in ("linear", "cubic", "cube-log", "cubic_interp", "linear_interp"):
-        print(f"\n  Model: {model}")
-        r = check_dsi(sensor_json, ref_json, model)
-        _safe_print_report(r, "    [unit-check]")
-        if not r.ok:
-            fail_count += 1
-
-    print("\n  Edge case: bad ref (pascal instead of temperature)")
-    bad_ref = {"ranges": {"phys": {"dsi": "\\pascal"}}}
-    bad_sensor = {"ranges": {"phys": {"dsi": "\\degreeCelsius"}, "elec": {"dsi": "\\one"}}}
-    r2 = check_dsi(bad_sensor, bad_ref, "linear")
-    _safe_print_report(r2, "    [unit-check]")
-
-    print("\n  Edge case: pressure sensor + bar ref (same dimensionality)")
-    press_sensor = {"ranges": {"phys": {"dsi": "\\pascal"}, "elec": {"dsi": "\\one"}}}
-    press_ref = {"ranges": {"phys": {"dsi": "\\bar"}}}
-    r3 = check_dsi(press_sensor, press_ref, "linear")
-    _safe_print_report(r3, "    [unit-check]")
+    for model in ("linear", "cubic"):
+        r3 = check_dsi(sensor_json, ref_json, model)
+        _safe_print_report(r3, f"    [unit-check {model}]")
 
     print("\n  Edge case: volt sensor + pascal ref (mismatch)")
     volt_sensor = {"ranges": {"phys": {"dsi": "\\volt"}, "elec": {"dsi": "\\one"}}}
+    press_ref = {"ranges": {"phys": {"dsi": "\\pascal"}}}
     r4 = check_dsi(volt_sensor, press_ref, "linear")
     _safe_print_report(r4, "    [unit-check]")
 
@@ -650,7 +679,7 @@ if __name__ == "__main__":
         "A": 0.0,
         "B": 100.0,
         "u_B": 0.5,
-        "lsb_per_c": 1.0,
+        "lsb_per_y": 1.0,
         "ref_temp_means": [20.0, 30.0, 40.0],
         "expanded_uncertainties": [0.1, 0.1, 0.1],
     }

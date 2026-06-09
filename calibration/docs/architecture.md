@@ -11,12 +11,11 @@
 | 1 | Orchestration | `analisi_calib_data.py` | LSB16 JSON (`--input`) + sensor JSON (`--sensor`) + ref JSON (`--ref`) | drives stages 2–6 |
 | 2a | Calibration (linear) | `model_calibration/linear_calibration.py` | LSB16 payload dict + old A/B | A, B, uncertainties, old_A/old_B dict |
 | 2b | Calibration (cubic) | `model_calibration/cubic_calibration.py` | LSB16 payload dict + old a0..a3 | a0…a3, cov_theta, uncertainties, old_a0..old_a3 dict |
-| 2c | Calibration (cube-log) | `model_calibration/cube_log_calibration.py` | LSB16 payload dict | C0, C1, C3, uncertainties dict |
 | 3 | Sensor-accuracy gate | `analisi_calib_data._check_sensor_accuracy_in_range()` | as-found errors + `sensorAccuracy` ranges | skip/proceed decision + `_sensor_accuracy_check` dict |
-| 4 | Certificate JSON | `analisi_calib_data._build_certificato_filled()` | template + calib result | `certificato_funzione_filled.json` |
+| 4 | Certificate JSON | `analisi_calib_data._build_cert_filled()` | template + calib result | `certificato_funzione_filled.json` |
 | 5 | PDF certificate | `certificato_funzione.py` | filled JSON | `ntc_cert_funzione.pdf` |
 | 6 | DCC XML | `generate_dcc_xml.py` | filled JSON | `ntc_calibration_certificate.xml` |
-| — | Conformity check | `verifica_conformita.py` | filled JSON | PASS/FAIL/WARN/N/A report to stdout |
+| — | Conformity check | `checks_helper.py` (invoked inline by orchestrator) | filled JSON | PASS/FAIL/WARN/N/A report to stdout |
 
 ---
 
@@ -24,24 +23,22 @@
 
 ### `analisi_calib_data.py` — Orchestrator
 
-- Bootstraps `sys.path` to include `models_in/` (for `VAR_REF_SENSOR`) and
-  `scripts/` (for the `model_calibration` package and other modules).
-- Loads `SENSOR_model` from `--sensor` JSON and `RIFERIMENTO_model` from `--ref` JSON
-  via `VAR_REF_SENSOR.from_json()`. Both default to files already in `models_in/`.
-  `VAR_extra` remains hardcoded (ADC bits, PT100 uncertainty constants).
-- Resolves previous firmware coefficients from `sensor.coeffA/B/C/D` (zero is treated
-  as the "not set" sentinel → `None`). These are passed to each engine as `old_a/old_b`
-  (linear) or `old_a/old_b/old_c/old_d` (cubic) and used throughout for as-found error
-  computation and the skipped-calibration path.
-- Dispatches calibration on `--procedure` CLI flag (or `sensor.calibrationProcedure`
-  if flag is omitted):
-  - `"linear"` or `"qubic-interpolation"` → `model_calibration.linear_calibration.calibrate()`
+- Bootstraps `sys.path` to include `scripts/` (for the `model_calibration` package and other modules).
+- Loads sensor and reference JSON models directly via `json.loads()` (no class-based deserialisation).
+  Default paths: `models_in/sensors/ntc_temperature.json` and `models_in/references/fluke_9142.json`.
+- Resolves previous firmware coefficients from `sensor.calibration.calibrationCoefficients.{A,B,C,D}`
+  (zero is treated as the "not set" sentinel → `None`). CLI flags `--old-a/b/c/d` override JSON
+  values when present. These are passed to each engine as `old_a/old_b` (linear) or
+  `old_a/old_b/old_c/old_d` (cubic) and used throughout for as-found error computation
+  and the skipped-calibration path.
+- Dispatches calibration on `--procedure` CLI flag (or `sensor.calibration.type` if flag is omitted):
+  - `"linear"` → `model_calibration.linear_calibration.calibrate()`
   - `"cubic"` → `model_calibration.cubic_calibration.calibrate()`
-  - `"cube-log"` → `model_calibration.cube_log_calibration.calibrate()`
+  - Legacy alias `"qubic-interpolation"` maps to `"linear"`.
   - Any other value → exits with error.
 - After calibration, evaluates the **sensor-accuracy gate** (step 3):
   reads `metrology.sensorAccuracy` from the sensor JSON, computes the as-found
-  error at each step (applying old coefficients when available, raw LSB→°C otherwise),
+  error at each step (applying old coefficients when available, raw LSB→Y otherwise),
   and checks each error against the most restrictive `maxError` of all
   `sensorAccuracy` ranges that contain `T_ref`.
   - When `--update-parameters-if-out-range-error` is set and all as-found errors
@@ -55,9 +52,9 @@
   keys (prefixed with `_`). The `M_e_pre` column uses the as-found reading (old
   coefficients applied) rather than the raw uncorrected reading.
 - Replaces `calculated_calibration_values` entirely with computed measurements.
-- Runs the full conformity check suite inline (checks G, A–F) and optionally writes
+- Runs the full conformity check suite inline (checks G, A, B, H) and optionally writes
   a conformity JSON when `--conformity-output` is set.
-- When `--check-units` is set, passes `sensor._data` and `fluke._data` to each
+- When `--check-units` is set, passes `sensor_json` and `ref_json` to each
   engine's `calibrate()` call. The engine calls `unit_checks.check_dsi()` before
   regression; on hard dimensional errors it raises `ValueError` which the
   orchestrator catches, prints, and exits with code 1.
@@ -68,29 +65,30 @@
 
 ### `model_calibration/linear_calibration.py` — Linear calibration engine
 
-- All maths in the **16-bit LSB domain** — no °C conversion during regression.
-- Model: `T_ref_lsb = A * T_sensor_lsb + B`
+- Both axes in the **physical domain** (Y units, e.g. °C); no LSB conversion during regression.
+- Model: `T_ref = A * D_sensor + B`  (both T_ref and D_sensor in Y)
 - Statistic: GUM OLS with full analytical uncertainty propagation (sensitivity
   coefficients for every data point).
 - Sample grouping: raw readings grouped into blocks of `sample_size=20`; per-block
   mean and std computed; population mean and std of block means used as inputs to OLS.
 - Type A uncertainty: population std of block means (per step).
-- Type B uncertainty: passed in as `ub_pt_lsb` (PT100) and `ub_tmp_lsb` (NTC ADC).
+- Type B uncertainty: passed in as `ub_ref_y` (reference) and `ub_sensor_lsb` (sensor ADC).
 - Expanded uncertainty `U(E)` at each step: `2 × √(u(T_ref)² + u(T_i)²)` where
   both `u` include type A and type B components.
 - Accepts optional `old_a` / `old_b` (previous firmware coefficients). When supplied,
-  prints a baseline pre-fit error block (signed mean, max abs, per-step values in
-  LSB and °C). Stored in the result dict as `old_A` / `old_B`.
+  prints a baseline pre-fit error block (signed mean, max abs, per-step values).
+  Stored in the result dict as `old_A` / `old_B`.
 - Returns dict with `model="linear"`, `A`, `B`, `u_A`, `u_B`, `cov_AB`, `old_A`,
-  `old_B`, `expanded_uncertainties`, `ref_temp_means`, `lsb_per_c`, `temp_nominali`,
-  `dati_raw`, `risultati_elaborati`. If `convert_units=True`, also contains a
-  `converted` sub-dict.
+  `old_B`, `rmse`, `expanded_uncertainties`, `ref_temp_means`, `lsb_per_c`,
+  `temp_nominali`, `dati_raw`, `risultati_elaborati`, `u_budget_per_step`,
+  `ub_ref_y`, `ub_sensor_lsb`, `ub_ref_lsb`. If `convert_units=True`, also
+  contains a `converted` sub-dict.
 
 ### `model_calibration/cubic_calibration.py` — Cubic polynomial engine
 
-- All maths in the **16-bit LSB domain**.
-- Model: `T_ref_lsb = a0 + a1·D + a2·D² + a3·D³`
-  where `D` is the raw NTC ADC reading in LSB.
+- **Mixed domain**: sensor X in LSB, reference Y in native physical unit (e.g. °C).
+- Model: `T_ref = a0 + a1·D + a2·D² + a3·D³`
+  where `D` is the raw sensor ADC reading in LSB.
 - The model is linear in unknowns `[a0, a1, a2, a3]` given regressors
   `[1, D, D², D³]`, so OLS applies directly.
 - Requires at least 4 calibration steps (one per coefficient).
@@ -104,24 +102,39 @@
   `cubic_predict()`). Stored in the result dict as `old_a0` / `old_a1` / `old_a2`
   / `old_a3`.
 - Returns dict with `model="cubic"`, `a0`…`a3`, `u_a0`…`u_a3`, `cov_theta`,
-  `old_a0`…`old_a3`, `expanded_uncertainties`, `per_step_budget`, `ref_temp_means`,
-  `lsb_per_c`, `temp_nominali`, `dati_raw`, `risultati_elaborati`.
+  `rmse`, `old_a0`…`old_a3`, `expanded_uncertainties`, `per_step_budget`,
+  `ref_temp_means`, `lsb_per_c`, `temp_nominali`, `dati_raw`, `risultati_elaborati`,
+  `ub_ref_y`, `ub_sensor_lsb`, `ub_ref_lsb`.
 
-### `model_calibration/cube_log_calibration.py` — Cubic-log (Steinhart-Hart) engine
+### `model_calibration/calib_plots.py` — Unified chart generator
 
-- All maths in the **16-bit LSB domain**.
-- Model: `1/T [K⁻¹] = C0 + C1·ln(D) + C3·(ln(D))³`  (Steinhart-Hart equation)
-  where `D` is the raw NTC ADC reading in LSB.
-- The model is linear in unknowns `[C0, C1, C3]` once regressors
-  `[1, ln(D), (ln(D))³]` are formed, so OLS is applied directly.
-- Requires at least 3 calibration steps (one per coefficient).
-- GUM propagation: analytical sensitivity coefficients of `theta_hat` with respect
-  to each observation `(x_i, y_i)`.
-- `steinhart_hart_uncertainty()` propagates the full coefficient covariance and
-  sensor reading uncertainty through the nonlinear model via GUM Eq. 13.
-- Returns dict with `model="cube-log"`, `C0`, `C1`, `C3`, `u_C0`, `u_C1`, `u_C3`,
-  `cov_theta`, `expanded_uncertainties`, `per_step_budget`, `ref_temp_means`,
-  `lsb_per_c`, `temp_nominali`, `dati_raw`, `risultati_elaborati`.
+- Produces standardised 5-chart PNG sets at 600 dpi for any calibration model:
+  (1) sample timeseries, (2) raw scatter, (3) calibration curve, (4) pre-calibration
+  error, (5) post-calibration residuals.
+- Uses real per-point GUM combined standard uncertainty for all error bars.
+- All calibration engines delegate chart generation to this single module.
+
+### `calib_utils.py` — Shared utilities
+
+- `_lookup` — finds a dict in a list by key=value.
+- `SensorAccuracyChecker` — evaluates as-found error against `sensorAccuracy` ranges.
+- `lsb_to_y()` / `y_to_lsb()` — domain conversion functions (generic physical unit).
+- `round_to_significant_figures()` — rounding helper.
+- Import from here; do not duplicate these helpers in other modules.
+
+### `checks_helper.py` — Conformity check library (invoked inline)
+
+- Implements checks G, A, B, H. Used inline by `analisi_calib_data.py`.
+- Defines constants (`K_COPERTURA=2.0`, `U_PT_DEGC=0.065`, `D_TMP126_DEGC=0.30`, `ADC_BITS=16`).
+- Uses `scipy.stats` for normal CDF in Check H (PFA).
+- Provides `check_G()`, `check_A()`, `check_B()`, `check_H()`, `_parse_limit()`, `save_charts()`.
+
+### `verify_dcc_conformity.py` — Standalone DCC XML verifier
+
+- Parses a PTB DCC 3.3.0 XML file and runs 3 checks: Check G (sensor accuracy as-found),
+  Check H (PFA), and an overlap/compatibility check.
+- Uses pure `math.erf` (no scipy dependency).
+- Generates 4 PNG charts. Parses XML (not JSON) — a distinct pipeline from the JSON-based checks in `checks_helper.py`.
 
 ### `model_calibration/unit_checks.py` — Dimensional analysis and unit conversion
 
@@ -152,63 +165,62 @@
 - Reads 5-element measurement rows; columns 2 and 3 are treated as temperatures in °C;
   column 5 as expanded uncertainty.
 
-### `verifica_conformita.py` — Conformity checker
+### `verifica_conformita.py` — Conformity checker (standalone)
 
 - Standalone post-pipeline tool; reads `certificato_funzione_filled.json`.
-- Runs 7 metrological checks (G first, then A–F). See [conformity-checks.md](conformity-checks.md).
+- Runs 4 metrological checks (G, A, B, H). See [conformity-checks.md](conformity-checks.md).
+- Shares check logic with `checks_helper.py` (inline library variant used by the orchestrator).
 - Check G runs before all others and has two ordered sub-checks:
   - G1: as-found error `|M_e_pre|` within the most restrictive `sensorAccuracy.maxError`
     for the point's temperature. FAIL if any error exceeds its limit.
   - G2: every calibration point covered by at least one `sensorAccuracy` range.
     WARN for regression models when a point falls outside all declared ranges.
   - Returns N/A when `sensorAccuracy` is absent from the sensor JSON.
-- `sensorAccuracy` ranges are loaded directly from `ntc_temperature.json` at runtime.
+- `sensorAccuracy` ranges are loaded directly from the sensor JSON at runtime.
 - Optionally produces 3 matplotlib figures (residuals, GUM budget, calibration curve).
 
 ---
 
 ## Model layer — `models_in/`
 
-### `VAR_REF_SENSOR.py`
+Sensor and reference model definitions are plain JSON files loaded directly
+via `json.loads()`. No class-based deserialisation.
 
-Three dataclasses:
+### Directory layout
 
-| Class | Default JSON | CLI arg | Purpose |
-|---|---|---|---|
-| `SENSOR_model` | `models_in/ntc_temperature.json` | `--sensor` | NTC physical, metrology, and previous-calibration parameters |
-| `RIFERIMENTO_model` | `models_in/fluke_9142.json` | `--ref` | Reference calibrator parameters |
-| `VAR_extra` | — (hardcoded) | — | ADC resolution + reference uncertainty constants |
+```
+models_in/
+  sensors.json                       ← DB-originated sensor definitions (optional)
+  sensors/
+    ntc_temperature.json             ← PRIMARY sensor model (default --sensor)
+    ntc_temperature_kelvin.json
+    pt100_temp.json
+  references/
+    fluke_9142.json                  ← PRIMARY reference model (default --ref)
+    fluke_old.json
+```
 
-`SENSOR_model()` / `RIFERIMENTO_model()` (no args) load from `BASE_DIR` next to the file.
-`SENSOR_model.from_json(path)` / `RIFERIMENTO_model.from_json(path)` load from an
-explicit path — used by the orchestrator when a CLI path is supplied.
+### Key values read from `sensors/ntc_temperature.json`
 
-**Must stay in `models_in/`** — `BASE_DIR = Path(__file__).resolve().parent` resolves
-relative to its own location.
+| JSON path | Pipeline use | Typical value |
+|---|---|---|
+| `ranges.threshold.min` / `.max` | LSB physical range bounds | −40.0 … 105.0 °C |
+| `ranges.elec.adcBits` | ADC resolution | 16 |
+| `calibration.type` | Default procedure | `"linear"` |
+| `calibration.calibrationCoefficients.A.value` | Previous coeff A (0.0 = not set) | varies |
+| `calibration.calibrationCoefficients.B.value` | Previous coeff B (0.0 = not set) | varies |
+| `calibration.calibrationCoefficients.C.value` | Previous coeff C (0.0 = not set) | varies |
+| `calibration.calibrationCoefficients.D.value` | Previous coeff D (0.0 = not set) | varies |
+| `metrology.sensorAccuracy[]` | Accuracy gate + Check G | `[{tempMin, tempMax, maxError}]` |
+| `metrology.readingUncertainty[uB].value` | Sensor type-B std uncertainty [LSB] | 0.30 |
+| `metrology.readingUncertainty[absUncertainty].value` | Sensor absolute uncertainty [LSB] | 5.0 |
+| `metrology.Uncertainty[0].absUncertainty` | Check B limit | 0.10 °C |
 
-Key values used by the pipeline:
+### Key values read from `references/fluke_9142.json`
 
-| Attribute | Class | Source | Value |
-|---|---|---|---|
-| `_adc_bits` | `VAR_extra` | hardcoded | 16 |
-| `_U_pt_c` | `VAR_extra` | hardcoded | 0.065 °C (expanded, k=2) |
-| `_k_pt` | `VAR_extra` | hardcoded | 2.0 |
-| `_d_tmp126_c` | `VAR_extra` | hardcoded | 0.30 °C (half-width, uniform) |
-| `_minPhyThreshold` | `SENSOR_model` | `ntc_temperature.json` ranges.threshold.min | −40.0 °C |
-| `_maxPhyThreshold` | `SENSOR_model` | `ntc_temperature.json` ranges.threshold.max | 105.0 °C |
-| `absUncertainty` | `SENSOR_model` | `ntc_temperature.json` metrology.readingUncertainty | 5.0 LSB |
-| `resolution_degC` | `SENSOR_model` | hardcoded in dataclass | 0.01 °C |
-| `calibrationProcedure` | `SENSOR_model` | `ntc_temperature.json` calibration.type | `"qubic-interpolation"` |
-| `coeffA` | `SENSOR_model` | `ntc_temperature.json` calibration.calibrationCoefficients.A | previous linear A (0.0 = not set) |
-| `coeffB` | `SENSOR_model` | `ntc_temperature.json` calibration.calibrationCoefficients.B | previous linear B [LSB] (0.0 = not set) |
-| `coeffC` | `SENSOR_model` | `ntc_temperature.json` calibration.calibrationCoefficients.C | previous cubic a2 (0.0 = not set) |
-| `coeffD` | `SENSOR_model` | `ntc_temperature.json` calibration.calibrationCoefficients.D | previous cubic a3 (0.0 = not set) |
-| `R25`, `B25_85` | `SENSOR_model` | hardcoded in dataclass | 10000 Ω, 3950 K |
-
-The `coeffA/B/C/D` fields store the previous calibration's coefficients.
-The orchestrator treats `0.0` as the "not set" sentinel (→ `None`), so a freshly
-manufactured sensor with all-zero coefficients in the JSON is treated identically
-to a sensor with no prior calibration.
+| JSON path | Pipeline use | Typical value |
+|---|---|---|
+| `metrology.Uncertainty[0].ub` | Reference type-B std uncertainty | 0.15 °C |
 
 ---
 
@@ -217,27 +229,28 @@ to a sensor with no prior calibration.
 ### Hardcoded (not in any JSON)
 
 - ADC bits: 16
-- PT100 expanded uncertainty: 0.065 °C, k=2
-- NTC ADC half-width (uniform): 0.30 °C
-- Sensor resolution: 0.01 °C
+- Reference expanded uncertainty: 0.065 °C, k=2
+- Sensor ADC half-width (uniform): 0.30 °C
 - Sample block size: 20 readings/block
 - Coverage factor k: 2
 - Confidence level: 95 %
 - OLS numerical tolerance constants
 
-### Read from `ntc_temperature.json`
+### Read from `sensors/ntc_temperature.json`
 
 - LSB physical range (−40 °C … 105 °C)
-- LSB electrical range (0 … 65535)
-- NTC absolute uncertainty: 5.0 LSB
-- Calibration procedure type: `"qubic-interpolation"`
+- LSB electrical range (0 … 65535, 16-bit ADC)
+- Sensor absolute uncertainty: 5.0 LSB; type-B std uncertainty: 0.30 LSB
+- Calibration procedure type (e.g. `"linear"`)
 - Previous calibration coefficients A, B, C, D (0.0 when unset)
 - Sensor accuracy ranges (`metrology.sensorAccuracy[]`)
+- Declared uncertainty limit (`metrology.Uncertainty[0].absUncertainty`)
 
-### Read from `fluke_9142.json`
+### Read from `references/fluke_9142.json`
 
 - Reference calibrator physical range
 - Reference operating environment range
+- Reference type-B uncertainty (`metrology.Uncertainty[0].ub`)
 
 ### Read from `certificato_funzione_input.json` (template)
 
@@ -248,10 +261,10 @@ to a sensor with no prior calibration.
 
 ### Computed at runtime and injected into filled JSON
 
-- A, B, u(A), u(B), cov(A,B) — or a0…a3 / C0, C1, C3 depending on procedure
+- A, B, u(A), u(B), cov(A,B) — or a0…a3 depending on procedure
 - Per-step expanded uncertainties U(E)
 - Per-step reference temperature means
-- Measurement table rows (6 floats each: point, T_ref, T_c_post, M_e_pre, M_e_post, U_exp)
-- NTC model computed notes
+- Measurement table rows (6 floats each: point, T_ref, T_sensor_post, M_e_pre, M_e_post, U_exp)
+- Sensor model computed notes
 - `_calibration_done`: `"done"` or `"not_necessary"`
 - `_sensor_accuracy_check`: per-point as-found accuracy gate results

@@ -7,8 +7,6 @@
     "manufacturer": "Measurestream electronics",
     "calibration_method": "Internal procedure validated by the quality service laboratory approved by Accredia based on the comparison method in a controlled oven with a reference, Pt100 platinum resistance thermometer read by Fluke 1502A metrology well.",
     "measurement_conditions": [
-      "Calibration range: 0 \u00b0C to 125 \u00b0C",
-      "Temperature steps: 0, 25, 50, 75, 100, 125 \u00b0C \u2014 6 calibration points",
       "Reference standard: Pt100 Platinum Resistance Thermometer read by Fluke 1502A readout (U=0.065 \u00b0C, k=2)",
       "Sensor under calibration: DIGITAL thermometer (Measurestream electronics, model 0001-3)",
       "Resolution: 0.01 \u00b0C",
@@ -65,8 +63,6 @@
     "certificate_title": "CALIBRATION CERTIFICATE",
     "certificate_title_en": "Certificate of Calibration",
     "conditions": [
-      "Calibration range: 0 \u00b0C to 125 \u00b0C",
-      "Temperature steps: 0, 25, 50, 75, 100, 125 \u00b0C \u2014 6 calibration points",
       "Reference: Fluke 1502A readout + Pt100 probe (U=0.065 \u00b0C, k=2)",
       "Sensor: DIGITAL thermometer (Measurestream electronics, model 0001-3), resolution 0.01 \u00b0C",
       "Settling period: 10 min per step"
@@ -100,7 +96,7 @@
       "r25": "R25",
       "b25_85": "B25/85",
       "alpha25": "alpha (25 degC)",
-      "interp": "Interpolation uncertainty"
+      "interp": "regression uncertainty"
     },
     "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A \u00b7 D + B. The calibration was determined over 6 calibration points (0 \u00b0C to 125 \u00b0C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer."
   }

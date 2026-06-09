@@ -1,22 +1,4 @@
-"""calib_plots.py — unified calibration chart generator.
-
-Produces exactly 5 standardised PNG figures for any calibration model,
-at 600 dpi (4× the legacy 150 dpi) so that images are fully zoomable.
-
-Every error bar in every figure uses the **real per-point GUM combined
-standard uncertainty** extracted from the calibration budget, not a single
-scalar type-B value.  Specifically:
-
-  u_ref_degc[i]     = mu_T_ref[i] = sqrt(uA_ref[i]² + uB_ref²)   [°C]
-  u_sensor_lsb[i]   = sqrt(uA_i_lsb[i]² + uB_sensor_lsb²)        [LSB]
-  u_sensor_degc[i]  = mu_T_i[i]  = sqrt(uA_i[i]² + uB_i² + u_res²) [°C]
-  u_E[i]            = U_E[i] = 2·mu_E[i] = 2·sqrt(u_ref²+u_sensor²) [°C]
-
-These are carried as per-point lists in PlotBundle and used consistently
-in every figure.
-
-Figures
--------
+"""
 fig1  Sample block-mean time-series per step.
       Reference bands = ±mu_T_ref[i] (combined ref uncertainty).
       Sensor bands    = ±u_sensor_lsb[i] (combined sensor uncertainty in LSB).
@@ -50,32 +32,29 @@ FIG_W_2x3 = 24.0
 FIG_H_2x3 = 14.0
 
 
-# ---------------------------------------------------------------------------
+
 # PlotBundle dataclass
-# ---------------------------------------------------------------------------
+
 
 @dataclass
 class PlotBundle:
-    """Model-agnostic container for all data needed to draw the five charts.
-
-    All uncertainty lists are per-point combined standard uncertainties
-    derived from the GUM budget stored in the calibration result dict.
+    """
 
     steps           : nominal step values, sorted by sensor reading
     ref_means       : mean reference value per step [°C]
     sensor_means    : mean sensor reading per step [LSB]
-    u_ref_degc      : combined std unc of reference per step [°C]  = mu_T_ref
+    u_ref_y         : combined std unc of reference per step [°C]  = mu_T_ref
     u_sensor_lsb    : combined std unc of sensor per step [LSB]
-    u_sensor_degc   : combined std unc of sensor per step [°C]     = mu_T_i
+    u_sensor_y      : combined std unc of sensor per step [°C]     = mu_T_i
     u_E             : expanded uncertainty U(E) = 2·mu_E per step [°C]
     me_pre          : pre-calibration signed error per step [°C]
     me_post         : post-calibration residual per step [°C]
     t_sensor_pre    : raw sensor reading converted to [°C] per step
     t_sensor_post   : calibrated sensor prediction per step [°C]
     model_x_lsb     : dense sensor grid for model curve [LSB]
-    model_y_degc    : model output on dense grid [°C]
-    lsb_per_c       : LSB/°C conversion factor
-    lsb_min, lsb_max: physical range endpoints [°C]
+    model_y         : model output on dense grid [°C]
+    lsb_per_y       : LSB/°C conversion factor
+    lsb_min, lsb_max: physical range endpoints [LSB]
     adc_max         : maximum ADC count
     unit_symbol     : physical unit symbol for axis labels (e.g. "°C")
     sensor_label    : display name of sensor under test
@@ -89,21 +68,22 @@ class PlotBundle:
     steps:          List[float]
     ref_means:      List[float]        # [°C]
     sensor_means:   List[float]        # [LSB]
-    u_ref_degc:     List[float]        # [°C]  per-point combined ref unc
+    u_ref_y:        List[float]        # [°C]  per-point combined ref unc
     u_sensor_lsb:   List[float]        # [LSB] per-point combined sensor unc
-    u_sensor_degc:  List[float]        # [°C]  per-point combined sensor unc
+    u_sensor_y:     List[float]        # [°C]  per-point combined sensor unc
     u_E:            List[float]        # [°C]  expanded uncertainty
     me_pre:         List[float]        # [°C]
     me_post:        List[float]        # [°C]
     t_sensor_pre:   List[float]        # [°C]
     t_sensor_post:  List[float]        # [°C]
     model_x_lsb:    List[float]
-    model_y_degc:   List[float]
-    lsb_per_c:      float
+    model_y:        List[float]
+    lsb_per_y:      float
     lsb_min:        float
     lsb_max:        float
     adc_max:        float
     unit_symbol:    str = "°C"
+    measurand_label: str = "Temperature"
     sensor_label:   str = "Sensor"
     ref_label:      str = "Reference"
     model_label:    str = "Calibration model"
@@ -113,23 +93,21 @@ class PlotBundle:
     accuracy_limit: Optional[float] = None
 
 
-# ---------------------------------------------------------------------------
+
 # Internal helpers
-# ---------------------------------------------------------------------------
-
-def _phys_label(unit: str) -> str:
-    if unit in ("°C", "K", "°F"):
-        return f"Temperature [{unit}]"
-    return f"Measurand [{unit}]"
 
 
-def _add_sensor_secondary_axis(ax, lsb_min: float, lsb_per_c: float, unit: str,
+def _phys_label(measurand: str, unit: str) -> str:
+    return f"{measurand} [{unit}]"
+
+
+def _add_sensor_secondary_axis(ax, lsb_min: float, lsb_per_y: float, unit: str,
                                 position: str = "top"):
     ax2 = ax.secondary_xaxis(
         position,
         functions=(
-            lambda lsb: lsb_min + lsb / lsb_per_c,
-            lambda phys: (phys - lsb_min) * lsb_per_c,
+            lambda lsb: lsb_min + lsb / lsb_per_y,
+            lambda phys: (phys - lsb_min) * lsb_per_y,
         ),
     )
     ax2.set_xlabel(f"Sensor reading [{unit}]", fontsize=9)
@@ -156,26 +134,23 @@ def _annotate(ax, x_vals, y_vals, steps, fontsize=7):
                     fontsize=fontsize, alpha=0.75)
 
 
-# ---------------------------------------------------------------------------
+
 # Figure 1 — Sample block-mean time-series per step
-# ---------------------------------------------------------------------------
+
 
 def _local_sens_lsb_per_unit(bundle: PlotBundle) -> List[float]:
-    """Per-step local sensitivity dLSB/d°C estimated by central finite differences
-    on the calibration step means.
+    # Per-step local sensitivity dLSB/d°C estimated by central finite differences
+    # on the calibration step means.
 
-    Uses (sensor[i+1] - sensor[i-1]) / (ref[i+1] - ref[i-1]) for interior steps,
-    and the one-sided difference for the two endpoints.
+    # Uses (sensor[i+1] - sensor[i-1]) / (ref[i+1] - ref[i-1]) for interior steps,
+    # and the one-sided difference for the two endpoints.
 
-    This is the physically correct scale factor for aligning the LSB axis with
-    the °C axis at each individual step — it accounts for sensor nonlinearity.
-    Falls back to the global lsb_per_c only when fewer than 2 steps are available.
-    """
+
     sm = bundle.sensor_means  # [LSB]
     rm = bundle.ref_means     # [°C]
     n  = len(sm)
     if n < 2:
-        return [bundle.lsb_per_c] * n
+        return [bundle.lsb_per_y] * n
 
     sens = []
     for i in range(n):
@@ -191,7 +166,7 @@ def _local_sens_lsb_per_unit(bundle: PlotBundle) -> List[float]:
         if abs(dT) > 1e-9:
             sens.append(abs(dL / dT))
         else:
-            sens.append(bundle.lsb_per_c)
+            sens.append(bundle.lsb_per_y)
     return sens
 
 
@@ -205,7 +180,7 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
 
     The °C equivalent on the sensor tick labels is computed using the
     LOCAL sensitivity dLSB/d°C at that step (central finite differences),
-    not the global affine lsb_per_c.
+    not the global affine lsb_per_y.
 
     Scale alignment: half-span in °C = max(ref_halfspan, sensor_halfspan)
     where sensor_halfspan is derived via the local sensitivity, then
@@ -245,26 +220,26 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
         x   = sd["x_axis"]
 
         bi             = step_to_idx.get(t, idx)
-        u_ref_i        = bundle.u_ref_degc[bi]    # [°C]
-        u_sensor_lsb_i = bundle.u_sensor_lsb[bi]  # [LSB]
-        sens_i         = local_sens[bi]            # [LSB/°C] — local at this step
+        u_ref_i        = bundle.u_ref_y[bi]      # [°C]
+        u_sensor_lsb_i = bundle.u_sensor_lsb[bi] # [LSB]
+        sens_i         = local_sens[bi]          # [LSB/°C] — local at this step
 
-        smean_rtd = np.asarray(sd["smean_rtd"])   # [°C]
-        smean_log = np.asarray(sd["smean_log"])   # [LSB]
+        smean_rtd = np.asarray(sd["smean_ref"])     # Y
+        smean_log = np.asarray(sd["smean_sensor"]) # X [LSB]
 
         # ── Shared physical half-span ──────────────────────────────────────
         # Both spans expressed in °C using the LOCAL sensitivity for the sensor.
-        # No global lsb_per_c used here.
+        # No global lsb_per_y used here.
         ref_pp    = smean_rtd.max() - smean_rtd.min()   # [°C]
         ref_half  = ref_pp / 2.0 + u_ref_i              # [°C]
 
         sen_pp_lsb  = smean_log.max() - smean_log.min() # [LSB]
         # Convert to °C using local sensitivity (LSB/°C → °C = LSB / sens_i)
-        sen_half_degc = sen_pp_lsb / (2.0 * sens_i) + u_sensor_lsb_i / sens_i  # [°C]
+        sen_half_y = sen_pp_lsb / (2.0 * sens_i) + u_sensor_lsb_i / sens_i  # [°C]
 
         # Winning window: same physical width on both axes, 20 % margin
-        half_degc = max(ref_half, sen_half_degc, 1e-9) * 1.2   # [°C]
-        half_lsb  = half_degc * sens_i                          # [LSB] for sensor axis
+        half_y = max(ref_half, sen_half_y, 1e-9) * 1.2   # [°C]
+        half_lsb  = half_y * sens_i                      # [LSB] for sensor axis
 
         ref_centre     = (smean_rtd.max() + smean_rtd.min()) / 2.0   # [°C]
         sen_centre_lsb = (smean_log.max() + smean_log.min()) / 2.0   # [LSB]
@@ -276,7 +251,7 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
                 label=f"{bundle.ref_label} [{bundle.unit_symbol}]")
         ax.fill_between(x, smean_rtd - u_ref_i, smean_rtd + u_ref_i,
                         alpha=0.18, color="tab:blue")
-        ax.set_ylim(ref_centre - half_degc, ref_centre + half_degc)
+        ax.set_ylim(ref_centre - half_y, ref_centre + half_y)
         ax.set_ylabel(f"Ref [{bundle.unit_symbol}]", fontsize=8, color="tab:blue")
         ax.tick_params(axis="y", labelcolor="tab:blue", labelsize=7)
 
@@ -301,14 +276,14 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
         ax2.set_ylabel(f"Sensor [LSB  |  {bundle.unit_symbol}]", fontsize=8, color="tab:red")
         ax2.tick_params(axis="y", labelcolor="tab:red", labelsize=7)
 
-        winner = "ref" if ref_half >= sen_half_degc else "sensor"
-        u_sen_degc_i = u_sensor_lsb_i / sens_i
+        winner = "ref" if ref_half >= sen_half_y else "sensor"
+        u_sen_y_i = u_sensor_lsb_i / sens_i
         ax.set_title(
             f"Step {t:.1f} {bundle.unit_symbol}  —  "
             f"local sens = {sens_i:.1f} LSB/{bundle.unit_symbol}\n"
             f"u_ref={u_ref_i:.4f} {bundle.unit_symbol}   "
-            f"u_sen={u_sensor_lsb_i:.2f} LSB = {u_sen_degc_i:.4f} {bundle.unit_symbol}\n"
-            f"window ±{half_degc:.4f} {bundle.unit_symbol}  (driven by {winner})",
+            f"u_sen={u_sensor_lsb_i:.2f} LSB = {u_sen_y_i:.4f} {bundle.unit_symbol}\n"
+            f"window ±{half_y:.4f} {bundle.unit_symbol}  (driven by {winner})",
             fontsize=7,
         )
         ax.set_xlabel("Block index", fontsize=8)
@@ -325,9 +300,9 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
     return fig
 
 
-# ---------------------------------------------------------------------------
+
 # Figure 2 — Raw scatter (pre-calibration)
-# ---------------------------------------------------------------------------
+
 
 def _fig2_raw_scatter(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
@@ -342,7 +317,7 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
     x_lsb  = np.array(bundle.sensor_means)
     y_ref  = np.array(bundle.ref_means)
     u_x    = np.array(bundle.u_sensor_lsb)   # [LSB] per-point GUM
-    u_y    = np.array(bundle.u_ref_degc)      # [°C]  per-point GUM
+    u_y    = np.array(bundle.u_ref_y)        # [°C]  per-point GUM
 
     for i, (xi, yi, uxi, uyi, t) in enumerate(zip(x_lsb, y_ref, u_x, u_y, bundle.steps)):
         color  = _step_color(bundle.is_node, i)
@@ -353,15 +328,10 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
         ax.annotate(f"{t:.0f}", (xi, yi),
                     textcoords="offset points", xytext=(5, 3), fontsize=7, alpha=0.8)
 
-    # Identity conversion line
-    x_line = np.linspace(x_lsb.min() * 0.98, x_lsb.max() * 1.02, 300)
-    ax.plot(x_line, bundle.lsb_min + x_line / bundle.lsb_per_c,
-            "k--", linewidth=0.9, alpha=0.45, label="Identity (LSB→°C)")
-
     ax.set_xlabel(f"{bundle.sensor_label} mean [LSB]", fontsize=10)
     ax.set_ylabel(f"{bundle.ref_label} mean [{bundle.unit_symbol}]", fontsize=10)
     ax.grid(True, alpha=0.25)
-    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_c, bundle.unit_symbol)
+    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     if bundle.is_node is not None:
         from matplotlib.patches import Patch
@@ -369,16 +339,16 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
             Patch(facecolor="tab:blue",   label="Interpolation node"),
             Patch(facecolor="tab:orange", label="Interior (validation)"),
         ], fontsize=8)
-    else:
-        ax.legend(fontsize=8)
+    # No legend when no node distinction — the raw scatter needs no key,
+    # and the identity line is intentionally omitted (visual clutter).
 
     fig.tight_layout()
     return fig
 
 
-# ---------------------------------------------------------------------------
+
 # Figure 3 — Calibration curve
-# ---------------------------------------------------------------------------
+
 
 def _fig3_calibration_curve(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
@@ -391,18 +361,13 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
     )
 
     # Dense model curve
-    ax.plot(bundle.model_x_lsb, bundle.model_y_degc,
+    ax.plot(bundle.model_x_lsb, bundle.model_y,
             "r-", linewidth=1.4, zorder=3, label=f"Model: {bundle.model_label}")
-
-    # Identity line
-    x_line = np.linspace(min(bundle.model_x_lsb) * 0.98, max(bundle.model_x_lsb) * 1.02, 300)
-    ax.plot(x_line, bundle.lsb_min + np.array(x_line) / bundle.lsb_per_c,
-            "k--", linewidth=0.8, alpha=0.45, label="Identity (LSB→°C)")
 
     x_lsb = np.array(bundle.sensor_means)
     y_ref  = np.array(bundle.ref_means)
     u_x    = np.array(bundle.u_sensor_lsb)  # [LSB]
-    u_y    = np.array(bundle.u_ref_degc)    # [°C]
+    u_y    = np.array(bundle.u_ref_y)       # [°C]
 
     # Reference points with per-point error bars
     ax.errorbar(x_lsb, y_ref, xerr=u_x, yerr=u_y,
@@ -423,18 +388,18 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
     _annotate(ax, x_lsb, y_ref, bundle.steps)
 
     ax.set_xlabel(f"{bundle.sensor_label} reading [LSB]", fontsize=10)
-    ax.set_ylabel(_phys_label(bundle.unit_symbol), fontsize=10)
+    ax.set_ylabel(_phys_label(bundle.measurand_label, bundle.unit_symbol), fontsize=10)
     ax.grid(True, alpha=0.25)
     ax.legend(fontsize=8)
-    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_c, bundle.unit_symbol)
+    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     fig.tight_layout()
     return fig
 
 
-# ---------------------------------------------------------------------------
+
 # Figure 4 — Pre-calibration error (as-found)
-# ---------------------------------------------------------------------------
+
 
 def _fig4_pre_error(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
@@ -473,20 +438,28 @@ def _fig4_pre_error(bundle: PlotBundle, plt):
         lim = bundle.accuracy_limit
         ax.axhspan(-lim, lim, alpha=0.07, color="green")
         ax.axhline( lim, color="green", linewidth=0.8, linestyle="-.", alpha=0.6,
-                    label=f"Accuracy limit ±{lim:.3f} {bundle.unit_symbol}")
+                    label=f"Tolerance ±{lim:.3f} {bundle.unit_symbol}")
         ax.axhline(-lim, color="green", linewidth=0.8, linestyle="-.", alpha=0.6)
 
+    # Y-axis: show actual error magnitude in physical unit (°C), with margin
+    # so error bars and limit bands remain visible.
+    if len(me_pre) > 0:
+        y_lo = float(np.min(me_pre - u_E))
+        y_hi = float(np.max(me_pre + u_E))
+        span = max(abs(y_lo), abs(y_hi), 1e-9)
+        ax.set_ylim(-span * 1.20, span * 1.20)
+
     ax.set_xlabel(f"{bundle.ref_label} [{bundle.unit_symbol}]", fontsize=10)
-    ax.set_ylabel(f"M_e_pre [{bundle.unit_symbol}]", fontsize=10)
+    ax.set_ylabel(f"Pre-calibration error M_e_pre [{bundle.unit_symbol}]", fontsize=10)
     ax.grid(True, alpha=0.25)
     ax.legend(fontsize=8)
     fig.tight_layout()
     return fig
 
 
-# ---------------------------------------------------------------------------
+
 # Figure 5 — Post-calibration residuals (as-left)
-# ---------------------------------------------------------------------------
+
 
 def _fig5_post_residuals(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
@@ -537,7 +510,7 @@ def _fig5_post_residuals(bundle: PlotBundle, plt):
         lim = bundle.accuracy_limit
         ax.axhspan(-lim, lim, alpha=0.07, color="green")
         ax.axhline( lim, color="green", linewidth=0.8, linestyle="-.", alpha=0.6,
-                    label=f"Accuracy limit ±{lim:.3f} {bundle.unit_symbol}")
+                    label=f"Tolerance ±{lim:.3f} {bundle.unit_symbol}")
         ax.axhline(-lim, color="green", linewidth=0.8, linestyle="-.", alpha=0.6)
 
     if bundle.is_node is not None:
@@ -549,16 +522,24 @@ def _fig5_post_residuals(bundle: PlotBundle, plt):
     else:
         ax.legend(fontsize=8)
 
+    # Y-axis: auto-scale to actual residual magnitude (°C) with margin so
+    # error bars and limit bands remain visible.
+    if len(me_post) > 0:
+        y_lo = float(np.min(me_post - u_E))
+        y_hi = float(np.max(me_post + u_E))
+        span = max(abs(y_lo), abs(y_hi), 1e-9)
+        ax.set_ylim(-span * 1.20, span * 1.20)
+
     ax.set_xlabel(f"{bundle.ref_label} [{bundle.unit_symbol}]", fontsize=10)
-    ax.set_ylabel(f"M_e_post [{bundle.unit_symbol}]", fontsize=10)
+    ax.set_ylabel(f"Post-calibration residual M_e_post [{bundle.unit_symbol}]", fontsize=10)
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
     return fig
 
 
-# ---------------------------------------------------------------------------
+
 # Public entry point
-# ---------------------------------------------------------------------------
+
 
 def save_five_charts(bundle: PlotBundle, output_dir: Path, prefix: str) -> List[Path]:
     """Generate and save all five standard calibration charts at 600 dpi."""
@@ -597,40 +578,39 @@ def save_five_charts(bundle: PlotBundle, output_dir: Path, prefix: str) -> List[
     return saved
 
 
-# ---------------------------------------------------------------------------
+
 # Internal: extract per-point GUM uncertainties from budget
-# ---------------------------------------------------------------------------
+
 
 def _extract_unc_from_budget(
     steps: List[float],
     risultati: Dict[float, Any],
     budget: List[Dict[str, Any]],
-    lsb_per_c: float,
-    ub_pt_degc: float,
+    lsb_per_y: float,
+    ub_ref_y: float,
     ub_sensor_lsb: float,
-    u_res_degc: float = 0.0,
+    u_res: float = 0.0,
 ) -> tuple:
-    """Return (u_ref_degc, u_sensor_lsb_list, u_sensor_degc, u_E) per-point lists.
 
-    Priority:
-      1. Interpolation model budget keys: mu_T_ref, mu_T_i, U_E
-      2. Linear OLS budget keys:         u_T_ref_degC, u_T_i_degC, U_exp_degC
-      3. Fallback: recompute from raw pstd_* stats + ub_pt_degc + ub_sensor_lsb
 
-    ``ub_pt_degc`` must already be in °C (not LSB). The caller is responsible
-    for converting before calling this function.
-    """
-    # Index budget by step nominal value — support both key name styles
+    # Priority:
+    #   1. Cubic/linear OLS budget keys:   mu_T_ref, mu_T_i, U_E
+    #   2. Linear OLS budget keys:         u_ref, u_sensor, U_exp
+    #   3. Fallback: recompute from raw pstd_* stats + ub_ref_y + ub_sensor_lsb
+    #    Index budget by step nominal value — support both key name styles
+
+
+
     budget_by_step: Dict[float, Dict] = {}
     for b in (budget or []):
-        key = b.get("t_nominal", b.get("t_nom_degC"))
+        key = b.get("t_nominal", b.get("t_nom"))
         if key is not None:
             budget_by_step[float(key)] = b
 
-    u_ref_degc    = []
+    u_ref_y    = []
     u_sensor_lsb_ = []
-    u_sensor_degc = []
-    u_E_list      = []
+    u_sensor_y = []
+    u_E_list   = []
 
     for t in steps:
         b = budget_by_step.get(float(t))
@@ -639,94 +619,86 @@ def _extract_unc_from_budget(
         if b and "mu_T_ref" in b:
             # Interpolation model budget (linear_interp, cubic_interp)
             u_ref    = float(b["mu_T_ref"])
-            u_si_deg = float(b.get("mu_T_i", 0.0))
-            u_E      = float(b.get("U_E", 2.0 * math.sqrt(u_ref**2 + u_si_deg**2)))
-        elif b and "u_T_ref_degC" in b:
+            u_si_y   = float(b.get("mu_T_i", 0.0))
+            u_E      = float(b.get("U_E", 2.0 * math.sqrt(u_ref**2 + u_si_y**2)))
+        elif b and "u_ref" in b:
             # Linear OLS budget (u_budget_per_step)
-            u_ref    = float(b["u_T_ref_degC"])
-            u_si_deg = float(b.get("u_T_i_degC", 0.0))
-            u_E      = float(b.get("U_exp_degC", 2.0 * math.sqrt(u_ref**2 + u_si_deg**2)))
+            u_ref    = float(b["u_ref"])
+            u_si_y   = float(b.get("u_sensor", 0.0))
+            u_E      = float(b.get("U_exp", 2.0 * math.sqrt(u_ref**2 + u_si_y**2)))
         else:
             # Fallback: recompute from raw type-A stats
-            # ub_pt_degc is guaranteed °C here
-            uA_ref   = float(r.get("pstd_rtd", 0.0))   # [°C]
-            uA_i_lsb = float(r.get("pstd_log", 0.0))   # [LSB]
-            uA_i_deg = uA_i_lsb / lsb_per_c
-            u_ref    = math.sqrt(uA_ref**2 + ub_pt_degc**2)
-            u_si_deg = math.sqrt(uA_i_deg**2 + (ub_sensor_lsb / lsb_per_c)**2 + u_res_degc**2)
-            u_E      = 2.0 * math.sqrt(u_ref**2 + u_si_deg**2)
+            uA_ref   = float(r.get("pstd_ref", 0.0))    # Y
+            uA_i_lsb = float(r.get("pstd_sensor", 0.0)) # [LSB]
+            uA_i_y   = uA_i_lsb / lsb_per_y
+            u_ref    = math.sqrt(uA_ref**2 + ub_ref_y**2)
+            u_si_y   = math.sqrt(uA_i_y**2 + (ub_sensor_lsb / lsb_per_y)**2 + u_res**2)
+            u_E      = 2.0 * math.sqrt(u_ref**2 + u_si_y**2)
 
         # Sensor uncertainty in LSB domain (for x-error bars)
-        uA_i_lsb_raw = float(r.get("pstd_log", 0.0))
+        uA_i_lsb_raw = float(r.get("pstd_sensor", 0.0))
         u_si_lsb     = math.sqrt(uA_i_lsb_raw**2 + ub_sensor_lsb**2)
 
-        u_ref_degc.append(u_ref)
+        u_ref_y.append(u_ref)
         u_sensor_lsb_.append(u_si_lsb)
-        u_sensor_degc.append(u_si_deg)
+        u_sensor_y.append(u_si_y)
         u_E_list.append(u_E)
 
-    return u_ref_degc, u_sensor_lsb_, u_sensor_degc, u_E_list
+    return u_ref_y, u_sensor_lsb_, u_sensor_y, u_E_list
 
 
-# ---------------------------------------------------------------------------
+
 # Bundle builders
-# ---------------------------------------------------------------------------
+
 
 def bundle_from_linear(
     calib_result: Dict[str, Any],
     lsb_scale_sensor_info: Dict[str, Any],
     adc_max: float,
     unit_symbol: str = "°C",
+    measurand_label: str = "Temperature",
     sensor_label: str = "Sensor",
     ref_label: str = "Reference",
     accuracy_limit: Optional[float] = None,
 ) -> PlotBundle:
-    """Build a PlotBundle from a linear OLS calibration result dict.
+    # Build a PlotBundle from a linear OLS calibration result dict.
 
-    Uncertainty resolution priority
-    --------------------------------
-    1. ``u_budget_per_step`` — full GUM budget stored by ``calibrate()``,
-       keys ``u_T_ref_degC``, ``u_T_i_degC``, ``U_exp_degC``.
-    2. Fallback: recompute from ``pstd_*`` + ``ub_pt_degc``.
 
-    The result dict may contain either ``ub_pt_degc`` (°C, preferred) or
-    ``ub_pt_lsb`` (LSB, legacy).  Both are handled correctly here.
-    """
     from .linear_calibration import get_scale_from_sensor
 
     min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
-    lsb_per_c = adc_max / (max_v - min_v)
+    lsb_per_y = adc_max / (max_v - min_v)
 
     A = calib_result["A"]
     B = calib_result["B"]
     steps     = calib_result["temp_nominali"]
     risultati = calib_result["risultati_elaborati"]
     ref_means = calib_result["ref_temp_means"]
-    sensor_means = [risultati[t]["pmean_log"] for t in steps]
+    sensor_means = [risultati[t]["pmean_sensor"] for t in steps]
 
-    # Resolve ub_pt in °C — prefer the explicit °C key, fall back to LSB key / lsb_per_c
-    if "ub_pt_degc" in calib_result:
-        ub_pt_degc = float(calib_result["ub_pt_degc"])
-    elif "ub_pt_lsb" in calib_result:
-        ub_pt_degc = float(calib_result["ub_pt_lsb"]) / lsb_per_c
+    # Resolve ub_pt in °C — prefer the explicit °C key, fall back to LSB key / lsb_per_y
+    if "ub_ref_y" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_y"])
+    elif "ub_ref_lsb" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_lsb"]) / lsb_per_y
     else:
-        ub_pt_degc = 0.0
+        ub_ref_y = 0.0
 
-    ub_sensor_lsb = float(calib_result.get("ub_tmp_lsb", 0.0))
+    ub_sensor_lsb = float(calib_result.get("ub_sensor_lsb", 0.0))
 
     # Use the real per-point GUM budget when available
     budget = calib_result.get("u_budget_per_step", [])
     u_res  = 0.1 / math.sqrt(12.0)
 
-    u_ref_degc, u_sensor_lsb_, u_sensor_degc, u_E = _extract_unc_from_budget(
-        steps, risultati, budget, lsb_per_c, ub_pt_degc, ub_sensor_lsb, u_res,
+    u_ref_y, u_sensor_lsb_, u_sensor_y, u_E = _extract_unc_from_budget(
+        steps, risultati, budget, lsb_per_y, ub_ref_y, ub_sensor_lsb, u_res,
     )
 
     # Use expanded_uncertainties from result when budget is absent (they should match)
     if not budget and calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
-    t_sensor_pre  = [min_v + lsb / lsb_per_c for lsb in sensor_means]
+    t_sensor_pre  = [min_v + lsb / lsb_per_y for lsb in sensor_means]
     t_sensor_post = [A * lsb + B for lsb in sensor_means]
     me_pre  = [p - r for p, r in zip(t_sensor_pre, ref_means)]
     me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
@@ -738,165 +710,26 @@ def bundle_from_linear(
         steps=steps,
         ref_means=ref_means,
         sensor_means=sensor_means,
-        u_ref_degc=u_ref_degc,
+        u_ref_y=u_ref_y,
         u_sensor_lsb=u_sensor_lsb_,
-        u_sensor_degc=u_sensor_degc,
+        u_sensor_y=u_sensor_y,
         u_E=u_E,
         me_pre=me_pre,
         me_post=me_post,
         t_sensor_pre=t_sensor_pre,
         t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(),
-        model_y_degc=y_dense,
-        lsb_per_c=lsb_per_c,
+        model_y=y_dense,
+        lsb_per_y=lsb_per_y,
         lsb_min=min_v,
         lsb_max=max_v,
         adc_max=adc_max,
         unit_symbol=unit_symbol,
+        measurand_label=measurand_label,
         sensor_label=sensor_label,
         ref_label=ref_label,
         model_label="Linear OLS  y = A·x + B",
         is_node=None,
-        sample_data=risultati,
-        sample_size=20,
-        accuracy_limit=accuracy_limit,
-    )
-
-
-def bundle_from_linear_interp(
-    calib_result: Dict[str, Any],
-    lsb_scale_sensor_info: Dict[str, Any],
-    adc_max: float,
-    unit_symbol: str = "°C",
-    sensor_label: str = "Sensor",
-    ref_label: str = "Reference",
-    accuracy_limit: Optional[float] = None,
-) -> PlotBundle:
-    """Build a PlotBundle from a linear_interp calibration result dict."""
-    from .linear_calibration import get_scale_from_sensor
-    from .linear_interp_calibration import _predict
-
-    min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
-    lsb_per_c = adc_max / (max_v - min_v)
-
-    x_nodes   = np.array(calib_result["x_nodes"])
-    y_nodes   = np.array(calib_result["y_nodes"])
-    steps     = calib_result["steps"]
-    risultati = calib_result["risultati_elaborati"]
-    ref_means = calib_result["ref_temp_means"]
-    sensor_means = [risultati[t]["pmean_log"] for t in steps]
-    budget    = calib_result.get("per_step_budget", [])
-
-    ub_pt_degc    = calib_result.get("ub_pt_lsb", 0.0)
-    ub_sensor_lsb = calib_result.get("ub_tmp_lsb", 0.0)
-
-    u_ref_degc, u_sensor_lsb_, u_sensor_degc, u_E = _extract_unc_from_budget(
-        steps, risultati, budget, lsb_per_c, ub_pt_degc, ub_sensor_lsb,
-    )
-
-    budget_by_step = {b["t_nominal"]: b for b in budget}
-    t_sensor_pre  = [min_v + lsb / lsb_per_c for lsb in sensor_means]
-    t_sensor_post = [ref_means[i] + budget_by_step[t]["residual_degC"] for i, t in enumerate(steps)]
-    me_pre  = [p - r for p, r in zip(t_sensor_pre, ref_means)]
-    me_post = [budget_by_step[t]["residual_degC"] for t in steps]
-    is_node = [budget_by_step[t]["is_node"] for t in steps]
-
-    x_dense = np.linspace(x_nodes.min() * 0.99, x_nodes.max() * 1.01, 500)
-    y_dense = [_predict(float(xi), x_nodes, y_nodes) for xi in x_dense]
-
-    return PlotBundle(
-        steps=steps,
-        ref_means=ref_means,
-        sensor_means=sensor_means,
-        u_ref_degc=u_ref_degc,
-        u_sensor_lsb=u_sensor_lsb_,
-        u_sensor_degc=u_sensor_degc,
-        u_E=u_E,
-        me_pre=me_pre,
-        me_post=me_post,
-        t_sensor_pre=t_sensor_pre,
-        t_sensor_post=t_sensor_post,
-        model_x_lsb=x_dense.tolist(),
-        model_y_degc=y_dense,
-        lsb_per_c=lsb_per_c,
-        lsb_min=min_v,
-        lsb_max=max_v,
-        adc_max=adc_max,
-        unit_symbol=unit_symbol,
-        sensor_label=sensor_label,
-        ref_label=ref_label,
-        model_label="Linear Lagrange interpolation (first/last nodes)",
-        is_node=is_node,
-        sample_data=risultati,
-        sample_size=20,
-        accuracy_limit=accuracy_limit,
-    )
-
-
-def bundle_from_cubic_interp(
-    calib_result: Dict[str, Any],
-    lsb_scale_sensor_info: Dict[str, Any],
-    adc_max: float,
-    unit_symbol: str = "°C",
-    sensor_label: str = "Sensor",
-    ref_label: str = "Reference",
-    accuracy_limit: Optional[float] = None,
-) -> PlotBundle:
-    """Build a PlotBundle from a cubic_interp calibration result dict."""
-    from .linear_calibration import get_scale_from_sensor
-    from .cubic_interp_calibration import _predict
-
-    min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
-    lsb_per_c = adc_max / (max_v - min_v)
-
-    x_nodes   = np.array(calib_result["x_nodes"])
-    y_nodes   = np.array(calib_result["y_nodes"])
-    steps     = calib_result["steps"]
-    risultati = calib_result["risultati_elaborati"]
-    ref_means = calib_result["ref_temp_means"]
-    sensor_means = [risultati[t]["pmean_log"] for t in steps]
-    budget    = calib_result.get("per_step_budget", [])
-
-    ub_pt_degc    = calib_result.get("ub_pt_lsb", 0.0)
-    ub_sensor_lsb = calib_result.get("ub_tmp_lsb", 0.0)
-
-    u_ref_degc, u_sensor_lsb_, u_sensor_degc, u_E = _extract_unc_from_budget(
-        steps, risultati, budget, lsb_per_c, ub_pt_degc, ub_sensor_lsb,
-    )
-
-    budget_by_step = {b["t_nominal"]: b for b in budget}
-    t_sensor_pre  = [min_v + lsb / lsb_per_c for lsb in sensor_means]
-    t_sensor_post = [ref_means[i] + budget_by_step[t]["residual_degC"] for i, t in enumerate(steps)]
-    me_pre  = [p - r for p, r in zip(t_sensor_pre, ref_means)]
-    me_post = [budget_by_step[t]["residual_degC"] for t in steps]
-    is_node = [budget_by_step[t]["is_node"] for t in steps]
-
-    x_dense = np.linspace(x_nodes.min() * 0.99, x_nodes.max() * 1.01, 500)
-    y_dense = [_predict(float(xi), x_nodes, y_nodes) for xi in x_dense]
-
-    return PlotBundle(
-        steps=steps,
-        ref_means=ref_means,
-        sensor_means=sensor_means,
-        u_ref_degc=u_ref_degc,
-        u_sensor_lsb=u_sensor_lsb_,
-        u_sensor_degc=u_sensor_degc,
-        u_E=u_E,
-        me_pre=me_pre,
-        me_post=me_post,
-        t_sensor_pre=t_sensor_pre,
-        t_sensor_post=t_sensor_post,
-        model_x_lsb=x_dense.tolist(),
-        model_y_degc=y_dense,
-        lsb_per_c=lsb_per_c,
-        lsb_min=min_v,
-        lsb_max=max_v,
-        adc_max=adc_max,
-        unit_symbol=unit_symbol,
-        sensor_label=sensor_label,
-        ref_label=ref_label,
-        model_label="Cubic Lagrange interpolation (first-2/last-2 nodes)",
-        is_node=is_node,
         sample_data=risultati,
         sample_size=20,
         accuracy_limit=accuracy_limit,
@@ -908,6 +741,7 @@ def bundle_from_cubic(
     lsb_scale_sensor_info: Dict[str, Any],
     adc_max: float,
     unit_symbol: str = "°C",
+    measurand_label: str = "Temperature",
     sensor_label: str = "Sensor",
     ref_label: str = "Reference",
     accuracy_limit: Optional[float] = None,
@@ -916,14 +750,14 @@ def bundle_from_cubic(
 
     Uses the ``per_step_budget`` entries (keys ``mu_T_ref``, ``mu_T_i``,
     ``U_E``) for all per-point uncertainties.  The post-calibration residual
-    (me_post) is ``cubic_predict(pmean_log) − ref_mean``, i.e. the true
+    (me_post) is ``cubic_predict(pmean_sensor) − ref_mean``, i.e. the true
     fitting residual at each calibration point.
     """
     from .linear_calibration import get_scale_from_sensor
-    from .cubic_calibration import cubic_predict_degc
+    from .cubic_calibration import cubic_predict_y
 
     min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
-    lsb_per_c = adc_max / (max_v - min_v)
+    lsb_per_y = adc_max / (max_v - min_v)
 
     theta     = calib_result["theta"]
     theta_arr = np.array(theta)
@@ -933,16 +767,27 @@ def bundle_from_cubic(
     steps     = calib_result["temp_nominali"]
     risultati = calib_result["risultati_elaborati"]
     ref_means = calib_result["ref_temp_means"]       # [°C]
-    sensor_means = [risultati[t]["pmean_log"] for t in steps]  # [LSB]
+    sensor_means = [risultati[t]["pmean_sensor"] for t in steps]  # [LSB]
 
     # Per-point uncertainties — prefer budget, fall back to compute
-    ub_pt_degc    = calib_result.get("ub_pt_degc",
-                    calib_result.get("ub_pt_lsb", 0.0) / lsb_per_c)
-    ub_sensor_lsb = calib_result.get("ub_tmp_lsb", 0.0)
+    if "ub_ref_y" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_y"])
+    elif "ub_pt_y" in calib_result:
+        ub_ref_y = float(calib_result["ub_pt_y"])
+    elif "ub_ref_lsb" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_lsb"]) / lsb_per_y
+    elif "ub_pt_lsb" in calib_result:
+        ub_ref_y = float(calib_result["ub_pt_lsb"]) / lsb_per_y
+    else:
+        ub_ref_y = 0.0
+    ub_sensor_lsb = float(
+        calib_result.get("ub_sensor_lsb",
+        calib_result.get("ub_tmp_lsb", 0.0))
+    )
     budget        = calib_result.get("per_step_budget", [])
 
-    u_ref_degc, u_sensor_lsb_, u_sensor_degc, u_E = _extract_unc_from_budget(
-        steps, risultati, budget, lsb_per_c, ub_pt_degc, ub_sensor_lsb,
+    u_ref_y, u_sensor_lsb_, u_sensor_y, u_E = _extract_unc_from_budget(
+        steps, risultati, budget, lsb_per_y, ub_ref_y, ub_sensor_lsb,
     )
 
     # Override u_E with the stored expanded_uncertainties when available —
@@ -951,11 +796,11 @@ def bundle_from_cubic(
         u_E = list(calib_result["expanded_uncertainties"])
 
     # Pre-calibration: raw sensor reading converted via identity LSB→°C
-    t_sensor_pre = [min_v + lsb / lsb_per_c for lsb in sensor_means]
+    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
 
     # Post-calibration: evaluate cubic model at each step
     t_sensor_post = [
-        cubic_predict_degc(float(lsb), theta_arr, lsb_scale_sensor_info, adc_max)
+        cubic_predict_y(float(lsb), theta_arr, lsb_scale_sensor_info, adc_max)
         for lsb in sensor_means
     ]
 
@@ -965,7 +810,7 @@ def bundle_from_cubic(
     # Dense model curve in LSB → °C
     x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
     y_dense = [
-        cubic_predict_degc(float(xi), theta_arr, lsb_scale_sensor_info, adc_max)
+        cubic_predict_y(float(xi), theta_arr, lsb_scale_sensor_info, adc_max)
         for xi in x_dense
     ]
 
@@ -973,21 +818,22 @@ def bundle_from_cubic(
         steps=steps,
         ref_means=ref_means,
         sensor_means=sensor_means,
-        u_ref_degc=u_ref_degc,
+        u_ref_y=u_ref_y,
         u_sensor_lsb=u_sensor_lsb_,
-        u_sensor_degc=u_sensor_degc,
+        u_sensor_y=u_sensor_y,
         u_E=u_E,
         me_pre=me_pre,
         me_post=me_post,
         t_sensor_pre=t_sensor_pre,
         t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(),
-        model_y_degc=y_dense,
-        lsb_per_c=lsb_per_c,
+        model_y=y_dense,
+        lsb_per_y=lsb_per_y,
         lsb_min=min_v,
         lsb_max=max_v,
         adc_max=adc_max,
         unit_symbol=unit_symbol,
+        measurand_label=measurand_label,
         sensor_label=sensor_label,
         ref_label=ref_label,
         model_label="Cubic OLS  y = a₀ + a₁·x + a₂·x² + a₃·x³",

@@ -125,6 +125,16 @@
                     <dcc:content lang="en">Reference PT100/Fluke 1502A: U=0.065 °C, k=2. NTC ADC: half-width d=0.30 °C (uniform). Coverage factor k=2, confidence level ~95%.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Calibration function (linear): Y = A*D + B. Coefficients: A=2.525000e-03, B=-4.011000e+01.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Regression uncertainty (expanded, k=2): u_reg = 6.42e-02. RMSE = 3.21e-02.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
         </dcc:statements>
     </dcc:administrativeData>
     <dcc:measurementResults>
@@ -324,6 +334,22 @@
                                         <si:valueXMLList>2 2 2 2 2 2</si:valueXMLList>
                                         <si:unitXMLList>\one</si:unitXMLList>
                                     </si:realListXMLList>
+                                </si:hybrid>
+                            </dcc:quantity>
+                            <dcc:quantity refType="gp_regressionUncertainty">
+                                <dcc:name>
+                                    <dcc:content lang="en">Regression fit uncertainty RMSE</dcc:content>
+                                </dcc:name>
+                                <si:hybrid>
+                                    <si:real>
+                                        <si:value>3.209357e-02</si:value>
+                                        <si:unit>\degreecelsius</si:unit>
+                                        <si:expandedUnc>
+                                            <si:uncertainty>6.418713e-02</si:uncertainty>
+                                            <si:coverageFactor>2.0</si:coverageFactor>
+                                            <si:coverageProbability>0.95</si:coverageProbability>
+                                        </si:expandedUnc>
+                                    </si:real>
                                 </si:hybrid>
                             </dcc:quantity>
                         </dcc:list>

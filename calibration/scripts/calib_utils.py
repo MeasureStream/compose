@@ -1,106 +1,15 @@
 from __future__ import annotations
 
 import math
-import json
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-class JsonView:
-    """Thin dict-like wrapper around JSON data.
-
-    It keeps normal dict/list behavior but also lets you access list-wrapped
-    singleton objects like dictionaries, which is common in metrology payloads.
-    """
-
-    def __init__(self, value: Any):
-        self._value = value
-
-    @classmethod
-    def from_path(cls, path: str | Path) -> "JsonView":
-        return cls(json.loads(Path(path).read_text(encoding="utf-8")))
-
-    @staticmethod
-    def _wrap(value: Any) -> Any:
-        if isinstance(value, (dict, list)):
-            return JsonView(value)
-        return value
-
-    def unwrap(self) -> Any:
-        if isinstance(self._value, dict):
-            return {key: JsonView._unwrap(item) for key, item in self._value.items()}
-        if isinstance(self._value, list):
-            return [JsonView._unwrap(item) for item in self._value]
-        return self._value
-
-    @staticmethod
-    def _unwrap(value: Any) -> Any:
-        return value.unwrap() if isinstance(value, JsonView) else value
-
-    def get(self, key: Any, default: Any = None) -> Any:
-        if isinstance(self._value, dict):
-            return self._wrap(self._value.get(key, default))
-        if isinstance(self._value, list) and len(self._value) == 1:
-            return JsonView(self._value[0]).get(key, default)
-        return default
-
-    def find(self, key: str, value: Any, default: Any = None) -> Any:
-        if isinstance(self._value, list):
-            for item in self._value:
-                if isinstance(item, dict) and item.get(key) == value:
-                    return JsonView(item)
-        return default
-
-    def one(self, default: Any = None) -> Any:
-        if isinstance(self._value, list) and len(self._value) == 1:
-            return JsonView(self._value[0])
-        return default
-
-    def __getitem__(self, key: Any) -> Any:
-        if isinstance(self._value, dict):
-            return self._wrap(self._value[key])
-        if isinstance(self._value, list):
-            if isinstance(key, int):
-                return self._wrap(self._value[key])
-            if len(self._value) == 1:
-                return JsonView(self._value[0])[key]
-        raise TypeError(f"{type(self._value).__name__} does not support key access with {key!r}")
-
-    def __iter__(self):
-        if isinstance(self._value, dict):
-            return iter(self._value)
-        if isinstance(self._value, list):
-            return (self._wrap(item) for item in self._value)
-        raise TypeError(f"{type(self._value).__name__} is not iterable")
-
-    def __len__(self) -> int:
-        if isinstance(self._value, (dict, list)):
-            return len(self._value)
-        raise TypeError(f"len() is not supported for {type(self._value).__name__}")
-
-    def __contains__(self, item: Any) -> bool:
-        if isinstance(self._value, (dict, list)):
-            return item in self._value
-        return False
-
-    def items(self):
-        if isinstance(self._value, dict):
-            return self._value.items()
-        raise TypeError(f"{type(self._value).__name__} has no items()")
-
-    def keys(self):
-        if isinstance(self._value, dict):
-            return self._value.keys()
-        raise TypeError(f"{type(self._value).__name__} has no keys()")
-
-    def values(self):
-        if isinstance(self._value, dict):
-            return (self._wrap(item) for item in self._value.values())
-        raise TypeError(f"{type(self._value).__name__} has no values()")
-
-    def __repr__(self) -> str:
-        return f"JsonView({self._value!r})"
+def _lookup(lst, key, val, default=None):
+    for item in lst:
+        if isinstance(item, dict) and item.get(key) == val:
+            return item
+    return default
 
 
 class SensorAccuracyChecker:
@@ -109,11 +18,11 @@ class SensorAccuracyChecker:
     def __init__(self, accuracy_ranges: List[Dict[str, Any]]):
         self.accuracy_ranges = accuracy_ranges
 
-    def max_error_at_temperature(self, temp_degc: float) -> float:
+    def max_error_at_temperature(self, temp_y: float) -> float:
         applicable = [
             r["maxError"]
             for r in self.accuracy_ranges
-            if r["tempMin"] <= temp_degc <= r["tempMax"]
+            if r["tempMin"] <= temp_y <= r["tempMax"]
         ]
         return min(applicable) if applicable else float("inf")
 
@@ -131,18 +40,27 @@ class SensorAccuracyChecker:
                 all_in_range = False
             per_point.append({
                 "point": i + 1,
-                "T_ref_degC": t_ref,
-                "as_found_error_degC": err,
-                "max_allowed_error_degC": max_err,
+                "T_ref_y": t_ref,
+                "as_found_error_y": err,
+                "max_allowed_error_y": max_err,
                 "in_range": in_range,
             })
         return {"all_in_range": all_in_range, "per_point": per_point}
 
 
-def lsb_to_degc(lsb: float, lsb_scale: Dict[str, Any], adc_max: float) -> float:
+def lsb_to_y(lsb: float, lsb_scale: Dict[str, Any], adc_max: float) -> float:
+    """Convert raw ADC count [LSB] to physical unit [Y] using the LSB scale."""
     min_v = float(lsb_scale.get("minPhysVal", -40.0))
     max_v = float(lsb_scale.get("maxPhysVal", 125.0))
     return min_v + (lsb / adc_max) * (max_v - min_v)
+
+
+def y_to_lsb(y: float, lsb_scale: Dict[str, Any], adc_max: float) -> float:
+    """Convert physical value [Y] to ADC count [LSB] using the LSB scale."""
+    min_v = float(lsb_scale.get("minPhysVal", -40.0))
+    max_v = float(lsb_scale.get("maxPhysVal", 125.0))
+    span  = max(max_v - min_v, 1e-12)
+    return (y - min_v) / span * adc_max
 
 
 def round_to_significant_figures(value: float, sig: int = 2) -> float:
@@ -154,3 +72,11 @@ def round_to_significant_figures(value: float, sig: int = 2) -> float:
 def parse_uncertainty_limit(limit_str: str) -> Optional[float]:
     m = re.search(r"([\d.]+)", limit_str)
     return float(m.group(1)) if m else None
+
+
+# ── Deprecated legacy aliases (only for backward compat with old callers) ────
+# Use y_to_lsb / lsb_to_y directly.  These aliases will be removed in a future
+# major version.
+degc_to_lsb = y_to_lsb   # deprecated — use y_to_lsb
+lsb_to_degc = lsb_to_y   # deprecated — use lsb_to_y
+

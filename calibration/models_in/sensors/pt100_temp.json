@@ -73,7 +73,7 @@
   },
   "calibration": {
 
-    "type": "qubic-interpolation",
+    "type": "linear",
     "coefficients": [
       0.0,
       0.0,
@@ -90,9 +90,7 @@
   "metrology": {
 
     "sensorAccuracy": [
-      { "tempMin":  20.0, "tempMax": 50.0, "maxError": 0.30, "unit": "\\degreeCelsius", "description": "Maximum calibration error from 50 °C to 105 °C" },
-      { "tempMin":   -10.0, "tempMax":  80.0, "maxError": 0.45, "unit": "\\degreeCelsius", "description": "Maximum calibration error from 0 °C to 50 °C" },
-      { "tempMin": -40.0, "tempMax":   125.0, "maxError": 1.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
+      { "tempMin": -40.0, "tempMax":   125.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
     ],
 
     "evaluationFormula": "uB",

@@ -13,17 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats as _scipy_stats
 
-K_COPERTURA: float  = 2.0
-CONF_LEVEL_PCT: float = 95.0
-U_PT_DEGC: float    = 0.065
-K_PT: float         = 2.0
-D_TMP126_DEGC: float = 0.30
-ADC_BITS: int       = 16
-ADC_MAX: float      = float((1 << ADC_BITS) - 1)
-
-EPSILON_A: float      = 1e-6
-EPSILON_B_DEGC: float = 1e-4
-
 PASS = "PASS"
 FAIL = "FAIL"
 WARN = "WARN"
@@ -33,19 +22,6 @@ _W = 60
 
 def _hr(char: str = "=") -> str:
     return char * _W
-
-
-def _lsb_to_degc(lsb: float, min_phys: float, max_phys: float) -> float:
-    return min_phys + (lsb / ADC_MAX) * (max_phys - min_phys)
-
-
-def _degc_to_lsb(degc: float, min_phys: float, max_phys: float) -> float:
-    return (degc - min_phys) / (max_phys - min_phys) * ADC_MAX
-
-
-def _parse_limit(limit_str: str) -> Optional[float]:
-    m = re.search(r"([\d.]+)", limit_str)
-    return float(m.group(1)) if m else None
 
 
 def _ols(x: np.ndarray, y: np.ndarray) -> Tuple[float, float]:
@@ -113,34 +89,34 @@ def check_A(measurements: List[List[float]], verbose: bool) -> Tuple[str, List[D
 
         if verbose:
             print(
-                f"   Punto {punto}: T_ref={t_ref:.6f}degC  T_sensor={t_sensor:.6f}degC"
-                f"  |M_e_post|={abs(me_post):.3e}degC  U(E)={u_exp:.4f}degC  => {'PASS' if ok else 'FAIL'}"
+                f"   Punto {punto}: T_ref={t_ref:.6f}  T_sensor={t_sensor:.6f}"
+                f"  |M_e_post|={abs(me_post):.3e}  U(E)={u_exp:.4f}  => {'PASS' if ok else 'FAIL'}"
             )
 
     return (PASS if all(r["pass"] for r in results) else FAIL), results
 
 
-def check_B(measurements: List[List[float]], limit_degc: float, verbose: bool) -> Tuple[str, List[Dict]]:
+def check_B(measurements: List[List[float]], limit_y: float, verbose: bool) -> Tuple[str, List[Dict]]:
     results = []
     for row in measurements:
         punto = int(row[0])
         u_exp = row[5]
-        ok    = u_exp <= limit_degc
-        excess = u_exp - limit_degc
-        results.append({"punto": punto, "U_exp": u_exp, "limit": limit_degc,
+        ok    = u_exp <= limit_y
+        excess = u_exp - limit_y
+        results.append({"punto": punto, "U_exp": u_exp, "limit": limit_y,
                          "excess": excess, "pass": ok})
         if verbose:
-            detail = f"eccesso={excess:+.4f}degC" if not ok else ""
-            print(f"   Punto {punto}: U(E)={u_exp:.4f}degC  limite={limit_degc:.4f}degC  => {'PASS' if ok else 'FAIL'}  {detail}")
+            detail = f"excess={excess:+.4f}" if not ok else ""
+            print(f"   Punto {punto}: U(E)={u_exp:.4f}  limit={limit_y:.4f}  => {'PASS' if ok else 'FAIL'}  {detail}")
 
     return (PASS if all(r["pass"] for r in results) else FAIL), results
 
 
-def _max_error_for_temp(temp_degc: float, accuracy_ranges: List[Dict]) -> float:
+def _max_error_for_temp(temp_y: float, accuracy_ranges: List[Dict]) -> float:
     applicable = [
         r["maxError"]
         for r in accuracy_ranges
-        if r["tempMin"] <= temp_degc <= r["tempMax"]
+        if r["tempMin"] <= temp_y <= r["tempMax"]
     ]
     return min(applicable) if applicable else float("inf")
 
@@ -177,15 +153,15 @@ def check_G(
                 g1_all_pass = False
 
         per_point.append({
-            "punto": punto, "T_ref_degC": t_ref, "M_e_pre_degC": me_pre,
-            "max_allowed_error_degC": max_err if covered else None,
+            "punto": punto, "T_ref_y": t_ref, "M_e_pre_y": me_pre,
+            "max_allowed_error_y": max_err if covered else None,
             "G1_in_range": g1_pass, "G2_covered": g2_pass,
         })
 
         if verbose:
-            cov_str = f"\u00b1{max_err:.4f}\u00b0C" if covered else "OUT_OF_COVERAGE"
+            cov_str = f"\u00b1{max_err:.4f}" if covered else "OUT_OF_COVERAGE"
             print(
-                f"   Punto {punto}: T_ref={t_ref:.6f}\u00b0C  |M_e_pre|={abs(me_pre):.6f}\u00b0C  "
+                f"   Punto {punto}: T_ref={t_ref:.6f}  |M_e_pre|={abs(me_pre):.6f}  "
                 f"limit={cov_str}  G1={'PASS' if g1_pass else 'FAIL'}  G2={'PASS' if g2_pass else 'NOT_COVERED'}"
             )
 
@@ -215,11 +191,14 @@ def check_G(
 
 def check_H(
     measurements: List[List[float]],
-    mae_degc: float,
+    mae_y: float,
     pfa_threshold_pct: float,
     verbose: bool,
     u_std_mode: str = "combined",
     u_budget_per_step: Optional[List[Dict]] = None,
+    coverage_factor: float = 2.0,
+    adc_bits: int = 16,
+    adc_max: float = 65535.0,
 ) -> Tuple[str, List[Dict]]:
     _valid_modes = ("combined", "type_a")
     if u_std_mode not in _valid_modes:
@@ -236,19 +215,31 @@ def check_H(
     results: List[Dict] = []
     all_pass = True
 
+    _warned_lsb = False
     for idx, row in enumerate(measurements):
         punto  = int(row[0])
         t_ref  = row[1]
         me_pre = row[3]
         u_exp  = row[5]
 
-        if effective_mode == "type_a":
-            u_std = float(u_budget_per_step[idx]["uA_i_degC"])
-        else:
-            u_std = u_exp / K_COPERTURA
+        if (abs(me_pre) > 1e3 or abs(u_exp) > 1e3) and not _warned_lsb:
+            _warned_lsb = True
+            import sys
+            print(
+                f"\n*** [H] WARNING: M_e_pre=±{abs(me_pre):.1f} U_exp={u_exp:.1f} "
+                f"— values appear to be in LSB adc domain [{adc_bits}-bit, 0–{adc_max:.0f}].\n"
+                f"*** [H] Check that measurements rows were converted to physical domain "
+                f"before calling check_H.\n",
+                file=sys.stderr,
+            )
 
-        u_ein = u_std / mae_degc
-        ein   = me_pre / mae_degc
+        if effective_mode == "type_a":
+            u_std = float(u_budget_per_step[idx]["uA_sensor"])
+        else:
+            u_std = u_exp / coverage_factor
+
+        u_ein = u_std / mae_y
+        ein   = me_pre / mae_y
 
         if u_std > 0.0:
             pfa_i = (
@@ -264,19 +255,19 @@ def check_H(
             all_pass = False
 
         results.append({
-            "punto": punto, "T_ref_degC": t_ref,
-            "M_e_pre_degC": me_pre, "Ein": ein,
-            "U_exp_degC": u_exp, "u_std_degC": u_std,
+            "punto": punto, "T_ref_y": t_ref,
+            "M_e_pre_y": me_pre, "Ein": ein,
+            "U_exp_y": u_exp, "u_std_y": u_std,
             "u_Ein": u_ein, "u_std_mode": effective_mode,
-            "MAE_degC": mae_degc,
+            "MAE_y": mae_y,
             "PFA_pct": pfa_i * 100.0, "PFA_threshold_pct": pfa_threshold_pct,
             "pass": ok,
         })
 
         if verbose:
             print(
-                f"   Punto {punto}: T_ref={t_ref:.4f}\u00b0C  M_e_pre={me_pre:+.4f}\u00b0C  Ein={ein:+.3f}  "
-                f"u(E)={u_std:.4f}\u00b0C [{effective_mode}]  PFA={pfa_i*100.0:.2f}%  => {'PASS' if ok else 'FAIL'}"
+                f"   Punto {punto}: T_ref={t_ref:.4f}  M_e_pre={me_pre:+.4f}  Ein={ein:+.3f}  "
+                f"u(E)={u_std:.4f} [{effective_mode}]  PFA={pfa_i*100.0:.2f}%  => {'PASS' if ok else 'FAIL'}"
             )
 
     return (PASS if all_pass else FAIL), results
@@ -289,10 +280,11 @@ def check_H(
 def save_charts(
     measurements: List[List[float]],
     accuracy_ranges: List[Dict],
-    limit_degc: float,
+    limit_y: float,
     variant: str,
     output_dir: Path,
     prefix: str = "conformity",
+    unit_symbol: str = "\u00b0C",
 ) -> List[Path]:
     import importlib
     plt = importlib.import_module("matplotlib.pyplot")
@@ -310,25 +302,23 @@ def save_charts(
 
     saved: List[Path] = []
 
-    # --- fig1: post-calibration residuals with U(E) bars and limit lines ---
+    # --- fig1: post-calibration residuals with U(E) bars ---
     fig1, ax1 = plt.subplots(figsize=(9, 5))
-    ax1.set_title(f"Check A/B \u2014 Residui post-calibrazione vs U(E) e limite dichiarato\n(variante: {variant})", fontsize=11)
+    ax1.set_title(f"Check A/B \u2014 Residui post-calibrazione vs U(E)\n(variante: {variant})", fontsize=11)
     for i, p in enumerate(punti):
         ax1.fill_between([p - 0.35, p + 0.35], [-u_exp[i], -u_exp[i]], [u_exp[i], u_exp[i]],
                          color="green", alpha=0.15, label="Banda U(E)" if i == 0 else "")
-    ax1.axhline( limit_degc, color="red", linestyle="--", linewidth=1.2, label=f"Limite +/-{limit_degc} degC")
-    ax1.axhline(-limit_degc, color="red", linestyle="--", linewidth=1.2)
     ax1.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
     ax1.errorbar(punti, me_post, yerr=u_exp, fmt="o", color="royalblue", ecolor="royalblue",
                  capsize=7, linewidth=1.5, markersize=6, label="|M_e_post| +/- U(E)")
     ax1.set_xticks(punti)
-    ax1.set_xticklabels([f"P{p}\n({t_ref[i]:.2f}\u00b0C)" for i, p in enumerate(punti)])
+    ax1.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)])
     ax1.set_xlabel("Punto di calibrazione")
-    ax1.set_ylabel("Errore M_e_post  [degC]")
+    ax1.set_ylabel(f"Error M_e_post  [{unit_symbol}]")
     ax1.legend(loc="upper right", fontsize=9)
     ax1.grid(True, alpha=0.3)
     for i, p in enumerate(punti):
-        ax1.annotate(f"U={u_exp[i]:.3f}degC", xy=(p, me_post[i]), xytext=(0, 14),
+        ax1.annotate(f"U={u_exp[i]:.3f}", xy=(p, me_post[i]), xytext=(0, 14),
                      textcoords="offset points", ha="center", fontsize=8, color="royalblue")
     plt.tight_layout()
     p1 = output_dir / f"{prefix}_fig1_residuals.png"
@@ -354,13 +344,23 @@ def save_charts(
                 ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
                          [-max_err, -max_err], color="red", linewidth=2.0, linestyle="--")
 
-        ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="sensorAccuracy \u00b1maxError")
+        ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="tolerance \u00b1maxError")
 
     ax2.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
     ax2.set_xticks(x_pos)
-    ax2.set_xticklabels([f"P{p}\n({t_ref[i]:.2f}\u00b0C)" for i, p in enumerate(punti)])
+    ax2.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)], fontsize=8)
     ax2.set_xlabel("Punto di calibrazione")
-    ax2.set_ylabel("Errore as-found M_e_pre  [degC]")
+    ax2.set_ylabel(f"Error as-found M_e_pre  [{unit_symbol}]")
+
+    if len(me_pre) > 0:
+        y_max = float(np.max(np.abs(me_pre)))
+        for r in accuracy_ranges or []:
+            try:
+                y_max = max(y_max, abs(float(r.get("maxError", 0.0))))
+            except (TypeError, ValueError):
+                pass
+        ax2.set_ylim(-max(y_max, 1e-9) * 1.20, max(y_max, 1e-9) * 1.20)
+
     ax2.legend(loc="upper right", fontsize=9)
     ax2.grid(True, alpha=0.3, axis="y")
 
@@ -389,13 +389,14 @@ def print_report(
     check_results: Dict[str, Tuple[str, Any]],
     measurements: List[List[float]],
     calib: Dict[str, Any],
-    limit_degc: float,
+    limit_y: float,
     min_phys: float,
     max_phys: float,
-    mae_degc: float = 0.10,
+    mae_y: float = 0.10,
     pfa_threshold_pct: float = 20.0,
+    adc_max: float = 65535.0,
 ) -> None:
-    lsb_per_c = ADC_MAX / (max_phys - min_phys)
+    lsb_per_y = adc_max / (max_phys - min_phys)
 
     print()
     print(_hr("="))
@@ -408,8 +409,8 @@ def print_report(
     print()
     print("  TABELLA MISURE")
     print(
-        f"  {'Punto':>5}  {'T_ref [degC]':>12}  {'T_c_post [degC]':>15}  "
-        f"{'M_e_pre [degC]':>14}  {'M_e_post [degC]':>15}  {'U(E) [degC]':>10}"
+        f"  {'Punto':>5}  {'T_ref':>12}  {'T_c_post':>15}  "
+        f"{'M_e_pre':>14}  {'M_e_post':>15}  {'U(E)':>10}"
     )
     print(f"  {'-'*5}  {'-'*12}  {'-'*15}  {'-'*14}  {'-'*15}  {'-'*10}")
     for row in measurements:
@@ -426,9 +427,9 @@ def print_report(
     print()
     print("  COEFFICIENTI DI CALIBRAZIONE (OLS GUM, dominio LSB)")
     print(f"    A       = {A:.10f}              (adimensionale)")
-    print(f"    B       = {B:.4f} LSB  =  {B/lsb_per_c:.6f} degC")
+    print(f"    B       = {B:.4f} LSB  =  {B/lsb_per_y:.6f}")
     print(f"    u(A)    = {u_A:.10f}")
-    print(f"    u(B)    = {u_B:.4f} LSB  =  {u_B/lsb_per_c:.6f} degC")
+    print(f"    u(B)    = {u_B:.4f} LSB  =  {u_B/lsb_per_y:.6f}")
     print(f"    cov(AB) = {cov_AB:.6f}")
     if u_A > 0 and u_B > 0:
         print(f"    corr    = {cov_AB/(u_A*u_B):.6f}")
@@ -441,9 +442,9 @@ def print_report(
     for label, (status, _detail) in check_results.items():
         detail_str = ""
         if label == "H":
-            detail_str = f"MAE=\u00b1{mae_degc:.3f}\u00b0C  soglia={pfa_threshold_pct:.0f}%"
+            detail_str = f"MAE=\u00b1{mae_y:.3f}  soglia={pfa_threshold_pct:.0f}%"
         elif label == "B":
-            detail_str = f"limite={limit_degc:.4f}\u00b0C"
+            detail_str = f"limite={limit_y:.4f}"
         print(_status_line(f"Check {label}", status, detail_str))
 
     statuses = {lbl: res[0] for lbl, res in check_results.items()}
@@ -466,13 +467,11 @@ def main() -> None:
     MODELS_DIR  = CALIB_ROOT / "models_in"
     OUT_DIR     = CALIB_ROOT / "certificato_out"
 
-    for p in (str(SCRIPTS_DIR), str(MODELS_DIR)):
+    for p in (str(SCRIPTS_DIR),):
         if p not in sys.path:
             sys.path.insert(0, p)
 
-    from VAR_REF_SENSOR import SENSOR_model
-
-    DEFAULT_MAE_DEGC            = 0.30
+    DEFAULT_MAE_Y            = 0.30
     DEFAULT_PFA_THRESHOLD_PCT   = 20.0
     DEFAULT_PFA_U_STD_MODE      = "combined"
 
@@ -480,10 +479,10 @@ def main() -> None:
     parser.add_argument("--input", type=Path,
                         default=OUT_DIR / "certificato_funzione_filled.json")
     parser.add_argument("--sensor", type=Path,
-                        default=MODELS_DIR / "ntc_temperature.json")
+                        default=MODELS_DIR / "sensors" / "ntc_temperature.json")
     parser.add_argument("--variant", choices=["funzione", "both"], default="funzione")
     parser.add_argument("--verbose", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--mae-degc",          type=float, default=DEFAULT_MAE_DEGC)
+    parser.add_argument("--mae-y",            type=float, default=DEFAULT_MAE_Y)
     parser.add_argument("--pfa-threshold-pct", type=float, default=DEFAULT_PFA_THRESHOLD_PCT)
     parser.add_argument("--pfa-u-std-mode",    type=str,   default=DEFAULT_PFA_U_STD_MODE,
                         choices=["combined", "type_a"])
@@ -493,8 +492,7 @@ def main() -> None:
                         help="Output directory for charts (default: certificato_out/images/conformity)")
     args = parser.parse_args()
 
-    sensor = SENSOR_model.from_json(args.sensor)
-    sensor_json = sensor._data
+    sensor_json = json.loads(Path(args.sensor).read_text(encoding="utf-8"))
 
     accuracy_ranges = sensor_json.get("metrology", {}).get("sensorAccuracy", [])
     filled = load_filled(args.input)
@@ -502,31 +500,33 @@ def main() -> None:
     calib = extract_calib(filled)
     measurements = extract_measurements(filled)
 
-    limit_degc = _parse_limit(sensor.uncertainty_limit) or 0.10
-    min_phys   = sensor._minPhyThreshold
-    max_phys   = sensor._maxPhyThreshold
+    limit_y = float(sensor_json.get("metrology", {}).get("Uncertainty", [{}])[0].get("absUncertainty", 0.10))
+    min_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("min", -40.0))
+    max_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("max", 105.0))
 
     conf_model = calib.get("_calib_model", "linear")
 
     sG, rG = check_G(measurements, accuracy_ranges, conf_model, verbose=args.verbose)
     sA, rA = check_A(measurements, verbose=args.verbose)
-    sB, rB = check_B(measurements, limit_degc, verbose=args.verbose)
+    sB, rB = check_B(measurements, limit_y, verbose=args.verbose)
 
     u_budget = calib.get("_u_budget_per_step", [])
     sH, rH = check_H(
-        measurements, mae_degc=args.mae_degc,
+        measurements, mae_y=args.mae_y,
         pfa_threshold_pct=args.pfa_threshold_pct,
         verbose=args.verbose, u_std_mode=args.pfa_u_std_mode,
         u_budget_per_step=u_budget,
+        adc_bits=16, adc_max=65535.0,
     )
 
     check_results = {"G": (sG, rG), "A": (sA, rA), "B": (sB, rB), "H": (sH, rH)}
     print_report(
         variant="funzione", input_path=args.input,
         check_results=check_results, measurements=measurements,
-        calib=calib, limit_degc=limit_degc,
+        calib=calib, limit_y=limit_y,
         min_phys=min_phys, max_phys=max_phys,
-        mae_degc=args.mae_degc, pfa_threshold_pct=args.pfa_threshold_pct,
+        mae_y=args.mae_y, pfa_threshold_pct=args.pfa_threshold_pct,
+        adc_max=65535.0,
     )
 
     if args.charts:
@@ -534,7 +534,7 @@ def main() -> None:
         saved = save_charts(
             measurements=measurements,
             accuracy_ranges=accuracy_ranges,
-            limit_degc=limit_degc,
+            limit_y=limit_y,
             variant="funzione",
             output_dir=images_dir,
         )

@@ -19,13 +19,13 @@ as an **informational field only**. It is no longer used to convert uncertaintie
 coefficients. Dividing any quantity by `lsb_per_c` to obtain °C is incorrect for the
 cubic and Steinhart-Hart models because those models are nonlinear.
 
-Reference uncertainty `ub_pt_degc` is expressed in °C (native). NTC ADC uncertainty
-`ub_tmp_lsb` is expressed in LSB (native). At each calibration step the LSB uncertainty
+Reference uncertainty `ub_ref_y` is expressed in °C (native). Sensor ADC uncertainty
+`ub_sensor_lsb` is expressed in LSB (native). At each calibration step the LSB uncertainty
 is converted to °C by multiplying by the local sensitivity `|dT/dD|`:
 
 ```
 uA_ntc_i [°C] = pstd_log_i [LSB] × |dT/dD|_i [°C/LSB]
-uB_ntc   [°C] = ub_tmp_lsb [LSB] × |dT/dD|_i [°C/LSB]
+uB_sensor   [°C] = ub_sensor_lsb [LSB] × |dT/dD|_i [°C/LSB]
 
 Linear:         dT/dD = A              (constant)
 Cubic:          dT/dD = a1 + 2·a2·D + 3·a3·D²
@@ -38,7 +38,7 @@ Steinhart-Hart: dT/dD = −T²·(C1/D + 3·C3·(ln D)²/D)   [K/LSB]
 
 ### Reference instrument (Fluke 1502A + PT100)
 
-Source: `VAR_extra` in `models_in/VAR_REF_SENSOR.py` (hardcoded, not from JSON):
+Source: hardcoded constants (not from JSON):
 
 ```python
 _U_pt_c = 0.065    # expanded uncertainty [°C], k=2
@@ -51,7 +51,7 @@ Standard uncertainty of the reference (type B, k=1):
 u_B(Fluke) = U_pt / k = 0.065 / 2 = 0.0325 °C
 ```
 
-This is used **directly in °C** — no conversion to LSB. The pipeline passes `ub_pt_degc = 0.0325 °C`
+This is used **directly in Y** — no conversion to LSB. The pipeline passes `ub_ref_y` (e.g. 0.15 °C)
 to the engines. The legacy value `ub(Fluke) = 0.15 LSB` mentioned by the professor equals
 `0.0325 °C × 451.97 LSB/°C` and was used in the old LSB-domain regression; it is no longer relevant.
 
@@ -70,15 +70,15 @@ The four fields in `ntc_temperature.json → metrology → readingUncertainty` a
 
 | varName | Current use in code | Meaning | Future use |
 |---|---|---|---|
-| `resolution` | Read by `SENSOR_model.resolution_degC` (maps to `0.1` if JSON is read; code has `0.01` as fallback default in `VAR_REF_SENSOR.py`). Used as `RISOL` in `u_res = RISOL/√12`. | Digital resolution of the sensor output in °C. With `PDF=uniform`, the standard uncertainty is `RISOL/√12`. | Should drive `u_res` directly from the JSON value, not from a hardcoded default. Currently the JSON says 0.1 but `VAR_REF_SENSOR.py` defaults to `resolution_degC=0.01`; these are inconsistent and need alignment. |
+| `resolution` | Read from sensor JSON `metrology.readingUncertainty[resolution].value`; fallback default is 1 LSB. Converted to Y as `risol` via `risol_lsb / lsb_per_c` before being used in `u_res = RISOL/√12`. | Digital resolution of the sensor output in Y. With `PDF=uniform`, the standard uncertainty is `RISOL/√12`. |
 | `absUncertainty` | Read into `sensor.absUncertainty` (= 5.0 LSB). Used only in the interpolation uncertainty printout: `ntc_abs_lsb = sensor.absUncertainty`. | Absolute uncertainty of the sensor in LSB (sum of all type-B sources from datasheet: offset, gain, INL). This is the wide-range bound before calibration. | Currently treated as a raw bound. Should become an input to the `evaluationFormula` for u_B computation, not used standalone. |
-| `uB` | Read into `sensor.uB` (= 2.9 LSB). This is the value actually used in the regression as `ub_tmp_lsb`. The prof confirmed: `ub(ADC_NTC) = 2.9 LSB`, already divided by k=2 (standard uncertainty). | Type-B standard uncertainty of the ADC reading in LSB (k=1). Combines offset, gain, INL contributions after dividing by k. | This is the correct input to the uncertainty budget. When `evaluationFormula` becomes reading-dependent (e.g. `A*reading + B*absUncertainty`) this field will remain but be combined with `absUncertainty` differently. |
+| `uB` | Read from sensor JSON `metrology.readingUncertainty[uB].value` (= 0.30 LSB). This is the value actually used in the regression as `ub_sensor_lsb`. | Type-B standard uncertainty of the ADC reading in LSB (k=1). Combines offset, gain, INL contributions after dividing by k. | This is the correct input to the uncertainty budget. |
 | `coverageFactor` | Read into `sensor.K` (= 2.0). Not directly used in regression or U(E) computation today; k=2 is hardcoded in the `U_E = 2·u(E)` line. | Coverage factor for the sensor type-B uncertainty. | Should be used to divide `uB` before passing it to the regression: `u_B_standard = uB_json / coverageFactor`. Currently the JSON `uB` is already /k=2, so this is consistent, but the code does not perform the division explicitly — it just takes the value as-is. |
 
 **Important note on units.** The `elec` range in the JSON is `[0, 65535]` (LSB). The prof said:
 "Le unità di misura associate a ogni contributo di incertezza sono le stesse della sezione elec
 per ora." So `resolution`, `absUncertainty`, and `uB` are all in LSB when the sensor outputs
-in the electrical domain. The code is consistent with this: `ub_tmp_lsb = sensor.uB = 2.9 LSB`.
+in the electrical domain. The code is consistent with this: `ub_sensor_lsb = 0.30 LSB`.
 
 **What `evaluationFormula` means.** Currently `evaluationFormula = "uB"` — meaning the total
 type-B uncertainty is just taken to be the `uB` field directly. The prof noted that in future
@@ -157,7 +157,7 @@ converts the LSB-domain sensor uncertainties to °C.
 
 ```
 uA_ref_i  = pstd_rtd_i                       [°C]   type-A of reference (directly in °C)
-uB_ref    = ub_pt_degc                        [°C]   type-B of Fluke (0.0325 °C)
+uB_ref    = ub_ref_y                          [Y]    type-B of reference (0.15 °C typ.)
 sens_i    = |A|                               [°C/LSB]  local sensitivity (= A for linear)
 uA_ntc_i  = pstd_log_i × sens_i              [°C]   type-A of sensor
 uB_ntc    = sensor.uB × sens_i               [°C]   type-B of NTC ADC
@@ -187,7 +187,7 @@ U(E)_i     = 2 · u(E)_i                      k=2, ≈95 % confidence
 
 | Row | Value | Source |
 |---|---|---|
-| Interpolation uncertainty | `ub_pt_degc + sensor.absUncertainty/lsb_per_c` (2 sig figs) | `_interp_unc_fixed_2sig` from `_build_cert_filled` |
+| Interpolation uncertainty | `ub_ref_y + sensor.absUncertainty/lsb_per_c` (2 sig figs) | `_interp_unc_fixed_2sig` from `_build_cert_filled` |
 | A / (°C/LSB) | regression coefficient A | `_A_cal` (in °C/LSB) |
 | B / °C | regression offset B | `_B_cal` = `_B_cal_degC` (already in °C — no division needed) |
 
@@ -198,7 +198,7 @@ but are not currently printed in the PDF table — they are available for the DC
 The interpolation uncertainty shown on page 4 is computed as:
 
 ```python
-fluke_abs_c = ub_pt_degc                          # = 0.0325 °C (directly)
+fluke_abs_c = ub_ref_y                            # type-B reference in native unit
 ntc_abs_c   = sensor.absUncertainty / lsb_per_c   # = 5.0 LSB / 451.97 ≈ 0.011 °C
 interp_sum  = fluke_abs_c + ntc_abs_c
 interp_fixed = round_2sig(interp_sum)
@@ -291,9 +291,12 @@ dedicated table. This is a known gap — the PDF builder only has a linear-speci
 
 ---
 
-## Method 3 — Steinhart-Hart / cube-log (OLS)
+## Method 3 — Steinhart-Hart / cube-log (OLS) — REMOVED
 
-**Code:** `scripts/model_calibration/cube_log_calibration.py`
+> The cube-log model was removed in the May 2026 refactoring. This section is retained
+> for historical reference only. The current pipeline supports only `linear` and `cubic`.
+
+**Code:** `scripts/model_calibration/cube_log_calibration.py` (deleted)
 
 ### Regression
 
@@ -407,7 +410,7 @@ All three models share the same three checks:
 | Sensor physical unit | `ranges.phys.dsi` must be a temperature | The calibrated quantity must be a temperature |
 | Reference physical unit | `ranges.phys.dsi` (ref JSON) must be a temperature | The reference measurement must be a temperature |
 
-The `cube-log` model has one additional constraint: the reference unit must be
+The `cube-log` model (removed) had one additional constraint: the reference unit must be
 convertible to kelvin (required because the Steinhart-Hart response variable is
 `1/T [K⁻¹]`, which is not defined for relative temperature scales that include
 negative absolute values). In practice `\\degreeCelsius` satisfies this because
@@ -450,9 +453,9 @@ This answers the question: "between calibration points, how uncertain is a readi
 ### Current computation (analisi_calib_data.py lines ~487-492, ~635-641)
 
 ```python
-fluke_abs_c  = ub_pt_lsb / lsb_per_c              # type-B Fluke in °C
-ntc_abs_c    = sensor.absUncertainty / lsb_per_c   # absUncertainty in °C (5.0/451.97 ≈ 0.011 °C)
-interp_sum   = fluke_abs_c + ntc_abs_c             # conservative sum (not RSS)
+fluke_abs_c  = ub_ref_lsb / lsb_per_c             # type-B reference in Y
+sensor_abs_c  = sensor.absUncertainty / lsb_per_c   # absUncertainty in Y (5.0/451.97 ≈ 0.011)
+interp_sum   = fluke_abs_c + sensor_abs_c           # conservative sum (not RSS)
 interp_fixed = round_2sig(interp_sum)              # 2 significant figures
 ```
 
@@ -491,10 +494,8 @@ Summary of all four fields, their current wiring, and what they should do:
 ### `resolution` = 0.1 (uniform PDF)
 
 **Current wiring:**
-- Parsed by `SENSOR_model._load_from_json` → stored nowhere directly (no field for it in
-  the dataclass from JSON). The dataclass has `resolution_degC: float = 0.01` as a hardcoded
-  default. The JSON value of 0.1 is **not currently read into `resolution_degC`**.
-- `resolution_degC = 0.01` is used in: `u_res = 0.01 / √12 ≈ 0.00289 °C` in U(E).
+- Read from sensor JSON `metrology.readingUncertainty[resolution].value`; fallback 1 LSB.
+- Converted to Y as `risol_lsb / lsb_per_c`. Used in: `u_res = risol / √12`.
 
 **Problem:** JSON says 0.1, code uses 0.01. These are inconsistent. Either the JSON is wrong
 (should be 0.01 to match the hardware resolution) or the code default is wrong (should be 0.1).
@@ -521,7 +522,7 @@ at each step to get u_B for that step, replacing the current fixed `uB` value.
 
 **Current wiring:**
 - Parsed by `_load_from_json` → `self.uB = 2.9` [LSB].
-- Passed to the regression engines as `ub_tmp_lsb = sensor.uB = 2.9 LSB` (standard unc, k=1).
+- Passed to the regression engines as `ub_sensor_lsb = 0.30 LSB` (standard unc, k=1).
 - Used in U(E): `uB_ntc = sensor.uB / lsb_per_c = 2.9 / 452 ≈ 0.00642 °C`.
 - Used in uc_ntc_i: `uc_ntc_i = √(pstd_ntc_i² + uB_lsb²)`.
 
@@ -560,11 +561,11 @@ Per-step statistics (_compute_step_statistics)
     pmean_ref [°C],  pstd_ref [°C]    ← reference, native °C
     pmean_ntc [LSB], pstd_ntc [LSB]   ← sensor, native LSB
     │
-    ├─ uc_ref = √(pstd_ref² + ub_pt_degc²)    [°C]  ← u_B from VAR_extra [°C]
-    └─ uc_ntc = √(pstd_ntc² + ub_tmp_lsb²)   [LSB] ← u_B from sensor.uB [LSB]
+    ├─ uc_ref = √(pstd_ref² + ub_ref_y²)     [Y]   ← u_B from ref JSON [Y]
+    └─ uc_sensor = √(pstd_sensor² + ub_sensor_lsb²)  [LSB] ← u_B from sensor JSON [LSB]
     │
     ▼
-Regression  (linear / cubic / cube-log)
+Regression  (linear / cubic)
     Coefficients:  A [°C/LSB], B [°C]  or  [a0 °C, a1 °C/LSB, …]  or  [C0,C1,C3 K⁻¹]
     Uncertainties: u(A) [°C/LSB], u(B) [°C], cov(A,B)  or  cov(theta)
     │
@@ -573,7 +574,7 @@ U(E) per step  (direct measurement budget — all in °C)
     sens_i    = |dT/dD|_i              [°C/LSB]  (local sensitivity)
     uA_ref    = pstd_ref_i             [°C]
     uA_ntc    = pstd_ntc_i × sens_i   [°C]
-    uB_ref    = ub_pt_degc             [°C]
+    uB_ref    = ub_ref_y               [Y]
     uB_ntc    = sensor.uB × sens_i    [°C]
     u_res     = sensor.resolution_degC / √12  [°C]
     u(E)      = √( (√(uA_ref²+uB_ref²))² + (√(uA_ntc²+uB_ntc²+u_res²))² )

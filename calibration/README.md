@@ -39,8 +39,10 @@ Three calibration engines are available, selected via `--procedure`:
 All three engines work entirely in the **16-bit LSB domain** and propagate uncertainties
 according to **ISO/IEC Guide 98-3 (GUM)** using analytical sensitivity coefficients.
 
-If `--procedure` is omitted the orchestrator reads `calibrationProcedure` from
-`models_in/ntc_temperature.json` (via `VAR_REF_SENSOR.py`).
+If `--procedure` is omitted the orchestrator reads `calibration.type` from
+the sensor model JSON (e.g. `models_in/sensors/ntc_temperature.json`).
+If `--procedure` is provided it overrides the JSON value.
+Unknown/invalid procedures fall back gracefully to the JSON default.
 The legacy value `"qubic-interpolation"` maps automatically to `"linear"`.
 
 ---
@@ -51,16 +53,16 @@ Two model inputs are required (both default to files already in `models_in/`):
 
 | Arg | Role | Default |
 |---|---|---|
-| `--sensor PATH` | NTC sensor model JSON | `models_in/ntc_temperature.json` |
-| `--ref PATH` | Reference calibrator JSON | `models_in/fluke_9142.json` |
+| `--sensor PATH` | NTC sensor model JSON | `models_in/sensors/ntc_temperature.json` |
+| `--ref PATH` | Reference calibrator JSON | `models_in/references/fluke_9142.json` |
 
 ### Quick run (use procedure from sensor model)
 
 ```powershell
 python scripts/analisi_calib_data.py `
   --input   data_in/convert22042026_payload_lsb16.json `
-  --sensor  models_in/ntc_temperature.json `
-  --ref     models_in/fluke_9142.json
+  --sensor  models_in/sensors/ntc_temperature.json `
+  --ref     models_in/references/fluke_9142.json
 ```
 
 ### With explicit procedure
@@ -69,22 +71,22 @@ python scripts/analisi_calib_data.py `
 # Linear OLS
 python scripts/analisi_calib_data.py `
   --input     data_in/export2_tmp126_millic_from_lsb16.json `
-  --sensor    models_in/ntc_temperature.json `
-  --ref       models_in/fluke_9142.json `
+  --sensor    models_in/sensors/ntc_temperature.json `
+  --ref       models_in/references/fluke_9142.json `
   --procedure linear
 
 # Cubic polynomial OLS
 python scripts/analisi_calib_data.py `
   --input     data_in/export2_tmp126_lsb16.json `
-  --sensor    models_in/ntc_temperature.json `
-  --ref       models_in/fluke_9142.json `
+  --sensor    models_in/sensors/ntc_temperature.json `
+  --ref       models_in/references/fluke_9142.json `
   --procedure cubic
 
 # Steinhart-Hart (cube-log)
 python scripts/analisi_calib_data.py `
   --input     data_in/export2_tmp126_lsb16.json `
-  --sensor    models_in/ntc_temperature.json `
-  --ref       models_in/fluke_9142.json `
+  --sensor    models_in/sensors/ntc_temperature.json `
+  --ref       models_in/references/fluke_9142.json `
   --procedure cube-log
 ```
 
@@ -93,8 +95,8 @@ python scripts/analisi_calib_data.py `
 ```powershell
 python scripts/analisi_calib_data.py `
   --input                              data_in/points_40_50.json `
-  --sensor                             models_in/ntc_temperature.json `
-  --ref                                models_in/fluke_9142.json `
+  --sensor                             models_in/sensors/ntc_temperature.json `
+  --ref                                models_in/references/fluke_9142.json `
   --cert-input                         template_in/certificato_funzione_input.json `
   --cert-output                        certificato_out/certificato_funzione_filled.json `
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
@@ -111,20 +113,21 @@ python scripts/analisi_calib_data.py `
 ```
 ```powershell
 python scripts/analisi_calib_data.py `
-  --input                              data_in/export2_tmp126_lsb16.json `
-  --sensor                             models_in/tmp.json `
-  --ref                                models_in/p100.json `
-  --cert-input                         template_in/certificato_funzione_input.json `
-  --cert-output                        certificato_out/certificato_funzione_filled.json `
-  --pdf                                certificato_out/ntc_cert_funzione.pdf `
-  --xml                                certificato_out/ntc_calibration_certificate.xml `
-  --conformity-output                  certificato_out/conformity_results.json `
-  --images-dir                         ./images/calibration `
-  --procedure                          linear `
-  --check-units `
-  --convert-units `
-  --charts `
-  --verbose
+   --input                              data_in/export2_tmp126_lsb16.json `
+   --sensor                             models_in/sensors/pt100_temp.json `
+   --ref                                models_in/references/fluke_old.json `
+   --cert-input                         template_in/certificato_funzione_input.json `
+   --cert-output                        certificato_out/certificato_funzione_filled.json `
+   --pdf                                certificato_out/ntc_cert_funzione.pdf `
+   --xml                                certificato_out/ntc_calibration_certificate.xml `
+   --conformity-output                  certificato_out/conformity_results.json `
+   --images-dir                         ./images/calibration `
+   --procedure                          linear `
+   --charts `
+   --convert-units `
+   --old-a 0.0025246 --old-b -40.20 `
+   --verbose
+
 ```
 
 
@@ -137,8 +140,8 @@ python scripts/analisi_calib_data.py `
 | Argument | Default | Description |
 |---|---|---|
 | `--input PATH` | `data_in/export2_tmp126_lsb16.json` | LSB16 measurement payload JSON |
-| `--sensor PATH` | `models_in/ntc_temperature.json` | NTC sensor model JSON |
-| `--ref PATH` | `models_in/fluke_9142.json` | Reference calibrator JSON |
+| `--sensor PATH` | `models_in/sensors/ntc_temperature.json` | NTC sensor model JSON |
+| `--ref PATH` | `models_in/references/fluke_9142.json` | Reference calibrator JSON |
 | `--cert-input PATH` | `template_in/certificato_funzione_input.json` | Certificate template (read-only) |
 | `--cert-output PATH` | `certificato_out/certificato_funzione_filled.json` | Filled certificate JSON output |
 | `--pdf PATH` | `certificato_out/ntc_cert_funzione.pdf` | PDF certificate output |
@@ -320,7 +323,7 @@ To launch the direct DCC XML conformity script:
 ```powershell
 python scripts/verify_dcc_conformity.py `
   --xml    certificato_out/ntc_calibration_certificate.xml `
-  --sensor models_in/ntc_temperature.json `
+  --sensor models_in/sensors/ntc_temperature.json `
   --mae    0.10 `
   --pfa-threshold 20.0 `
   --u-ref  0.065
@@ -328,7 +331,7 @@ python scripts/verify_dcc_conformity.py `
 
 Supported arguments:
 - `--xml PATH`: Required path to the DCC XML certificate file.
-- `--sensor PATH`: Path to the sensor model JSON containing `sensorAccuracy` (defaults to `models_in/ntc_temperature.json`).
+- `--sensor PATH`: Path to the sensor model JSON containing `sensorAccuracy` (defaults to `models_in/sensors/ntc_temperature.json`).
 - `--mae FLOAT`: Maximum Accepted Error [°C] for Check H (default: `0.10` °C).
 - `--pfa-threshold FLOAT`: PFA acceptance threshold [%] (default: `20.0` %).
 - `--u-ref FLOAT`: Expanded uncertainty [°C] (k=2) of the reference instrument (default: `0.065` °C).
@@ -353,9 +356,9 @@ pytest backend/calibration/test/test_calibration_pipeline.py -v
 | Data | CLI arg | Default source | Editable? |
 |---|---|---|---|
 | Measurement payload | `--input` | `data_in/export2_tmp126_lsb16.json` | yes (swap for real HW data) |
-| Sensor/ADC model (NTC) | `--sensor` | `models_in/ntc_temperature.json` | yes |
-| Reference calibrator model (Fluke) | `--ref` | `models_in/fluke_9142.json` | yes |
-| Hardware constants (ADC bits, PT100 uncertainty) | — | `models_in/VAR_REF_SENSOR.py` (`VAR_extra`) | yes |
+| Sensor/ADC model (NTC) | `--sensor` | `models_in/sensors/ntc_temperature.json` | yes |
+| Reference calibrator model (Fluke) | `--ref` | `models_in/references/fluke_9142.json` | yes |
+| Hardware constants (ADC bits, reference uncertainty) | — | `models_in/sensors/ntc_temperature.json` (`ranges.elec.adcBits`) + ref JSON (`metrology.Uncertainty[0].ub`) | yes |
 | Company / lab / procedure data | `--cert-input` | `template_in/certificato_funzione_input.json` | yes (human-authored) |
 | Computed outputs (coefficients, U(E), …) | `--cert-output` | `certificato_out/certificato_funzione_filled.json` | no (generated) |
 | Plot image directory | `--images-dir` | `images/calibration/` + `images/conformity/` (relative to calibration root) | yes — when set, subfolders `calibration/` and `conformity/` are created inside the given path |
