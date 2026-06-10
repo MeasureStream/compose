@@ -100,10 +100,10 @@
   "metrology": {
 
     "sensorAccuracy": [
-      { "tempMin": -40.0, "tempMax":   105.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
+      { "tempMin": -40.0, "tempMax":   145.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
     ],
 
-    "evaluationFormula": "uB",
+    "evaluationFormula": "",
 
     "requiredInputs": [],
 

@@ -261,6 +261,8 @@ def calibrate(
     check_units: bool = False,
     convert_units: bool = False,
     unit_symbol: str = "°C",
+    formula: str | None = None,
+    formula_vars: Dict[str, float] | None = None,
 ) -> Dict[str, Any]:
     if ub_ref_y is None:
         raise ValueError("calibrate() requires ub_ref_y")
@@ -284,8 +286,24 @@ def calibrate(
     x = np.array([risultati_elaborati[t]["pmean_sensor"] for t in temp_nominali], dtype=float)  # X [LSB]
     y = np.array([risultati_elaborati[t]["pmean_ref"]    for t in temp_nominali], dtype=float)  # Y
 
+    # Per-step ub_sensor_lsb via formula evaluation or single fixed value
+    _ub_arr: np.ndarray
+    if formula and formula_vars:
+        from evaluation_formula import evaluate_formula
+        _ub_per_step = []
+        for i, t in enumerate(temp_nominali):
+            D_i = float(x[i])
+            _vars_i = {**formula_vars, "d_in": D_i}
+            _ub_per_step.append(evaluate_formula(formula, _vars_i))
+        _ub_arr = np.array(_ub_per_step, dtype=float)
+        if verbose:
+            _ub_mean = float(np.mean(_ub_arr))
+            print(f"ub_sensor (per-step via formula): mean={_ub_mean:.4f} LSB, values={_ub_per_step}")
+    else:
+        _ub_arr = np.full(len(temp_nominali), ub_sensor_lsb, dtype=float)
+
     u_res = risol / np.sqrt(12.0)
-    uc_sensor = np.array([np.sqrt(risultati_elaborati[t]["pstd_sensor"]**2 + ub_sensor_lsb**2) for t in temp_nominali], dtype=float)  # u_x [LSB]
+    uc_sensor = np.array([np.sqrt(risultati_elaborati[t]["pstd_sensor"]**2 + _ub_arr[i]**2) for i, t in enumerate(temp_nominali)], dtype=float)  # u_x [LSB]
     uc_ref    = np.array([np.sqrt(risultati_elaborati[t]["pstd_ref"]**2    + ub_ref_y**2)      for t in temp_nominali], dtype=float)  # u_y
 
     if old_a is not None and old_b is not None:
@@ -323,10 +341,10 @@ def calibrate(
     expanded_uncertainties: List[float] = []
     per_step_u_budget_raw: List[Tuple] = []
 
-    for t in temp_nominali:
+    for i, t in enumerate(temp_nominali):
         uA_ref    = risultati_elaborati[t]["pstd_ref"]            # u_y type-A
         uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens  # u_x type-A × sens
-        uB_sensor = ub_sensor_lsb * sens                         # u_x type-B × sens
+        uB_sensor = _ub_arr[i] * sens                             # u_x type-B × sens
         u_ref     = np.sqrt(uA_ref**2 + ub_ref_y**2)
         u_sensor  = np.sqrt(uA_sensor**2 + uB_sensor**2 + u_res**2)
         u_c       = np.sqrt(u_ref**2 + u_sensor**2)
@@ -364,8 +382,12 @@ def calibrate(
         "lsb_per_y": lsb_per_y,          # informational only
         "ub_ref_y": ub_ref_y,
         "ub_sensor_lsb": ub_sensor_lsb,
+        "ub_sensor_lsb_per_step": _ub_arr.tolist(),
         "ub_ref_lsb": ub_ref_y * lsb_per_y,
     }
+    if formula:
+        result["formula"] = formula
+        result["formula_vars"] = dict(formula_vars) if formula_vars else {}
     if unit_check_result is not None:
         result["unit_check"] = unit_check_result
     if convert_units and sensor_json is not None and ref_json is not None:

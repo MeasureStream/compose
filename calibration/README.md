@@ -104,7 +104,7 @@ python scripts/analisi_calib_data.py `
   --conformity-output                  certificato_out/conformity_results.json `
   --images-dir                         my_run/images `
   --procedure                          linear `
-  --update-parameters-if-out-range-error `
+  --update-parameters                  if-out-of-tolerance `
   --check-units `
   --convert-units `
   --charts `
@@ -158,7 +158,7 @@ python scripts/analisi_calib_data.py `
 | `--verbose` / `--no-verbose` | `True` | Print detailed progress to stdout |
 | `--no-pdf` | `False` | Skip PDF generation |
 | `--no-xml` | `False` | Skip DCC XML generation |
-| `--update-parameters-if-out-range-error` | `False` | Skip coefficient update when all as-found errors are within `sensorAccuracy` limits |
+| `--update-parameters` | `none` | Parameter update strategy: `none` (do not adjust), `always` (adjust regardless), `if-out-of-tolerance` (skip when all as-found errors are within `sensorAccuracy` limits) |
 | `--check-units` | `False` | Enable dimensional unit analysis via pint |
 | `--convert-units` | `False` | Convert results to the preferred output unit declared in the sensor JSON |
 
@@ -233,15 +233,20 @@ If omitted (or `0.0` in the sensor JSON — the "not set" sentinel), the engines
 
 After a successful run via `dcc_service`, the new coefficients are automatically written back to `sensor.coeffA/B/C/D` in the database and will be used as `--old-a/b/c/d` on the next calibration.
 
-**Conditional parameter update (skip calibration when already in spec):**
+**Conditional parameter update:**
 ```powershell
-python scripts/analisi_calib_data.py ... --update-parameters-if-out-range-error
+# Skip coefficients update when all as-found errors are within sensorAccuracy limits
+python scripts/analisi_calib_data.py ... --update-parameters if-out-of-tolerance
+
+# Always update coefficients regardless of as-found errors (default: none)
+python scripts/analisi_calib_data.py ... --update-parameters always
 ```
-Checks every as-found error against the `sensorAccuracy.maxError` declared in the
-sensor JSON.  If **all** points are within spec the coefficient update is skipped
-(`calibration_done = "not_necessary"`) and the certificate reports initial
-coefficients for both as-found and as-left.  If any point is out of range,
-calibration proceeds normally.
+`--update-parameters` accepts three values:
+- `none` (default) — do not adjust parameters regardless of errors
+- `always` — force calibration parameter update even when within spec
+- `if-out-of-tolerance` — skip update when ALL as-found errors are within `sensorAccuracy.maxError`; proceed normally if any point is out of range
+
+When `if-out-of-tolerance` is set and all points are in range, the coefficient update is skipped (`calibration_done = "not_necessary"`) and the certificate reports initial coefficients for both as-found and as-left.
 
 **Dimensional analysis (unit checks):**
 ```powershell

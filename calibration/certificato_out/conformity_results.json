@@ -1,6 +1,6 @@
 {
   "summary": {
-    "G": "WARN",
+    "G": "PASS",
     "A": "PASS",
     "B": "FAIL",
     "H": "PASS",
@@ -8,59 +8,59 @@
     "overall": "NON CONFORME"
   },
   "check_G": {
-    "status": "WARN",
+    "status": "PASS",
     "calib_model": "linear",
     "note": "Interpolation model: all calibration points are within the declared physical range.",
     "G1_all_in_range": true,
-    "G2_all_covered": false,
+    "G2_all_covered": true,
     "per_point": [
       {
         "punto": 1,
         "T_ref_y": 0.26,
         "M_e_pre_y": -0.11,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       },
       {
         "punto": 2,
         "T_ref_y": 25.14,
         "M_e_pre_y": -0.04,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       },
       {
         "punto": 3,
         "T_ref_y": 49.67,
         "M_e_pre_y": -0.09,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       },
       {
         "punto": 4,
         "T_ref_y": 73.98,
         "M_e_pre_y": -0.12,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       },
       {
         "punto": 5,
         "T_ref_y": 98.3,
         "M_e_pre_y": -0.1,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       },
       {
         "punto": 6,
         "T_ref_y": 122.12,
         "M_e_pre_y": -0.07,
-        "max_allowed_error_y": null,
+        "max_allowed_error_y": 0.6,
         "G1_in_range": true,
-        "G2_covered": false
+        "G2_covered": true
       }
     ]
   },

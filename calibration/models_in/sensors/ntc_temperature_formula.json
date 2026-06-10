@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.1",
   
-  "modelName": "TemperatureSensorNTC",
+  "modelName": "TemperatureSensorNTCFormula",
   
   "mpn": "NTCLP450E3",
   "manufacturer": "Vishay",
@@ -14,11 +14,20 @@
 
   "elecUnit": "\\one",
 
+  "obsList": [
+    "Results refer exclusively to the instrument identified in this certificate.",
+    "Calibration is valid under the declared conditions and on the execution date.",
+    "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+    "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+  ],
+  "methodDescription": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Sensor type-B uncertainty (uB) is computed via evaluationFormula per calibration step: RSS combination of base uB, resolution (uniform->std), and position-scaled absUncertainty (uniform->std). Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+  "calibrationFormula": "T = A * dout + B",
+
   "ranges": {
 
     "phys": {
       "min": -40.0,
-      "max": 125.0,
+      "max": 105.0,
       "siExp": 0,
       "si": [0, 0, 0, 0, 1, 0, 0, 0],
       "dsi": "\\degreeCelsius"
@@ -26,7 +35,7 @@
 
     "physROC": {
       "min": 0.0,
-      "max": 125.0,
+      "max": 105.0,
       "siExp": 0,
       "si": [0, 0, -1, 0, 1, 0, 0, 0],
       "dsi": "\\degreeCelsius\\per\\second"
@@ -35,6 +44,7 @@
     "elec": {
       "min": 0.0,
       "max": 65535.0,
+      "adcBits": 16,
       "siExp": 0,
       "si": [0, 0, 0, 0, 0, 0, 0, 0],
       "dsi": "\\one"
@@ -50,7 +60,7 @@
 
     "threshold": {
       "min": -40.0,
-      "max": 125.0
+      "max": 105.0
     }
 
   },
@@ -90,12 +100,12 @@
   "metrology": {
 
     "sensorAccuracy": [
-      { "tempMin": -40.0, "tempMax":   145.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
+      { "tempMin": -40.0, "tempMax":   105.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
     ],
 
-    "evaluationFormula": "uB",
+    "evaluationFormula": "10*sqrt(uB**2 + (resolution/sqrt(12))**2 + (absUncertainty * abs(d_in-32768)/32768 / sqrt(3))**2)",
 
-    "requiredInputs": [],
+    "requiredInputs": ["uB", "resolution", "absUncertainty"],
 
     "readingUncertainty": [
         { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
@@ -107,7 +117,7 @@
     "UncertaintyPdf": "normal",
     "Uncertainty": [
       { "referenceValue": 0,
-        "absUncertainty": 0,
+        "absUncertainty": 0.10,
         "uc": 0,
         "k": 2.0
       }

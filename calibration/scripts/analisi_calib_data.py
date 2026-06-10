@@ -202,6 +202,9 @@ def _build_cert_filled(
             float(i + 1), ref_t, t_sensor_post, error_pre, error_post, expanded_uncertainties[i],
         ])
 
+    rmse_pre = float(math.sqrt(sum(e[3]**2 for e in measurements) / max(1, len(measurements))))
+    print(f"[{calib_model}] RMSE pre-error: {rmse_pre:.6f} {unit_symbol}")
+
     measurements_rounded = [
         [int(row[0]),
          round(row[1], 2),
@@ -239,6 +242,7 @@ def _build_cert_filled(
         "_interp_unc_sum_abs": interp_sum_y,
         "_interp_unc_fixed_2sig": interp_fixed_2sig,
         "_rmse": calib_result.get("rmse", 0.0),
+        "_rmse_pre": rmse_pre,
         "_ref_temp_means": ref_temp_means,
         "_temp_nominali": temp_nominali,
         "_variant": "funzione",
@@ -281,20 +285,23 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
                      adc_max: float, ub_ref_lsb: float, ub_sensor_lsb: float, verbose: bool,
                      risol: float, old_A, old_B, old_C, old_D,
                      sensor_json, ref_json, check_units: bool, convert_units: bool,
-                     unit_symbol: str = "°C"):
+                     unit_symbol: str = "°C",
+                     formula: str | None = None,
+                     formula_vars: Dict[str, float] | None = None):
     ub_ref_y = ub_ref_lsb   # caller passes reference uncertainty in Y
     unit_kwargs = dict(
         sensor_json=sensor_json, ref_json=ref_json,
         check_units=check_units, convert_units=convert_units,
         unit_symbol=unit_symbol,
     )
+    formula_kwargs = dict(formula=formula, formula_vars=formula_vars)
     if procedure == "linear":
         from model_calibration.linear_calibration import calibrate
         return calibrate(
             payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
-            old_a=old_A, old_b=old_B, **unit_kwargs,
+            old_a=old_A, old_b=old_B, **unit_kwargs, **formula_kwargs,
         )
     elif procedure == "cubic":
         from model_calibration.cubic_calibration import calibrate
@@ -302,7 +309,7 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
             payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
-            old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs,
+            old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs, **formula_kwargs,
         )
     else:
         raise ValueError(
@@ -475,6 +482,12 @@ def main() -> None:
     sensor_abs_y     = sensor_abs_lsb / lsb_per_y
     abs_unc_sum_y = ub_ref_y + sensor_abs_y
 
+    # Read evaluationFormula from JSON (vars built later after coefficient resolution)
+    _eval_formula_raw = sensor_metrology.get("evaluationFormula", "")
+    _formula_str: str | None = _eval_formula_raw.strip() if _eval_formula_raw else None
+    if args.verbose and _formula_str:
+        print(f"evaluationFormula: {_formula_str}")
+
     sample_size = 20
     lsb_scale   = {"minPhysVal": lsb_min, "maxPhysVal": lsb_max}
 
@@ -528,6 +541,18 @@ def main() -> None:
     if args.verbose:
         print(f"Previous coefficients: A={old_A}, B={old_B}, C={old_C}, D={old_D}")
 
+    # Build formula variables from readingUncertainty and calibration coefficients
+    _formula_vars: Dict[str, float] | None = None
+    if _formula_str:
+        from evaluation_formula import build_formula_variables
+        _coeffs: Dict[str, float] = {}
+        for key, val in (("A", old_A), ("B", old_B), ("C", old_C), ("D", old_D)):
+            if val is not None and val != 0.0:
+                _coeffs[key] = float(val)
+        _formula_vars = build_formula_variables(sensor_reading_uncertainty, _coeffs)
+        if args.verbose:
+            print(f"formula vars: {_formula_vars}")
+
     try:
         calib_result = _run_calibration(
             procedure=procedure, payload=payload, lsb_scale=lsb_scale,
@@ -538,6 +563,7 @@ def main() -> None:
             sensor_json=sensor_json, ref_json=ref_json,
             check_units=args.check_units, convert_units=args.convert_units,
             unit_symbol=_unit_sym,
+            formula=_formula_str, formula_vars=_formula_vars,
         )
     except ValueError as err:
         print(f"ERROR: {err}", file=sys.stderr)
