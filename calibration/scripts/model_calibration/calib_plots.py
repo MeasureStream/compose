@@ -262,7 +262,8 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
         ax2.fill_between(x, smean_log - u_sensor_lsb_i, smean_log + u_sensor_lsb_i,
                          alpha=0.12, color="tab:red")
         ax2.set_ylim(sen_centre_lsb - half_lsb, sen_centre_lsb + half_lsb)
-
+ 
+ 
         # Tick labels: "NNNNN LSB  /  XX.XX °C"
         # °C approximated as: ref_at_sen_centre + (v - sen_centre_lsb) / sens_i
         _ref0  = ref_at_sen_centre

@@ -304,7 +304,7 @@ def print_results_report(
     g_ok      = g_res["status"] in (PASS, NA)
     h_ok      = h_res["status"] == PASS
     o_ok      = overlap_res["status"] == PASS
-    overall   = "CONFORME" if (g_ok and h_ok and o_ok) else "NON CONFORME"
+    overall   = "CONFORMING" if (g_ok and h_ok and o_ok) else "NON-CONFORMING"
     print(f"  OVERALL VERDICT: {overall}")
     print(f"  [G] SensorAccuracy: [{g_res['status']}]")
     print(f"  [H] PFA Check     : [{h_res['status']}]")
@@ -397,78 +397,7 @@ def save_charts(
         saved.append(str(out))
         print(f"[INFO] Saved chart: {out}")
 
-    # ── Fig 2: Pre/Post Error Bars with ±U_exp ───────────────────────────
-    fig, ax = plt.subplots(figsize=(10, 5))
-    x = np.array(pts, dtype=float)
-    u_arr = np.array(u_sensor)
-
-    ax.errorbar(x - 0.1, me_pre, yerr=u_arr, fmt="o", color=COLOR_PRE,
-                ecolor=COLOR_PRE, elinewidth=1.5, capsize=5, capthick=1.5,
-                label="Pre-cal error (M_e_pre) ± U_exp", zorder=4)
-    ax.errorbar(x + 0.1, me_post, yerr=u_arr, fmt="s", color=COLOR_POST,
-                ecolor=COLOR_POST, elinewidth=1.5, capsize=5, capthick=1.5,
-                label="Post-cal error (M_e_post) ± U_exp", zorder=4)
-
-    ax.axhline(0, color="black", linewidth=0.8, linestyle="-", zorder=2)
-    ax.axhline(mae, color="#e74c3c", linewidth=1.2, linestyle="--",
-               label=f"+MAE = +{mae:.3f}{UNIT}", zorder=3)
-    ax.axhline(-mae, color="#e74c3c", linewidth=1.2, linestyle="--",
-               label=f"-MAE = -{mae:.3f}{UNIT}", zorder=3)
-
-    ax.set_xticks(pts)
-    ax.set_xticklabels([f"Pt {i}\n{t:.1f}{UNIT}" for i, t in zip(pts, t_ref)], fontsize=8)
-    ax.set_xlabel("Calibration Point", fontsize=11)
-    ax.set_ylabel(f"Measurement Error [{UNIT}]", fontsize=11)
-    ax.set_title(f"Pre/Post Calibration Errors with Expanded Uncertainty — {model_label}",
-                 fontsize=13, fontweight="bold")
-    ax.legend(fontsize=9)
-    ax.grid(alpha=0.4, zorder=0)
-    fig.tight_layout()
-    out = images_dir / "fig2_error_bars.png"
-    fig.savefig(out, dpi=DPI)
-    plt.close(fig)
-    saved.append(str(out))
-    print(f"[INFO] Saved chart: {out}")
-
-    # ── Fig 3: Overlap Check ─────────────────────────────────────────────
-    overlap_res = results["check_overlap"]
-    if overlap_res["details"]:
-        fig, ax = plt.subplots(figsize=(10, 5))
-        diffs    = np.array([d["diff"] for d in overlap_res["details"]])
-        u_sns_arr = np.array([d["u_sns"] for d in overlap_res["details"]])
-        sum_unc  = u_sns_arr + u_ref
-        rss_unc  = np.sqrt(u_sns_arr**2 + u_ref**2)
-
-        x = np.array(pts, dtype=float)
-        ax.bar(x - 0.25, diffs, width=0.25, label="|T_sensor - T_ref|", color="#3498db",
-               edgecolor="white", zorder=3)
-        ax.bar(x,       sum_unc, width=0.25, label="U_sensor + U_ref (simple)", color="#f39c12",
-               edgecolor="white", alpha=0.85, zorder=3)
-        ax.bar(x + 0.25, rss_unc, width=0.25, label="sqrt(U_s²+U_r²) (RSS)", color="#2ecc71",
-               edgecolor="white", alpha=0.85, zorder=3)
-
-        # Color bars by pass/fail
-        for i, d in enumerate(overlap_res["details"]):
-            ok = d["simple_pass"] and d["rss_pass"]
-            ax.get_children()[i].set_edgecolor(COLOR_PASS if ok else COLOR_FAIL)
-            ax.get_children()[i].set_linewidth(1.5 if not ok else 0.5)
-
-        ax.set_xticks(pts)
-        ax.set_xticklabels([f"Pt {i}\n{t:.1f}{UNIT}" for i, t in zip(pts, t_ref)], fontsize=8)
-        ax.set_xlabel("Calibration Point", fontsize=11)
-        ax.set_ylabel(f"Temperature [{UNIT}]", fontsize=11)
-        ax.set_title(f"Uncertainty Overlap & Compatibility Check — {model_label}",
-                     fontsize=13, fontweight="bold")
-        ax.legend(fontsize=9)
-        ax.grid(axis="y", alpha=0.4, zorder=0)
-        fig.tight_layout()
-        out = images_dir / "fig3_overlap_check.png"
-        fig.savefig(out, dpi=DPI)
-        plt.close(fig)
-        saved.append(str(out))
-        print(f"[INFO] Saved chart: {out}")
-
-    # ── Fig 4: Check G — As-Found Errors vs Sensor Accuracy Bands ────────
+    # ── Fig 2 (formerly fig4): Check G — As-Found Errors vs Sensor Accuracy Bands ──
     g_res = results["check_g"]
     if g_res["status"] != NA and g_res["details"]:
         fig, ax = plt.subplots(figsize=(10, 5))

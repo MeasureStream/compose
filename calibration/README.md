@@ -185,7 +185,7 @@ When `--images-dir` is not set, charts default to:
 | `images/calibration/` | Calibration fit and residuals |
 | `images/conformity/` | Conformity check plots (linear model only) |
 
-> Conformity checks (A, B, C, D, E, F, G, H) are run automatically at the end of
+> Conformity checks (A, B,  G, H) are run automatically at the end of
 > every orchestrator run.  The summary is printed to stdout with `--verbose` and
 > optionally written as JSON via `--conformity-output`.
 
