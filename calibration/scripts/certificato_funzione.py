@@ -620,6 +620,7 @@ def build_story(styles):
     rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
     reg_unc_val = 2.0 * rmse_val
     reg_unc_text = f"{fmt_sci_sig(reg_unc_val)} {PHYS_UNIT_SYMBOL}"
+    print(f"Debug: RMSE={rmse_val}, Regression uncertainty (2*RMSE)={reg_unc_val}, formatted='{reg_unc_text}'")
 
     if _calib_model == "cubic":
         _a0 = SENSOR_MODEL.get("_a0", 0)

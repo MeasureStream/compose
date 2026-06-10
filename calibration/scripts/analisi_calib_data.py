@@ -263,7 +263,7 @@ def _build_cert_filled(
             for b in u_budget_raw
         ]
         cal_result_entry.update({
-            "_A": A_r, "_B": B_r,
+            "_A": A, "_B": B,
             "_u_budget_per_step": u_budget_rounded,
         })
     elif calib_model == "cubic":
@@ -330,7 +330,7 @@ def _apply_calibration_skipped(cert_filled: Dict, calib_result: Dict,
         init_A_r = round_to_significant_figures(init_A, 4)
         init_B_r = round_to_significant_figures(init_B, 4)
         # B is now in °C directly — no lpc division
-        cal.update({"_A": init_A_r, "_B": init_B_r,
+        cal.update({"_A": init_A, "_B": init_B,
                     "_u_A": 0.0, "_u_B": 0.0, "_cov_AB": 0.0})
         sm = cert_filled["template_parts"]["sensor_method_template"].get("sensor_model", {})
         sm.update({"_A_cal": init_A_r, "_B_cal": init_B_r,
