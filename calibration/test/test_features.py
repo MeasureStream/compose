@@ -208,7 +208,7 @@ class TestCheckB:
 class TestCheckG:
 
     def _accuracy_ranges(self):
-        return [{"tempMin": -40.0, "tempMax": 125.0, "maxError": 0.5}]
+        return 0.5
 
     def test_pass_when_as_found_within_limit(self):
         from checks_helper import check_G
@@ -225,17 +225,14 @@ class TestCheckG:
     def test_na_when_no_accuracy_ranges(self):
         from checks_helper import check_G
         rows = [_make_row(1, 25.0, 25.0, 0.1, 0.0, 0.35)]
-        status, result = check_G(rows, [], "linear", verbose=False)
+        status, result = check_G(rows, None, "linear", verbose=False)
         assert status == "N/A"
 
-    def test_warn_when_point_outside_coverage(self):
+    def test_pass_when_error_within_tolerance(self):
         from checks_helper import check_G
-        # Only covers 0-50, point at 80 is outside
-        accuracy_ranges = [{"tempMin": 0.0, "tempMax": 50.0, "maxError": 0.5}]
         rows = [_make_row(1, 80.0, 80.0, 0.1, 0.0, 0.35)]
-        status, result = check_G(rows, accuracy_ranges, "cubic", verbose=False)
-        assert status == "WARN"
-        assert result["G2_all_covered"] is False
+        status, result = check_G(rows, 0.5, "cubic", verbose=False)
+        assert status == "PASS"
 
     def test_uses_me_pre_column(self):
         from checks_helper import check_G
@@ -399,7 +396,7 @@ class TestVerifyDccConformity:
             t_sensor=[25.05],
             me_pre=[0.05],
             u_sensor=[0.35],
-            accuracy_ranges=[],
+            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
             u_ref=0.065,
@@ -414,7 +411,7 @@ class TestVerifyDccConformity:
             t_sensor=[25.0],
             me_pre=[0.05],
             u_sensor=[0.35],
-            accuracy_ranges=[],
+            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
             u_ref=0.065,
@@ -423,13 +420,12 @@ class TestVerifyDccConformity:
 
     def test_check_g_pass_with_accuracy_ranges(self):
         import verify_dcc_conformity as vdc
-        ranges = [{"tempMin": -40.0, "tempMax": 125.0, "maxError": 0.5}]
         results = vdc.run_checks(
             t_ref=[25.0],
             t_sensor=[25.0],
             me_pre=[0.1],
             u_sensor=[0.35],
-            accuracy_ranges=ranges,
+            max_tollerance=0.5,
             mae=0.30,
             pfa_threshold_pct=20.0,
             u_ref=0.065,
@@ -443,7 +439,7 @@ class TestVerifyDccConformity:
             t_sensor=[25.1],
             me_pre=[0.1],
             u_sensor=[0.35],
-            accuracy_ranges=[],
+            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
             u_ref=0.065,
@@ -457,7 +453,7 @@ class TestVerifyDccConformity:
             t_sensor=[30.0],
             me_pre=[5.0],
             u_sensor=[0.35],
-            accuracy_ranges=[],
+            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
             u_ref=0.065,
@@ -470,10 +466,11 @@ class TestVerifyDccConformity:
         assert vdc.normal_cdf(float("inf")) == pytest.approx(1.0, abs=1e-9)
         assert vdc.normal_cdf(float("-inf")) == pytest.approx(0.0, abs=1e-9)
 
-    def test_load_sensor_accuracy_ranges_from_file(self):
+    def test_load_sensor_max_tollerance(self):
         import verify_dcc_conformity as vdc
-        ranges = vdc.load_sensor_accuracy_ranges(SENSOR_JSON)
-        assert isinstance(ranges, list)
+        val = vdc.load_sensor_max_tollerance(SENSOR_JSON)
+        assert val is not None
+        assert isinstance(val, (int, float))
 
 
 # ===========================================================================

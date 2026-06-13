@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.1",
+  "schemaVersion": "1.0.2",
 
   "modelName": "PressureSensorAnalog",
 
@@ -99,10 +99,6 @@
   },
   "metrology": {
 
-    "sensorAccuracy": [
-      { "tempMin": 0.0, "tempMax": 20.0, "maxError": 0.15, "unit": "\\atm", "description": "Maximum calibration error from 0 to 20 atm" }
-    ],
-
     "evaluationFormula": "uB",
 
     "requiredInputs": [],
@@ -111,16 +107,13 @@
         { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
         { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
         { "varName": "uB", "value": 0.30,  "PDF": "normal", "description": "" },
-        {"varName": "coverageFactor", "value": 2.0, "description": ""}
+        { "varName": "coverageFactor", "value": 2.0, "description": "" }
     ],
 
     "UncertaintyPdf": "normal",
     "Uncertainty": [
-      { "referenceValue": 0,
-        "absUncertainty": 0.05,
-        "uc": 0,
-        "k": 2.0
-      }
+       { "varName": "maxTollerance", "value": 0.15, "PDF": "uniform", "description": "Maximum calibration tolerance" },
+       { "varName": "absUncertainty", "value": 0.05, "uc": 0, "k": 2.0 }
     ],
 
     "calDate": 0,

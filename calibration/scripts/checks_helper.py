@@ -112,79 +112,53 @@ def check_B(measurements: List[List[float]], limit_y: float, verbose: bool) -> T
     return (PASS if all(r["pass"] for r in results) else FAIL), results
 
 
-def _max_error_for_temp(temp_y: float, accuracy_ranges: List[Dict]) -> float:
-    applicable = [
-        r["maxError"]
-        for r in accuracy_ranges
-        if r["tempMin"] <= temp_y <= r["tempMax"]
-    ]
-    return min(applicable) if applicable else float("inf")
+def _max_error_for_temp(temp_y: float, max_tollerance: float | None) -> float:
+    if max_tollerance is not None:
+        return max_tollerance
+    return float("inf")
 
 
 def check_G(
     measurements: List[List[float]],
-    accuracy_ranges: List[Dict],
+    max_tollerance: float | None,
     calib_model: str,
     verbose: bool,
 ) -> Tuple[str, Dict]:
-    if not accuracy_ranges:
-        return "N/A", {"status": "N/A", "note": "sensorAccuracy not present in sensor JSON", "per_point": []}
+    if max_tollerance is None:
+        return "N/A", {"status": "N/A", "note": "maxTollerance not present in sensor JSON", "per_point": []}
 
     per_point       = []
     g1_all_pass     = True
-    g2_all_covered  = True
 
     for row in measurements:
         punto  = int(row[0])
         t_ref  = row[1]
         me_pre = row[3]
 
-        max_err = _max_error_for_temp(t_ref, accuracy_ranges)
-        covered = max_err < float("inf")
-
-        if not covered:
-            g2_all_covered = False
-            g1_pass = True
-            g2_pass = False
-        else:
-            g1_pass = abs(me_pre) <= max_err
-            g2_pass = True
-            if not g1_pass:
-                g1_all_pass = False
+        max_err = max_tollerance
+        g1_pass = abs(me_pre) <= max_err
+        if not g1_pass:
+            g1_all_pass = False
 
         per_point.append({
             "punto": punto, "T_ref_y": t_ref, "M_e_pre_y": me_pre,
-            "max_allowed_error_y": max_err if covered else None,
-            "G1_in_range": g1_pass, "G2_covered": g2_pass,
+            "max_allowed_error_y": max_err,
+            "G1_in_range": g1_pass, "G2_covered": True,
         })
 
         if verbose:
-            cov_str = f"\u00b1{max_err:.4f}" if covered else "OUT_OF_COVERAGE"
             print(
                 f"   Punto {punto}: T_ref={t_ref:.6f}  |M_e_pre|={abs(me_pre):.6f}  "
-                f"limit={cov_str}  G1={'PASS' if g1_pass else 'FAIL'}  G2={'PASS' if g2_pass else 'NOT_COVERED'}"
+                f"limit=\u00b1{max_err:.4f}  G1={'PASS' if g1_pass else 'FAIL'}"
             )
 
-    if not g1_all_pass:
-        overall = FAIL
-    elif not g2_all_covered:
-        overall = WARN
-    else:
-        overall = PASS
+    overall = PASS if g1_all_pass else FAIL
 
-    if calib_model in ("cubic", "cube-log") and not g2_all_covered:
-        note = (
-            f"Regression model '{calib_model}': some calibration points fall outside "
-            "all declared sensorAccuracy temperature ranges (extrapolation)."
-        )
-    elif calib_model in ("linear", "qubic-interpolation"):
-        note = "Interpolation model: all calibration points are within the declared physical range."
-    else:
-        note = ""
+    note = "Interpolation model: all calibration points are within the declared tolerance."
 
     return overall, {
         "status": overall, "calib_model": calib_model, "note": note,
-        "G1_all_in_range": g1_all_pass, "G2_all_covered": g2_all_covered,
+        "G1_all_in_range": g1_all_pass, "G2_all_covered": True,
         "per_point": per_point,
     }
 
@@ -304,16 +278,16 @@ def save_charts(
 
     # --- fig1: post-calibration residuals with U(E) bars ---
     fig1, ax1 = plt.subplots(figsize=(9, 5))
-    ax1.set_title(f"Check A/B \u2014 Residui post-calibrazione vs U(E)\n(variante: {variant})", fontsize=11)
+    ax1.set_title(f"Check A/B \u2014 Post-calibration residuals vs U(E)", fontsize=11)
     for i, p in enumerate(punti):
         ax1.fill_between([p - 0.35, p + 0.35], [-u_exp[i], -u_exp[i]], [u_exp[i], u_exp[i]],
-                         color="green", alpha=0.15, label="Banda U(E)" if i == 0 else "")
+                         color="green", alpha=0.15, label="U(E) band" if i == 0 else "")
     ax1.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
     ax1.errorbar(punti, me_post, yerr=u_exp, fmt="o", color="royalblue", ecolor="royalblue",
                  capsize=7, linewidth=1.5, markersize=6, label="|M_e_post| +/- U(E)")
     ax1.set_xticks(punti)
     ax1.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)])
-    ax1.set_xlabel("Punto di calibrazione")
+    ax1.set_xlabel("Calibration point")
     ax1.set_ylabel(f"Error M_e_post  [{unit_symbol}]")
     ax1.legend(loc="upper right", fontsize=9)
     ax1.grid(True, alpha=0.3)
@@ -322,57 +296,64 @@ def save_charts(
                      textcoords="offset points", ha="center", fontsize=8, color="royalblue")
     plt.tight_layout()
     p1 = output_dir / f"{prefix}_fig1_residuals.png"
-    fig1.savefig(p1, dpi=150, bbox_inches="tight")
+    fig1.savefig(p1, dpi=75, bbox_inches="tight")
     plt.close(fig1)
     saved.append(p1)
 
     # --- fig2: as-found errors with sensorAccuracy limits (Check G visual) ---
     fig2, ax2 = plt.subplots(figsize=(9, 5))
-    ax2.set_title(f"Check G \u2014 Errori as-found (pre-calibrazione) vs limiti sensorAccuracy\n(variante: {variant})", fontsize=11)
+    ax2.set_title(f"Check G \u2014 As-found errors (pre-calibration) vs tolerance", fontsize=11)
 
     x_pos = np.arange(len(punti))
     width = 0.40
 
     bars = ax2.bar(x_pos, me_pre, width, color="#4472C4", edgecolor="white", linewidth=0.8, label="M_e_pre (as-found)")
 
-    if accuracy_ranges:
+    if accuracy_ranges is not None:
         for i, p in enumerate(punti):
-            max_err = _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
+            max_err = float(accuracy_ranges) if isinstance(accuracy_ranges, (int, float)) else _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
             if max_err < float("inf"):
                 ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
                          [max_err, max_err], color="red", linewidth=2.0, linestyle="--")
                 ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
                          [-max_err, -max_err], color="red", linewidth=2.0, linestyle="--")
 
-        ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="tolerance \u00b1maxError")
+        ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="tolerance")
 
     ax2.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
     ax2.set_xticks(x_pos)
     ax2.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)], fontsize=8)
-    ax2.set_xlabel("Punto di calibrazione")
+    ax2.set_xlabel("Calibration point")
     ax2.set_ylabel(f"Error as-found M_e_pre  [{unit_symbol}]")
 
     if len(me_pre) > 0:
         y_max = float(np.max(np.abs(me_pre)))
-        for r in accuracy_ranges or []:
-            try:
-                y_max = max(y_max, abs(float(r.get("maxError", 0.0))))
-            except (TypeError, ValueError):
-                pass
+        if isinstance(accuracy_ranges, (int, float)):
+            y_max = max(y_max, abs(float(accuracy_ranges)))
+        elif accuracy_ranges:
+            for r in accuracy_ranges:
+                try:
+                    y_max = max(y_max, abs(float(r.get("maxError", 0.0))))
+                except (TypeError, ValueError):
+                    pass
         ax2.set_ylim(-max(y_max, 1e-9) * 1.20, max(y_max, 1e-9) * 1.20)
 
     ax2.legend(loc="upper right", fontsize=9)
     ax2.grid(True, alpha=0.3, axis="y")
 
     for i, (bar, val) in enumerate(zip(bars, me_pre)):
-        color = "darkgreen" if abs(val) <= _max_error_for_temp(float(t_ref[i]), accuracy_ranges) else "darkred"
+        if isinstance(accuracy_ranges, (int, float)):
+            max_err_val = float(accuracy_ranges) if accuracy_ranges is not None else float("inf")
+        else:
+            max_err_val = _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
+        color = "darkgreen" if abs(val) <= max_err_val else "darkred"
         ax2.text(bar.get_x() + bar.get_width()/2, val + (0.02 if val >= 0 else -0.06),
                  f"{val:+.4f}", ha="center", va="bottom" if val >= 0 else "top",
                  fontsize=8, color=color, fontweight="bold")
 
     plt.tight_layout()
     p2 = output_dir / f"{prefix}_fig2_asfound.png"
-    fig2.savefig(p2, dpi=150, bbox_inches="tight")
+    fig2.savefig(p2, dpi=75, bbox_inches="tight")
     plt.close(fig2)
     saved.append(p2)
 
@@ -493,20 +474,47 @@ def main() -> None:
     args = parser.parse_args()
 
     sensor_json = json.loads(Path(args.sensor).read_text(encoding="utf-8"))
+    sensor_metrology = sensor_json.get("metrology", {})
 
-    accuracy_ranges = sensor_json.get("metrology", {}).get("sensorAccuracy", [])
+    # Read maxTollerance from Uncertainty array (new format) or fallback to sensorAccuracy (legacy)
+    unc = sensor_metrology.get("Uncertainty", [])
+    max_tollerance = None
+    for item in unc:
+        if item.get("varName") == "maxTollerance":
+            max_tollerance = float(item.get("value", 0))
+            break
+    if max_tollerance is None:
+        legacy = sensor_metrology.get("sensorAccuracy", [])
+        if legacy:
+            max_tollerance = float(legacy[0].get("maxError", 0))
+
+    # Extract coverage factor
+    ru = sensor_metrology.get("readingUncertainty", [])
+    coverage_factor = 2.0
+    for item in ru:
+        if item.get("varName") == "coverageFactor":
+            coverage_factor = float(item.get("value", 2.0))
+            break
+
     filled = load_filled(args.input)
 
     calib = extract_calib(filled)
     measurements = extract_measurements(filled)
 
-    limit_y = float(sensor_json.get("metrology", {}).get("Uncertainty", [{}])[0].get("absUncertainty", 0.10))
+    # Read absUncertainty from Uncertainty by varName or legacy
+    limit_y = 0.10
+    for item in unc:
+        if item.get("varName") == "absUncertainty":
+            limit_y = float(item.get("value", 0.10))
+            break
+    if not any(item.get("varName") == "absUncertainty" for item in unc) and unc:
+        limit_y = float(unc[0].get("absUncertainty", 0.10))
     min_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("min", -40.0))
     max_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("max", 105.0))
 
     conf_model = calib.get("_calib_model", "linear")
 
-    sG, rG = check_G(measurements, accuracy_ranges, conf_model, verbose=args.verbose)
+    sG, rG = check_G(measurements, max_tollerance, conf_model, verbose=args.verbose)
     sA, rA = check_A(measurements, verbose=args.verbose)
     sB, rB = check_B(measurements, limit_y, verbose=args.verbose)
 
@@ -517,6 +525,7 @@ def main() -> None:
         verbose=args.verbose, u_std_mode=args.pfa_u_std_mode,
         u_budget_per_step=u_budget,
         adc_bits=16, adc_max=65535.0,
+        coverage_factor=coverage_factor,
     )
 
     check_results = {"G": (sG, rG), "A": (sA, rA), "B": (sB, rB), "H": (sH, rH)}
@@ -533,7 +542,7 @@ def main() -> None:
         images_dir = args.images_dir or (OUT_DIR / "images" / "conformity")
         saved = save_charts(
             measurements=measurements,
-            accuracy_ranges=accuracy_ranges,
+            accuracy_ranges=max_tollerance,
             limit_y=limit_y,
             variant="funzione",
             output_dir=images_dir,

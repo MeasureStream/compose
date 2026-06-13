@@ -264,6 +264,7 @@ def calibrate(
     formula: str | None = None,
     formula_vars: Dict[str, float] | None = None,
     ufit: float | None = None,
+    coverage_factor: float = 2.0,
 ) -> Dict[str, Any]:
     if ub_ref_y is None:
         raise ValueError("calibrate() requires ub_ref_y")
@@ -356,7 +357,7 @@ def calibrate(
 
         uc_sensor = np.sqrt(uA_sensor**2 + ub_uso**2)  # u_x total
         u_c       = np.sqrt(u_ref**2 + uc_sensor**2)
-        U_exp     = 2.0 * u_c
+        U_exp     = coverage_factor * u_c
         expanded_uncertainties.append(float(U_exp))
         per_step_u_budget_raw.append((t, uA_ref, uA_sensor, ub_uso, u_fitting_val, u_ref, uc_sensor, u_c, U_exp))
 
@@ -370,7 +371,7 @@ def calibrate(
         {"t_nom": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
          "ub_uso": ub_uso_, "u_fitting": u_fitting_,
          "u_ref": u_ref_, "u_sensor": u_sensor_,
-         "u_c": u_c_, "U_exp": U_exp_, "k": 2.0}
+         "u_c": u_c_, "U_exp": U_exp_, "k": coverage_factor}
         for t, uA_ref, uA_sensor, ub_uso_, u_fitting_, u_ref_, u_sensor_, u_c_, U_exp_ in per_step_u_budget_raw
     ]
 
@@ -571,6 +572,7 @@ def save_charts(
     ref_label: str = "Reference",
     accuracy_limit: float | None = None,
     _calib_result: Dict[str, Any] | None = None,
+    coverage_factor: float = 2.0,
 ) -> List[Path]:
     # 5 standard charts — pulls GUM budget from calibrate() result when available
     from .calib_plots import bundle_from_linear, save_five_charts
@@ -591,7 +593,7 @@ def save_charts(
             uA_i   = risultati_elaborati[t]["pstd_sensor"] / lsb_per_y
             mu_E   = np.sqrt((uA_ref**2 + ub_ref_y**2) +
                              (uA_i**2 + uB_i**2 + u_res**2))
-            exp_unc.append(float(2.0 * mu_E))
+            exp_unc.append(float(coverage_factor * mu_E))
         result = {
             "model": "linear",
             "A": a, "B": b,

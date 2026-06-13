@@ -165,7 +165,7 @@ def dsi_to_symbol(dsi: str) -> str:
 
 def dsi_to_xml_unit(dsi: str) -> str:
     pint_name = _dsi_to_pint_name(dsi.strip())
-    return _pint_to_dsi(pint_name).lower()
+    return _pint_to_dsi(pint_name)
 
 
 def sensor_type_label(sensor_type: str) -> str:
@@ -341,19 +341,23 @@ def _delta_factor(source_unit: str, target_unit: str) -> float:
     """Return the multiplicative factor to convert a *difference* (delta)
     from *source_unit* to *target_unit* using pint.
 
-    Tries the ``"delta"`` context first (needed for offset units such as
-    degC / degF).  Falls back to plain unit conversion when the delta
-    context is not available (e.g. pressure, voltage, …).
+    For offset units (degC, degF) the delta_ variants are used so that
+    a 1 °C *difference* converts to a 1 K difference (factor 1.0) rather
+    than the absolute conversion 1 °C = 274.15 K.
     """
+#     Quantity(1, "delta_degC").to("kelvin") = 1.0 (doc: "the change in celsius is equal to the change in kelvin")
+# Quantity(1, "delta_degF").to("kelvin") = 0.555... (doc: "but not in fahrenheit as the scaling factor is different")
+# Quantity(1, "pascal").to("kilopascal") = 0.001 — per unità senza offset, .to() è già la conversione delta
+    
     if _UREG is None:
         return 1.0
+    _delta_units = {"degC": "delta_degC", "degF": "delta_degF"}
+    src = _delta_units.get(source_unit, source_unit)
+    tgt = _delta_units.get(target_unit, target_unit)
     try:
-        return float(_UREG.Quantity(1.0, source_unit).to(target_unit, "delta").magnitude)
+        return float(_UREG.Quantity(1.0, src).to(tgt).magnitude)
     except Exception:
-        try:
-            return float(_UREG.Quantity(1.0, source_unit).to(target_unit).magnitude)
-        except Exception:
-            return 1.0
+        return 1.0
 
 
 def convert_result(
@@ -379,10 +383,10 @@ def convert_result(
         target_unit = "degC"
 
     _src_dsi = (
-        sensor_json.get("ranges", {}).get("phys", {}).get("dsi", "\\degreeCelsius")
+        ref_json.get("ranges", {}).get("phys", {}).get("dsi", "\\degreeCelsius")
     )
     source_unit_temperature = _validate_pint_name(
-        _dsi_to_pint_name(_src_dsi.strip()), "sensor.ranges.phys.dsi", _dummy
+        _dsi_to_pint_name(_src_dsi.strip()), "ref.ranges.phys.dsi", _dummy
     )
     if not source_unit_temperature or source_unit_temperature == "dimensionless":
         source_unit_temperature = "degC"
@@ -421,22 +425,28 @@ def convert_result(
     # ── Model-specific coefficient conversions ──
     if model == "linear":
         # y = A*x + B  where x is dimensionless (LSB) and y is physical.
-        # Both A [phys/LSB] and B [phys] carry physical dimensionality;
-        # scale them together with the same multiplicative factor.
+        # A [phys/LSB] is a slope  → multiplicative delta conversion.
+        # B [phys]      is an intercept → affine (absolute) conversion.
         _lin_factor = _delta_factor(source_unit_temperature, target_unit)
         out["converted"]["A"] = calib_result.get("A", 0.0) * _lin_factor
         out["units"]["A"] = target_unit_lx
-        out["converted"]["B"] = calib_result.get("B", 0.0) * _lin_factor
+        b_val, _ = _try_convert(calib_result.get("B", 0.0),
+                                source_unit_temperature, target_unit, "B")
+        out["converted"]["B"] = b_val
         out["units"]["B"] = target_unit_lx
         out["converted"]["u_B"] = calib_result.get("u_B", 0.0) * _lin_factor
         out["units"]["u_B"] = target_unit_lx
 
     elif model == "cubic":
-        # In y = a0 + a1*x + a2*x² + a3*x³  where x is dimensionless (LSB)
-        # and y is physical, ALL coefficients carry the physical dimensionality
-        # of y.  Scale them together with the same multiplicative factor.
+        # y = a0 + a1*x + a2*x² + a3*x³  (x dimensionless).
+        # a0 is an intercept → affine (absolute) conversion.
+        # a1, a2, a3 are slope-like  → multiplicative delta conversion.
         _cubic_factor = _delta_factor(source_unit_temperature, target_unit)
-        for k in ("a0", "a1", "a2", "a3"):
+        a0_val, _ = _try_convert(calib_result.get("a0", 0.0),
+                                 source_unit_temperature, target_unit, "a0")
+        out["converted"]["a0"] = a0_val
+        out["units"]["a0"] = target_unit_lx
+        for k in ("a1", "a2", "a3"):
             v = calib_result.get(k, 0.0)
             out["converted"][k] = v * _cubic_factor
             out["units"][k] = target_unit_lx

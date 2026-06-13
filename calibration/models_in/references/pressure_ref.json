@@ -2,6 +2,8 @@
   "schemaVersion": "1.0.0",
 
   "modelName": "DigitalPressureGauge_DPG500",
+  "calibrationCertificateID": "012-00002",
+  "issuedBy": "LAT-999",
 
   "mpn": "DPG500-30ATM",
   "manufacturer": "ExampleRefCo",

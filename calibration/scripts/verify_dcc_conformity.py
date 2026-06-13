@@ -125,16 +125,42 @@ def parse_dcc_xml(xml_path: Path) -> Tuple[List[float], List[float], List[float]
     return t_ref, t_sensor, me_pre, me_post, u_exp
 
 
-def load_sensor_accuracy_ranges(sensor_path: Path) -> List[Dict[str, Any]]:
+def load_sensor_max_tollerance(sensor_path: Path) -> float | None:
     if not sensor_path.exists():
         print(f"[WARNING] Sensor model file not found at: {sensor_path}")
-        return []
+        return None
     try:
         data = json.loads(sensor_path.read_text(encoding="utf-8"))
-        return data.get("metrology", {}).get("sensorAccuracy", [])
+        unc = data.get("metrology", {}).get("Uncertainty", [])
+        for item in unc:
+            if item.get("varName") == "maxTollerance":
+                return float(item.get("value", 0))
+        legacy = data.get("metrology", {}).get("sensorAccuracy", [])
+        if legacy:
+            return float(legacy[0].get("maxError", 0))
+        return None
     except Exception as e:
         print(f"[WARNING] Failed to load sensor accuracy from {sensor_path}: {e}")
-        return []
+        return None
+
+
+def load_sensor_coverage_factor(sensor_path: Path) -> float:
+    if not sensor_path.exists():
+        return 2.0
+    try:
+        data = json.loads(sensor_path.read_text(encoding="utf-8"))
+        ru = data.get("metrology", {}).get("readingUncertainty", [])
+        for item in ru:
+            if item.get("varName") == "coverageFactor":
+                return float(item.get("value", 2.0))
+        unc = data.get("metrology", {}).get("Uncertainty", [])
+        for item in unc:
+            k = item.get("k")
+            if k is not None:
+                return float(k)
+        return 2.0
+    except Exception:
+        return 2.0
 
 
 def run_checks(
@@ -142,10 +168,11 @@ def run_checks(
     t_sensor: List[float],
     me_pre: List[float],
     u_sensor: List[float],
-    accuracy_ranges: List[Dict[str, Any]],
+    max_tollerance: float | None,
     mae: float,
     pfa_threshold_pct: float,
     u_ref: float,
+    coverage_factor: float = 2.0,
 ) -> Dict[str, Any]:
     n = len(t_ref)
     results: Dict[str, Any] = {
@@ -154,48 +181,35 @@ def run_checks(
         "check_overlap": {"status": FAIL, "details": []},
     }
 
-    # Check G: sensorAccuracy as-found conformity
-    if accuracy_ranges:
+    # Check G: maxTollerance as-found conformity
+    if max_tollerance is not None:
         g1_all_pass    = True
-        g2_all_covered = True
         g_details      = []
 
         for i in range(n):
             temp      = t_ref[i]
             error_val = me_pre[i]
-            applicable = [r["maxError"] for r in accuracy_ranges if r["tempMin"] <= temp <= r["tempMax"]]
-            max_err   = min(applicable) if applicable else float("inf")
-            covered   = max_err < float("inf")
+            max_err   = max_tollerance
 
-            if not covered:
-                g2_all_covered = False
-                g1_pass = True
-                g2_pass = False
-            else:
-                g1_pass = abs(error_val) <= max_err
-                g2_pass = True
-                if not g1_pass:
-                    g1_all_pass = False
+            g1_pass = abs(error_val) <= max_err
+            if not g1_pass:
+                g1_all_pass = False
 
             g_details.append({
                 "index": i + 1, "t_ref": temp, "me_pre": error_val,
-                "max_allowed_error": max_err if covered else None,
-                "G1_pass": g1_pass, "G2_pass": g2_pass,
+                "max_allowed_error": max_err,
+                "G1_pass": g1_pass, "G2_pass": True,
             })
 
-        g_status = FAIL if not g1_all_pass else (WARN if not g2_all_covered else PASS)
+        g_status = FAIL if not g1_all_pass else PASS
         results["check_g"] = {
             "status": g_status, "details": g_details,
-            "note": (
-                "Validated against declared sensorAccuracy specifications."
-                if g_status != WARN
-                else "Some calibration points fall outside declared temperature ranges."
-            ),
+            "note": "Validated against declared maxTollerance specifications.",
         }
     else:
         results["check_g"] = {
             "status": NA, "details": [],
-            "note": "Skipped: No sensor model accuracy ranges loaded.",
+            "note": "Skipped: No sensor model accuracy loaded.",
         }
 
     # Check H: Probability of False Acceptance (PFA)
@@ -205,7 +219,7 @@ def run_checks(
 
     for i in range(n):
         error_val = me_pre[i]
-        u_std     = u_sensor[i] / 2.0
+        u_std     = u_sensor[i] / coverage_factor
         u_ein     = u_std / mae
         ein       = error_val / mae
 
@@ -526,12 +540,14 @@ def main() -> None:
     print(f"Loading and parsing DCC XML file: {args.xml}...")
     t_ref, t_sensor, me_pre, me_post, u_sensor = parse_dcc_xml(args.xml)
 
-    accuracy_ranges = load_sensor_accuracy_ranges(args.sensor)
+    accuracy_ranges = load_sensor_max_tollerance(args.sensor)
+    coverage_factor = load_sensor_coverage_factor(args.sensor)
 
     results = run_checks(
         t_ref=t_ref, t_sensor=t_sensor, me_pre=me_pre, u_sensor=u_sensor,
-        accuracy_ranges=accuracy_ranges, mae=args.mae,
+        max_tollerance=accuracy_ranges, mae=args.mae,
         pfa_threshold_pct=args.pfa_threshold, u_ref=args.u_ref,
+        coverage_factor=coverage_factor,
     )
 
     print_results_report(

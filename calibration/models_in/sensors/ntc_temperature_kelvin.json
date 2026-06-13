@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.1",
+  "schemaVersion": "1.0.2",
 
   "modelName": "TemperatureSensorNTC_Kelvin",
 
@@ -83,7 +83,7 @@
   },
   "calibration": {
 
-    "type": "qubic-interpolation",
+    "type": "linear",
     "coefficients": [
       0.0,
       0.0,
@@ -99,12 +99,6 @@
   },
   "metrology": {
 
-    "sensorAccuracy": [
-      { "tempMin": 293.15, "tempMax": 323.15, "maxError": 0.30, "unit": "\\kelvin", "description": "Maximum calibration error from 323 K to 378 K" },
-      { "tempMin": 263.15, "tempMax": 353.15, "maxError": 0.45, "unit": "\\kelvin", "description": "Maximum calibration error from 273 K to 323 K" },
-      { "tempMin": 233.15, "tempMax": 378.15, "maxError": 0.60, "unit": "\\kelvin", "description": "Maximum calibration error from 233 K to 273 K" }
-    ],
-
     "evaluationFormula": "uB",
 
     "requiredInputs": [],
@@ -113,16 +107,13 @@
         { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
         { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
         { "varName": "uB", "value": 0.30,  "PDF": "normal", "description": "" },
-        {"varName": "coverageFactor", "value": 2.0, "description": ""}
+        { "varName": "coverageFactor", "value": 2.0, "description": "" }
     ],
 
     "UncertaintyPdf": "normal",
     "Uncertainty": [
-      { "referenceValue": 0,
-        "absUncertainty": 0,
-        "uc": 0,
-        "k": 2.0
-      }
+       { "varName": "maxTollerance", "value": 0.60, "PDF": "uniform", "description": "Maximum calibration tolerance" },
+       { "varName": "absUncertainty", "value": 0, "uc": 0, "k": 2.0 }
     ],
 
     "calDate": 0,

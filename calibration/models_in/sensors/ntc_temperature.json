@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.1",
+  "schemaVersion": "1.0.2",
   
   "modelName": "TemperatureSensorNTC",
   
@@ -10,8 +10,10 @@
 
   "type": "temperature",
 
+  "usercomment_0": "The measurement are provided with the unit reporte hereafter (namely 'unit')",
   "unit": "\\degreeCelsius",
 
+  "usercomment_1": "elecUnit and elec array are relative to the reading values of the sensor, to be used along with the readingUncertainty parameters",
   "elecUnit": "\\one",
 
   "obsList": [
@@ -99,29 +101,21 @@
   },
   "metrology": {
 
-    "sensorAccuracy": [
-      { "tempMin": -40.0, "tempMax":   145.0, "maxError": 0.60, "unit": "\\degreeCelsius", "description": "Maximum calibration error from -40 °C to 0 °C" }
-    ],
-
-    "evaluationFormula": "",
+    "evaluationFormula": "uB",
 
     "requiredInputs": [],
 
     "readingUncertainty": [
         { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
         { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
-        { "varName": "uB", "value": 2.9,  "PDF": "normal", "description": "" },
-        { "varName": "ufit", "value": 0.032, "coverageFactor": 2.0, "PDF": "normal", "description": "Calibration fitting uncertainty" },
-        {"varName": "coverageFactor", "value": 2.0, "description": ""}
+        { "varName": "uB", "value": 2.9,  "coverageFactor": 2.0, "PDF": "normal", "description": "absUncertainty/sqrt(3)" }
     ],
 
     "UncertaintyPdf": "normal",
     "Uncertainty": [
-      { "referenceValue": 0,
-        "absUncertainty": 0.10,
-        "uc": 0,
-        "k": 2.0
-      }
+       { "varName": "maxTollerance", "value": 0.60, "PDF": "uniform", "description": "Maximum calibration tolerance" },
+       { "varName": "ufit", "value": 0.032, "coverageFactor": 2.0, "PDF": "normal", "description": "Calibration fitting uncertainty" },
+       { "varName": "absUncertainty", "value": 0.10, "uc": 0, "k": 2.0 }
     ],
 
     "calDate": 0,

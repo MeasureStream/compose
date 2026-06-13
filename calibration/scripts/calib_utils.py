@@ -13,18 +13,13 @@ def _lookup(lst, key, val, default=None):
 
 
 class SensorAccuracyChecker:
-    """Checks as-found errors against declared sensorAccuracy ranges."""
+    """Checks as-found errors against declared maxTollerance."""
 
-    def __init__(self, accuracy_ranges: List[Dict[str, Any]]):
-        self.accuracy_ranges = accuracy_ranges
+    def __init__(self, max_tollerance: float):
+        self.max_tollerance = max_tollerance
 
     def max_error_at_temperature(self, temp_y: float) -> float:
-        applicable = [
-            r["maxError"]
-            for r in self.accuracy_ranges
-            if r["tempMin"] <= temp_y <= r["tempMax"]
-        ]
-        return min(applicable) if applicable else float("inf")
+        return self.max_tollerance
 
     def check_all_points(
         self,
@@ -33,8 +28,8 @@ class SensorAccuracyChecker:
     ) -> Dict[str, Any]:
         per_point = []
         all_in_range = True
+        max_err = self.max_error_at_temperature(0.0)
         for i, (t_ref, err) in enumerate(zip(ref_temp_means, as_found_errors)):
-            max_err = self.max_error_at_temperature(t_ref)
             in_range = abs(err) <= max_err
             if not in_range:
                 all_in_range = False

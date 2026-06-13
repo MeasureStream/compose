@@ -36,14 +36,47 @@ from model_calibration.unit_checks import dsi_to_symbol, dsi_to_xml_unit  # noqa
 from calib_utils import _lookup, SensorAccuracyChecker, lsb_to_y, round_to_significant_figures  # noqa: E402
 
 
-def _get_accuracy_ranges(sensor_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return sensor_json.get("metrology", {}).get("sensorAccuracy", [])
+def _get_max_tollerance(sensor_json: Dict[str, Any]) -> float | None:
+    """Read maxTollerance from Uncertainty array (by varName). Falls back to legacy sensorAccuracy."""
+    unc = sensor_json.get("metrology", {}).get("Uncertainty", [])
+    for item in unc:
+        if item.get("varName") == "maxTollerance":
+            return float(item.get("value", 0))
+    # Legacy fallback: use first sensorAccuracy entry
+    legacy = sensor_json.get("metrology", {}).get("sensorAccuracy", [])
+    if legacy:
+        return float(legacy[0].get("maxError", 0))
+    return None
 
 
-def _worst_accuracy_limit(accuracy_ranges: List[Dict[str, Any]]) -> float | None:
-    """Return the largest maxError across all accuracy ranges, or None if empty."""
-    limits = [r.get("maxError") for r in accuracy_ranges if r.get("maxError") is not None]
-    return float(max(limits)) if limits else None
+def _get_coverage_factor(sensor_json: Dict[str, Any]) -> float:
+    """Extract coverage factor k from sensor JSON (readingUncertainty or Uncertainty)."""
+    ru = sensor_json.get("metrology", {}).get("readingUncertainty", [])
+    for item in ru:
+        if item.get("varName") == "coverageFactor":
+            return float(item.get("value", 2.0))
+    unc = sensor_json.get("metrology", {}).get("Uncertainty", [])
+    for item in unc:
+        k = item.get("k")
+        if k is not None:
+            return float(k)
+    return 2.0
+
+
+def _get_abs_uncertainty(sensor_json: Dict[str, Any]) -> float:
+    """Read absUncertainty from Uncertainty array by varName (or legacy index)."""
+    unc = sensor_json.get("metrology", {}).get("Uncertainty", [])
+    for item in unc:
+        if item.get("varName") == "absUncertainty":
+            return float(item.get("value", 0.10))
+    # Legacy fallback: first entry's absUncertainty
+    if unc:
+        return float(unc[0].get("absUncertainty", 0.10))
+    return 0.10
+
+
+def _worst_accuracy_limit(max_tollerance: float | None) -> float | None:
+    return max_tollerance
 
 
 def _get_calib_coeff(sensor_json: Dict[str, Any], label: str) -> float:
@@ -102,10 +135,11 @@ def _build_cert_filled(
     _phys_unit_dsi: str = dsi_to_xml_unit(_phys_dsi)
 
     smt = tp["sensor_method_template"]
+    _k = _get_coverage_factor(sensor_json)
     smt["_notes_computed"] = [
         "Results refer to the instrument under calibration under the declared conditions.",
         "Uncertainties are determined according to ISO/IEC Guide 98-3 (GUM) and EA-4/02.",
-        "Coverage factor k = 2, confidence level about 95 %.",
+        f"Coverage factor k = {_k}, confidence level about 95 %.",
         "Reference instrument: thermometer readout with reference probe (U=0.065 °C, k=2).",
         (
             f"Sensor under calibration: DIGITAL thermometer "
@@ -115,7 +149,7 @@ def _build_cert_filled(
 
     sensor_model = smt.get("sensor_model", smt.get("ntc_model", {}))
     sensor_model.update({
-        "uncertainty_limit": sensor_json.get("metrology", {}).get("Uncertainty", [{}])[0].get("absUncertainty", 0.10),
+        "uncertainty_limit": _get_abs_uncertainty(sensor_json),
         "calibration_procedure": sensor_json.get("calibration", {}).get("type", "linear"),
         "method_description": sensor_json.get("methodDescription", ""),
         "observations": sensor_json.get("obsList", []),
@@ -220,7 +254,7 @@ def _build_cert_filled(
         "measurements": measurements_rounded,
         "_observations": sensor_json.get("obsList", []),
         "observations": sensor_json.get("obsList", []),
-        "conclusions": "Expanded uncertainty U(E) with coverage factor k = 2, confidence level about 95 %.",
+        "conclusions": f"Expanded uncertainty U(E) with coverage factor k = {_k}, confidence level about 95 %.",
     }
 
     # Uncertainty estimate for certificate page 4: ref type-B + sensor abs, informational only.
@@ -270,7 +304,7 @@ def _build_cert_filled(
         u_budget_raw = calib_result.get("per_step_budget", [])
         u_budget_rounded = [
             {**b,
-             "u_c": b.get("mu_E", 0.0) / 2.0, "k": 2.0,
+             "u_c": b.get("mu_E", 0.0) / _k, "k": _k,
              "uA_ref": round_to_significant_figures(b["uA_ref"], 2),
              "uA_sensor": round_to_significant_figures(b["uA_sensor"], 2)}
             for b in u_budget_raw
@@ -297,7 +331,8 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
                      unit_symbol: str = "°C",
                      formula: str | None = None,
                      formula_vars: Dict[str, float] | None = None,
-                     ufit: float | None = None):
+                     ufit: float | None = None,
+                     coverage_factor: float = 2.0):
     ub_ref_y = ub_ref_lsb   # caller passes reference uncertainty in Y
     unit_kwargs = dict(
         sensor_json=sensor_json, ref_json=ref_json,
@@ -313,6 +348,7 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
             old_a=old_A, old_b=old_B, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
+            coverage_factor=coverage_factor,
         )
     elif procedure == "cubic":
         from model_calibration.cubic_calibration import calibrate
@@ -321,6 +357,7 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
             old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
+            coverage_factor=coverage_factor,
         )
     else:
         raise ValueError(
@@ -568,6 +605,7 @@ def main() -> None:
         if args.verbose:
             print(f"formula vars: {_formula_vars}")
 
+    _k_cov = _get_coverage_factor(sensor_json)
     try:
         calib_result = _run_calibration(
             procedure=procedure, payload=payload, lsb_scale=lsb_scale,
@@ -580,6 +618,7 @@ def main() -> None:
             unit_symbol=_unit_sym,
             formula=_formula_str, formula_vars=_formula_vars,
             ufit=ufit,
+            coverage_factor=_k_cov,
         )
     except ValueError as err:
         print(f"ERROR: {err}", file=sys.stderr)
@@ -587,8 +626,8 @@ def main() -> None:
 
     # sensor accuracy gate
     calibration_skipped = False
-    accuracy_ranges = _get_accuracy_ranges(sensor_json)
-    checker = SensorAccuracyChecker(accuracy_ranges) if accuracy_ranges else None
+    max_tollerance = _get_max_tollerance(sensor_json)
+    checker = SensorAccuracyChecker(max_tollerance) if max_tollerance is not None else None
 
     if checker is not None:
         temp_nominali_cr = calib_result.get("temp_nominali") or calib_result.get("steps", [])
@@ -766,7 +805,7 @@ def main() -> None:
             # Derive display labels and unit from sensor/reference JSONs
             _sensor_lbl = sensor_json.get("name", sensor_json.get("deviceType", "Sensor"))
             _ref_lbl    = ref_json.get("name", ref_json.get("deviceType", "Reference"))
-            _acc_limit  = _worst_accuracy_limit(accuracy_ranges)
+            _acc_limit  = _worst_accuracy_limit(max_tollerance)
 
             _common_kw = dict(
                 unit_symbol=_unit_sym,
@@ -861,10 +900,10 @@ def main() -> None:
         calib_cr      = _conformita.extract_calib(filled_data)
         measurements  = _conformita.extract_measurements(filled_data)
 
-        limit_y    = float(sensor_json.get("metrology", {}).get("Uncertainty", [{}])[0].get("absUncertainty", 0.10))
+        limit_y    = _get_abs_uncertainty(sensor_json)
         conf_model    = calib_cr.get("_calib_model", "linear")
 
-        sG, rG = _conformita.check_G(measurements, accuracy_ranges, conf_model, verbose=False)
+        sG, rG = _conformita.check_G(measurements, max_tollerance, conf_model, verbose=False)
         sA, rA = _conformita.check_A(measurements, verbose=False)
         sB, rB = _conformita.check_B(measurements, limit_y, verbose=False)
 
@@ -875,6 +914,7 @@ def main() -> None:
             verbose=False, u_std_mode=CONFORMITY_PFA_U_STD_MODE,
             u_budget_per_step=u_budget_conf,
             adc_bits=adc_bits, adc_max=adc_max,
+            coverage_factor=_get_coverage_factor(sensor_json),
         )
 
         conformity_summary = {
@@ -927,7 +967,7 @@ def main() -> None:
             from checks_helper import save_charts as save_conf_charts
             saved_conf = save_conf_charts(
                 measurements=measurements,
-                accuracy_ranges=accuracy_ranges,
+                accuracy_ranges=max_tollerance,
                 limit_y=limit_y,
                 variant="funzione",
                 output_dir=_images_conform_dir,

@@ -108,8 +108,8 @@ def load_input_data(path: Path) -> Dict[str, Any]:
             if k in calib_result:
                 data["_coeffs"][k] = calib_result[k]
         # Physical unit DSI for XML unit elements — read from sensor JSON via orchestrator.
-        # Default: "\\degreecelsius" (PTB DCC lowercase convention).
-        data["_phys_unit_dsi"] = calib_result.get("_phys_unit_dsi", "\\degreecelsius")
+        # Default: "\\degreeCelsius" (D-SI case-sensitive).
+        data["_phys_unit_dsi"] = calib_result.get("_phys_unit_dsi", "\\degreeCelsius")
     else:
         data = raw
 
@@ -185,8 +185,8 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
 
     # Physical unit for all temperature quantity elements in the XML.
     # Read from the calibration result (set by the orchestrator from sensor JSON).
-    # Fallback: "\\degreecelsius" (PTB DCC lowercase DSI convention).
-    phys_unit_dsi: str = data.get("_phys_unit_dsi", "\\degreecelsius")
+    # Fallback: "\\degreeCelsius" (D-SI case-sensitive).
+    phys_unit_dsi: str = data.get("_phys_unit_dsi", "\\degreeCelsius")
 
     # Row format (funzione, temperature domain):
     #   [point, T_ref, T_c_post, M_e_pre, M_e_post, U_exp]  (unit = phys_unit_dsi)
@@ -366,6 +366,10 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     rmse = data.get("_rmse", 0.0)
     coeffs = data.get("_coeffs", {})
 
+    # Extract coverage factor from budget or default to 2.0
+    u_budget_dcc: List[Dict[str, Any]] = data.get("_u_budget_per_step", [])
+    _k_coverage = float(u_budget_dcc[0].get("k", 2.0)) if u_budget_dcc else 2.0
+
     if calib_model == "cubic":
         _a0 = coeffs.get("_a0", 0)
         _a1 = coeffs.get("_a1", 0)
@@ -384,7 +388,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
             f"Coefficients: A={_A:.6e}, B={_B:.6e}."
         )
     reg_text = (
-        f"Regression uncertainty (expanded, k=2): u_reg = {2.0 * rmse:.2e}. "
+        f"Regression uncertainty (expanded, k={_k_coverage:.1f}): u_reg = {_k_coverage * rmse:.2e}. "
         f"RMSE = {rmse:.2e}."
     )
 
@@ -465,7 +469,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _text(temp_min_k, "{https://ptb.de/si}unit", "\\kelvin")
     temp_min_c = ET.SubElement(temp_min_hybrid, "{https://ptb.de/si}real")
     _text(temp_min_c, "{https://ptb.de/si}value", f"{temp_center - temp_tol:.2f}")
-    _text(temp_min_c, "{https://ptb.de/si}unit", "\\degreecelsius")
+    _text(temp_min_c, "{https://ptb.de/si}unit", "\\degreeCelsius")
 
     temp_max_q = ET.SubElement(
         temp_data, "{https://ptb.de/dcc}quantity", {"refType": "basic_temperatureMax"}
@@ -480,7 +484,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _text(temp_max_k, "{https://ptb.de/si}unit", "\\kelvin")
     temp_max_c = ET.SubElement(temp_max_hybrid, "{https://ptb.de/si}real")
     _text(temp_max_c, "{https://ptb.de/si}value", f"{temp_center + temp_tol:.2f}")
-    _text(temp_max_c, "{https://ptb.de/si}unit", "\\degreecelsius")
+    _text(temp_max_c, "{https://ptb.de/si}unit", "\\degreeCelsius")
 
     rh_condition = ET.SubElement(
         influence_conditions,
@@ -597,7 +601,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _text(
         expanded_unc,
         "{https://ptb.de/si}coverageFactorXMLList",
-        " ".join(["2.0"] * len(uncertainties)),
+        " ".join([str(_k_coverage)] * len(uncertainties)),
     )
     _text(
         expanded_unc,
@@ -677,8 +681,8 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _text(rmse_real, "{https://ptb.de/si}value", f"{_rmse_val:.6e}")
     _text(rmse_real, "{https://ptb.de/si}unit", phys_unit_dsi)
     rmse_exp = ET.SubElement(rmse_real, "{https://ptb.de/si}expandedUnc")
-    _text(rmse_exp, "{https://ptb.de/si}uncertainty", f"{2.0 * _rmse_val:.6e}")
-    _text(rmse_exp, "{https://ptb.de/si}coverageFactor", "2.0")
+    _text(rmse_exp, "{https://ptb.de/si}uncertainty", f"{_k_coverage * _rmse_val:.6e}")
+    _text(rmse_exp, "{https://ptb.de/si}coverageFactor", str(_k_coverage))
     _text(rmse_exp, "{https://ptb.de/si}coverageProbability", "0.95")
 
     measurement_metadata = ET.SubElement(
