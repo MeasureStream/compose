@@ -32,6 +32,28 @@ if [ $i -ge $MAX_RETRIES ]; then
     exit 1
 fi
 
+# Check if Garage layout is configured (one-time setup)
+echo "[garage-init] Checking Garage layout..."
+STATUS=$(curl -sf -H "$(auth_header)" "${ADMIN_API}/status" 2>/dev/null || echo "")
+LAYOUT_VERSION=$(echo "$STATUS" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/p')
+if [ -z "$LAYOUT_VERSION" ] || [ "$LAYOUT_VERSION" = "0" ]; then
+    NODE_ID=$(echo "$STATUS" | sed -n 's/.*"node"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    echo ""
+    echo "=============================================="
+    echo " Garage layout NOT configured (one-time setup)"
+    echo " Run these commands on the host:"
+    echo ""
+    echo "  docker compose -f compose-dev.yaml exec -it garage /garage status"
+    echo "  docker compose -f compose-dev.yaml exec -it garage /garage layout assign ${NODE_ID:-<NODE_ID>} -z dc1 -c 10G"
+    echo "  docker compose -f compose-dev.yaml exec -it garage /garage layout apply --version 1"
+    echo ""
+    echo " Then restart the stack: docker compose up -d"
+    echo "=============================================="
+    echo ""
+    exit 0
+fi
+echo "[garage-init] Layout ready (version ${LAYOUT_VERSION})."
+
 # Check if key already exists by searching for the configured key ID
 if [ -n "$KEY_ID" ]; then
     echo "[garage-init] Checking for existing key ${KEY_ID}..."
