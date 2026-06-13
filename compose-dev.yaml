@@ -434,6 +434,23 @@ services:
       app_network:
         ipv4_address: 172.20.0.60
 
+  garage-init:
+    image: curlimages/curl:latest
+    container_name: garage-init
+    depends_on:
+      garage:
+        condition: service_started
+    volumes:
+      - ./garage/init-garage.sh:/init-garage.sh:ro
+    environment:
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    entrypoint: ["/bin/sh", "/init-garage.sh"]
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.59
+
 
   garage-webui:
     image: khairul169/garage-webui:latest

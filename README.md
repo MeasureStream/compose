@@ -25,16 +25,23 @@ docker exec -it garage /garage layout assign 47ea164e519f57da -z dc1 -c 10G
 docker exec -it garage /garage layout apply --version 1
 ```
 
-## 3. S3 Credentials & Permissions
+## 3. S3 Credentials & Permissions (automatic)
+
+The `garage-init` service bootstraps Garage automatically on first startup:
+- Imports the key from `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (set in `.env`)
+- Creates the `dccs` bucket if missing
+- Grants read/write permissions
+
+If you need to rotate keys or do manual setup:
 
 ```bash
-# 1. Create Key
+# Create a key manually
 docker exec -it garage /garage key create testkey
 
-# 2. Grant Full Permissions (replace <KEY_ID>)
-docker exec -it garage /garage key allow GK673ade7764d03c5d8641b5c8 --create-bucket
+# Grant permissions (replace <KEY_ID>)
+docker exec -it garage /garage key allow <KEY_ID> --create-bucket
 
-# 3. Create & Link Bucket
+# Create & link bucket
 docker exec -it garage /garage bucket create dccs
 docker exec -it garage /garage bucket allow dccs --key <KEY_ID> --read --write
 ```
@@ -53,13 +60,10 @@ aws s3 ls
 
 ## 5. Reference Credentials
 
-**Current Test Key:**
-
-- **Key ID:** `GKc9fcbf56ea74a98a1e5913fb`
-- **Secret:** `ad518281ffd8be8b4417bc722ec171be423feb4c376ef1c406f059fcdc69c40c`
+**Credentials:** set via environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (see `.env`).
 
 - **Endpoint:** `http://100.127.76.43:3900`
-- **Endpoint:** `http://100.127.76.43:3909`
+- **WebUI:** `http://100.127.76.43:3909`
 
 ## 6. Admin Utilities
 

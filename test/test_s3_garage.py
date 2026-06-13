@@ -37,6 +37,10 @@ def test_garage_s3():
     # if not check_port():
     #     return
 
+    if not ACCESS_KEY or not SECRET_KEY:
+        print("❌ AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables must be set")
+        return
+
     try:
         # Configure S3 client following Garage Quick Start guide
         s3 = boto3.client(
