@@ -291,12 +291,12 @@ def calibrate(
     # Per-step ub_sensor_lsb via formula evaluation or single fixed value
     _ub_arr: np.ndarray
     if formula and formula_vars:
-        from evaluation_formula import evaluate_formula
+        from evaluation_formula import evaluate_formula, qs
         _ub_per_step = []
         for i, t in enumerate(temp_nominali):
             D_i = float(x[i])
-            _vars_i = {**formula_vars, "d_in": D_i}
-            _ub_per_step.append(evaluate_formula(formula, _vars_i))
+            _vars_i = {**formula_vars, "d_in": qs(D_i)}
+            _ub_per_step.append(float(evaluate_formula(formula, _vars_i).magnitude))
         _ub_arr = np.array(_ub_per_step, dtype=float)
         if verbose:
             _ub_mean = float(np.mean(_ub_arr))
