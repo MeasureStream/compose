@@ -28,6 +28,7 @@ OUT_DIR            = CALIB_ROOT / "certificato_out"
 TEST_DATA_DIR      = CALIB_ROOT / "test" / "data_in"
 IMAGES_CALIB_DIR   = CALIB_ROOT / "images" / "calibration"
 IMAGES_CONFORM_DIR = CALIB_ROOT / "images" / "conformity"
+LAST_CALIB_DIR    = CALIB_ROOT / "last_calibration"
 
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
@@ -125,6 +126,104 @@ def _validate_output_domain(
                 file=_sys.stderr,
             )
             break
+
+
+def _build_last_calib_json(
+    calib_result: Dict[str, Any],
+    cert_filled: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build a comprehensive JSON with all calibration results for downstream consumers."""
+    import datetime as _dt
+
+    calib_model = calib_result.get("model", "linear")
+    measurements = (
+        cert_filled.get("template_parts", {})
+        .get("calculated_calibration_values", {})
+        .get("_measurements", [])
+    )
+    calib_cr = cert_filled.get("_calibration_result", {})
+
+    out: Dict[str, Any] = {
+        "model": calib_model,
+        "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "lsb_per_y": calib_result.get("lsb_per_y"),
+        "fit_quality": {
+            "rmse": calib_result.get("rmse"),
+            "u_fitting": calib_result.get("u_fitting"),
+            "rmse_pre": calib_cr.get("_rmse_pre"),
+        },
+        "reference": {
+            "ub_ref_y": calib_result.get("ub_ref_y"),
+        },
+        "sensor": {
+            "ub_sensor_lsb": calib_result.get("ub_sensor_lsb"),
+            "ub_sensor_lsb_per_step": calib_result.get("ub_sensor_lsb_per_step"),
+        },
+        "expanded_uncertainties": calib_result.get("expanded_uncertainties"),
+        "temp_nominali": calib_result.get("temp_nominali"),
+        "ref_temp_means": calib_result.get("ref_temp_means"),
+    }
+
+    if calib_model == "linear":
+        out["coefficients"] = {
+            "A":    calib_result.get("A"),
+            "B":    calib_result.get("B"),
+            "u_A":  calib_result.get("u_A"),
+            "u_B":  calib_result.get("u_B"),
+            "cov_AB": calib_result.get("cov_AB"),
+        }
+        out["old_coefficients"] = {
+            "A": calib_result.get("old_A"),
+            "B": calib_result.get("old_B"),
+        }
+        budget = calib_result.get("u_budget_per_step", [])
+    elif calib_model == "cubic":
+        out["coefficients"] = {
+            "a0": calib_result.get("a0"), "a1": calib_result.get("a1"),
+            "a2": calib_result.get("a2"), "a3": calib_result.get("a3"),
+            "u_a0": calib_result.get("u_a0"), "u_a1": calib_result.get("u_a1"),
+            "u_a2": calib_result.get("u_a2"), "u_a3": calib_result.get("u_a3"),
+            "cov_theta": calib_result.get("cov_theta"),
+        }
+        out["old_coefficients"] = {
+            "a0": calib_result.get("old_a0"), "a1": calib_result.get("old_a1"),
+            "a2": calib_result.get("old_a2"), "a3": calib_result.get("old_a3"),
+        }
+        budget = calib_result.get("per_step_budget", [])
+    else:
+        budget = []
+
+    # Per-step calibration points with uncertainties
+    calibration_points = []
+    for i, (t_nom, ref_t) in enumerate(zip(
+        calib_result.get("temp_nominali", []),
+        calib_result.get("ref_temp_means", []),
+    )):
+        point: Dict[str, Any] = {
+            "point": i + 1,
+            "t_nominal": t_nom,
+            "T_ref": ref_t,
+        }
+        if i < len(measurements):
+            m = measurements[i]
+            point.update({
+                "T_sensor_post": m[2],
+                "M_e_pre":       m[3],
+                "M_e_post":      m[4],
+                "U_exp":         m[5],
+            })
+        if i < len(calib_result.get("expanded_uncertainties", [])):
+            point["U_exp"] = calib_result["expanded_uncertainties"][i]
+        if i < len(budget):
+            b = budget[i]
+            for key in ("uA_ref", "uA_sensor", "ub_uso", "u_fitting",
+                        "u_ref", "u_sensor", "u_c"):
+                if key in b:
+                    point[key] = b[key]
+        calibration_points.append(point)
+
+    out["calibration_points"] = calibration_points
+    return out
 
 
 def _build_cert_filled(
@@ -467,6 +566,7 @@ def main() -> None:
     default_cert_output = OUT_DIR / "certificato_funzione_filled.json"
     default_pdf_output  = str(OUT_DIR / "ntc_cert_funzione.pdf")
     default_xml_output  = OUT_DIR / "ntc_calibration_certificate.xml"
+    default_last_calib   = LAST_CALIB_DIR / "last_calibration.json"
 
     parser = argparse.ArgumentParser(
         description="NTC calibration orchestrator — reads LSB16 JSON, calibrates, generates certificate."
@@ -478,6 +578,8 @@ def main() -> None:
     parser.add_argument("--cert-output", type=Path, default=default_cert_output)
     parser.add_argument("--pdf",  type=str, default=default_pdf_output)
     parser.add_argument("--xml",  type=Path, default=default_xml_output)
+    parser.add_argument("--last-calibration", type=Path, default=default_last_calib,
+        help="Write full calibration result JSON (coefficients, uncertainties, per-step budget, measurements) for downstream consumers")
     parser.add_argument("--conformity-output", type=Path, default=None)
     parser.add_argument("--images-dir", type=Path, default=None,
         help="Override base directory for plot images (replaces IMAGES_CALIB_DIR/IMAGES_CONFORM_DIR). "
@@ -800,6 +902,17 @@ def main() -> None:
     # ── R18: output boundary validation — verify measurements are in physical units, not LSB ──
     _validate_output_domain(cert_filled, sensor_json, _cert_unit_sym)
 
+    # ── R18: write full calibration result for downstream consumers ──
+    if args.last_calibration is not None:
+        last_calib_json = _build_last_calib_json(calib_result, cert_filled)
+        args.last_calibration.parent.mkdir(parents=True, exist_ok=True)
+        args.last_calibration.write_text(
+            json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+        if args.verbose:
+            print(f"Last calibration JSON written to: {args.last_calibration}")
+
     if calibration_skipped:
         _apply_calibration_skipped(cert_filled, calib_result, old_A, old_B, old_C, old_D, lsb_per_y)
 
@@ -818,6 +931,108 @@ def main() -> None:
     )
     if args.verbose:
         print(f"Certificate JSON written to: {args.cert_output}")
+
+    try:
+        import checks_helper as _checks
+
+        filled_data = json.loads(args.cert_output.read_text(encoding="utf-8"))
+        calib_cr      = _checks.extract_calib(filled_data)
+        measurements  = _checks.extract_measurements(filled_data)
+
+        limit_y    = _get_abs_uncertainty(sensor_json)
+        conf_model    = calib_cr.get("_calib_model", "linear")
+
+        sG, rG = _checks.check_G(measurements, max_tollerance, conf_model, verbose=False)
+        sA, rA = _checks.check_A(measurements, verbose=False)
+        sB, rB = _checks.check_B(measurements, limit_y, verbose=False)
+
+        u_budget_conf = calib_cr.get("_u_budget_per_step", [])
+        sH, rH = _checks.check_H(
+            measurements, mae_y=args.mae_y,
+            pfa_threshold_pct=args.pfa_threshold_pct,
+            verbose=False, u_std_mode=args.pfa_u_std_mode,
+            u_budget_per_step=u_budget_conf,
+            adc_bits=adc_bits, adc_max=adc_max,
+            coverage_factor=_get_coverage_factor(sensor_json),
+        )
+
+        conformity_summary = {
+            "G": sG, "A": sA, "B": sB, "H": sH,
+            "calibration_done": calib_result.get("calibration_done", "done"),
+            "overall": (
+                "COMPLIANT"
+                if all(s == "PASS" for s in [sG, sA, sB, sH])
+                else "NON-COMPLIANT"
+            ),
+        }
+
+        if args.verbose:
+            print("\n=== Conformity check ===")
+            for k, v in conformity_summary.items():
+                if k in ("calibration_done", "overall"):
+                    continue
+                print(f"  [{k}] {v}")
+            pfa_vals = [r["PFA_pct"] for r in rH] if isinstance(rH, list) else []
+            if pfa_vals:
+                print(
+                    "  [H] PFA by point: "
+                    + "  ".join(f"P{r['punto']}={r['PFA_pct']:.1f}%" for r in rH)
+                )
+            print(
+                f"  [H] MAE={args.mae_y:.3f}{_unit_sym}  "
+                f"threshold={args.pfa_threshold_pct:.0f}%  "
+                f"u_std_mode={args.pfa_u_std_mode}"
+            )
+
+        if args.conformity_output is not None:
+            conformity_data = {
+                "summary": conformity_summary,
+                "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
+                "check_H_params": {
+                    "mae_y": args.mae_y,
+                    "pfa_threshold_pct": args.pfa_threshold_pct,
+                    "u_std_mode": args.pfa_u_std_mode,
+                },
+            }
+            args.conformity_output.parent.mkdir(parents=True, exist_ok=True)
+            args.conformity_output.write_text(
+                json.dumps(conformity_data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+            if args.verbose:
+                print(f"Conformity JSON written to: {args.conformity_output}")
+
+        if (args.charts or args.charts_interactive) and measurements:
+            from checks_helper import save_charts as save_conf_charts
+            saved_conf = save_conf_charts(
+                measurements=measurements,
+                accuracy_ranges=max_tollerance,
+                limit_y=limit_y,
+                variant="funzione",
+                output_dir=_images_conform_dir,
+                unit_symbol=_cert_unit_sym,
+            )
+            if args.verbose:
+                for p in saved_conf:
+                    print(f"Conformity chart saved: {p}")
+
+        _conformity_data = {
+            "summary": conformity_summary,
+            "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
+            "check_H_params": {
+                "mae_y": args.mae_y,
+                "pfa_threshold_pct": args.pfa_threshold_pct,
+                "u_std_mode": args.pfa_u_std_mode,
+            },
+            "guard_band": max_tollerance,
+        }
+        cert_filled["_calibration_result"]["_conformity"] = _conformity_data
+        args.cert_output.write_text(
+            json.dumps(cert_filled, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        )
+
+    except Exception as ex:
+        print(f"Conformity check error: {ex}", file=sys.stderr)
 
     if not args.no_pdf:
         try:
@@ -948,93 +1163,6 @@ def main() -> None:
             print(f"[interactive] Calibration chart error: {ex}", file=sys.stderr)
             if args.verbose:
                 traceback.print_exc()
-
-    try:
-        import checks_helper as _conformita
-
-        filled_data = json.loads(args.cert_output.read_text(encoding="utf-8"))
-        calib_cr      = _conformita.extract_calib(filled_data)
-        measurements  = _conformita.extract_measurements(filled_data)
-
-        limit_y    = _get_abs_uncertainty(sensor_json)
-        conf_model    = calib_cr.get("_calib_model", "linear")
-
-        sG, rG = _conformita.check_G(measurements, max_tollerance, conf_model, verbose=False)
-        sA, rA = _conformita.check_A(measurements, verbose=False)
-        sB, rB = _conformita.check_B(measurements, limit_y, verbose=False)
-
-        u_budget_conf = calib_cr.get("_u_budget_per_step", [])
-        sH, rH = _conformita.check_H(
-            measurements, mae_y=args.mae_y,
-            pfa_threshold_pct=args.pfa_threshold_pct,
-            verbose=False, u_std_mode=args.pfa_u_std_mode,
-            u_budget_per_step=u_budget_conf,
-            adc_bits=adc_bits, adc_max=adc_max,
-            coverage_factor=_get_coverage_factor(sensor_json),
-        )
-
-        conformity_summary = {
-            "G": sG, "A": sA, "B": sB, "H": sH,
-            "calibration_done": calib_result.get("calibration_done", "done"),
-            "overall": (
-                "CONFORME"
-                if all(s == "PASS" for s in [sG, sA, sB, sH])
-                else "NON CONFORME"
-            ),
-        }
-
-        if args.verbose:
-            print("\n=== Conformity check ===")
-            for k, v in conformity_summary.items():
-                if k in ("calibration_done", "overall"):
-                    continue
-                print(f"  [{k}] {v}")
-            pfa_vals = [r["PFA_pct"] for r in rH] if isinstance(rH, list) else []
-            if pfa_vals:
-                print(
-                    "  [H] PFA by point: "
-                    + "  ".join(f"P{r['punto']}={r['PFA_pct']:.1f}%" for r in rH)
-                )
-            print(
-                f"  [H] MAE=±{args.mae_y:.3f}{_unit_sym}  "
-                f"soglia={args.pfa_threshold_pct:.0f}%  "
-                f"u_std_mode={args.pfa_u_std_mode}"
-            )
-
-        if args.conformity_output is not None:
-            conformity_data = {
-                "summary": conformity_summary,
-                "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
-                "check_H_params": {
-                    "mae_y": args.mae_y,
-                    "pfa_threshold_pct": args.pfa_threshold_pct,
-                    "u_std_mode": args.pfa_u_std_mode,
-                },
-            }
-            args.conformity_output.parent.mkdir(parents=True, exist_ok=True)
-            args.conformity_output.write_text(
-                json.dumps(conformity_data, indent=2, ensure_ascii=False, default=str),
-                encoding="utf-8",
-            )
-            if args.verbose:
-                print(f"Conformity JSON written to: {args.conformity_output}")
-
-        if (args.charts or args.charts_interactive) and measurements:
-            from checks_helper import save_charts as save_conf_charts
-            saved_conf = save_conf_charts(
-                measurements=measurements,
-                accuracy_ranges=max_tollerance,
-                limit_y=limit_y,
-                variant="funzione",
-                output_dir=_images_conform_dir,
-                unit_symbol=_cert_unit_sym,
-            )
-            if args.verbose:
-                for p in saved_conf:
-                    print(f"Conformity chart saved: {p}")
-
-    except Exception as ex:
-        print(f"Conformity check error: {ex}", file=sys.stderr)
 
 
 if __name__ == "__main__":
