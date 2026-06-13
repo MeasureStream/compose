@@ -197,8 +197,7 @@ def _flag_unit_mismatch(
     y_ref_lx: str,
     model_label: str,
 ) -> None:
-    """Warn when sensor and reference physical units differ dimensionally,
-    signalling that ``convert_result()`` will need to apply a conversion."""
+    """Flag errors when sensor and reference physical units differ."""
     sensor_dim = _get_dimensionality(result.sensor_phys_unit)
     ref_dim    = _get_dimensionality(result.ref_phys_unit)
 
@@ -216,12 +215,11 @@ def _flag_unit_mismatch(
             f"({y_ref_lx})."
         )
 
-    if result.ok and sensor_dim is not None and ref_dim is not None and sensor_dim == ref_dim:
+    if sensor_dim is not None and ref_dim is not None and sensor_dim == ref_dim:
         if result.sensor_phys_unit != result.ref_phys_unit:
-            result.add_warning(
+            result.add_error(
                 f"{model_label}: sensor unit '{result.sensor_phys_unit}' differs from "
-                f"reference unit '{result.ref_phys_unit}'. "
-                "Conversion will be applied in convert_result()."
+                f"reference unit '{result.ref_phys_unit}'."
             )
 
 
@@ -303,11 +301,13 @@ def check_dsi(
     else:
         _ref_qty = _UREG.Quantity(1.0, _ref_u)
 
+    _elec_qty = _UREG.Quantity(1.0, result.sensor_elec_unit)
+
     if model == "linear":
         expr = "A*x + B"
         if _check_pint_expression(
             expr,
-            {"A": _ref_qty, "x": 1 * _UREG.dimensionless, "B": _ref_qty},
+            {"A": _ref_qty, "x": _elec_qty, "B": _ref_qty},
             _ref_u,
             result,
             f"y = {expr}",
@@ -320,7 +320,7 @@ def check_dsi(
             expr,
             {
                 "a0": _ref_qty, "a1": _ref_qty, "a2": _ref_qty, "a3": _ref_qty,
-                "x": 1 * _UREG.dimensionless,
+                "x": _elec_qty,
             },
             _ref_u,
             result,

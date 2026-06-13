@@ -102,6 +102,7 @@ def load_input_data(path: Path) -> Dict[str, Any]:
         data["_u_budget_per_step"] = calib_result.get("_u_budget_per_step", [])
         data["_rmse"] = calib_result.get("_rmse", 0.0)
         data["_calib_model"] = calib_result.get("_calib_model", "linear")
+        data["_ref_instrument"] = calib_result.get("_ref_instrument", {})
         # Calibration coefficients for the method statement
         data["_coeffs"] = {}
         for k in ("_A", "_B", "_a0", "_a1", "_a2", "_a3"):

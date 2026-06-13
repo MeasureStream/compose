@@ -564,14 +564,9 @@ class TestLinearPrechecks:
         assert result["ok"] is False
         assert result["n_steps"] == 0
 
-    def test_unit_check_none_when_disabled(self):
-        from model_calibration.linear_calibration import run_prechecks
-        result = run_prechecks(_payload_with_n_steps(6), check_units=False)
-        assert result["unit_check"] is None
-
     def test_unit_check_none_when_no_jsons(self):
         from model_calibration.linear_calibration import run_prechecks
-        result = run_prechecks(_payload_with_n_steps(6), check_units=True,
+        result = run_prechecks(_payload_with_n_steps(6),
                                sensor_json=None, ref_json=None)
         assert result["unit_check"] is None
 
@@ -580,7 +575,6 @@ class TestLinearPrechecks:
         result = run_prechecks(
             _payload_with_n_steps(6),
             sensor_json=_good_sensor_json(), ref_json=_good_ref_json(),
-            check_units=True,
         )
         assert result["unit_check"] is not None
         assert result["unit_check"].ok is True
@@ -591,7 +585,6 @@ class TestLinearPrechecks:
         result = run_prechecks(
             _payload_with_n_steps(6),
             sensor_json=_good_sensor_json(), ref_json=_bad_ref_json(),
-            check_units=True,
         )
         assert result["unit_check"] is not None
         assert result["unit_check"].ok is False
@@ -603,7 +596,6 @@ class TestLinearPrechecks:
         result = run_prechecks(
             _payload_with_n_steps(MIN_STEPS_LINEAR - 1),
             sensor_json=_good_sensor_json(), ref_json=_bad_ref_json(),
-            check_units=True,
         )
         assert result["ok"] is False
         assert len(result["errors"]) >= 2
@@ -645,7 +637,6 @@ class TestCubicPrechecks:
         result = run_prechecks(
             _payload_with_n_steps(_N_COEFFS),
             sensor_json=_good_sensor_json(), ref_json=_good_ref_json(),
-            check_units=True,
         )
         assert result["unit_check"].ok is True
         assert result["ok"] is True
@@ -655,7 +646,6 @@ class TestCubicPrechecks:
         result = run_prechecks(
             _payload_with_n_steps(_N_COEFFS),
             sensor_json=_good_sensor_json(), ref_json=_bad_ref_json(),
-            check_units=True,
         )
         assert result["ok"] is False
 

@@ -88,7 +88,7 @@
         "Results refer to the instrument under calibration under the declared conditions.",
         "Uncertainties are determined according to ISO/IEC Guide 98-3 (GUM) and EA-4/02.",
         "Coverage factor k = 2.0, confidence level about 95 %.",
-        "Reference instrument: thermometer readout with reference probe (U=0.065 °C, k=2).",
+        "Reference instrument: Fluke / Hart Scientific FieldMetrologyWell_9142 (calibration certificate: 012-00000).",
         "Sensor under calibration: DIGITAL thermometer (Measurestream electronics, model 0001-3)."
       ],
       "sensor_model": {
@@ -470,7 +470,14 @@
         "U_exp": 0.37542208400826416,
         "k": 2.0
       }
-    ]
+    ],
+    "_ref_instrument": {
+      "modelName": "FieldMetrologyWell_9142",
+      "mpn": "9142",
+      "manufacturer": "Fluke / Hart Scientific",
+      "calibrationCertificateID": "012-00000",
+      "issuedBy": "LAT-999"
+    }
   },
   "_calibration_done": "done",
   "_sensor_accuracy_check": {

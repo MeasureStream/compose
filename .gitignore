@@ -5,3 +5,4 @@ mqtt-source.json
 *.jpg
 *.png
 *.pdf
+*.env

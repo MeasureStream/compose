@@ -84,6 +84,43 @@ def _get_calib_coeff(sensor_json: Dict[str, Any], label: str) -> float:
     return float(coeff.get("value", 0.0)) if isinstance(coeff, dict) else float(coeff)
 
 
+_MAX_LSB_THRESHOLD = 1000.0  # values above this suggest LSB domain instead of physical
+
+
+def _validate_output_domain(
+    cert_filled: Dict[str, Any],
+    lsb_per_y: float,
+    unit_symbol: str,
+) -> None:
+    """R18: verify that certificate measurements are in physical units, not LSB."""
+    measurements = (
+        cert_filled.get("template_parts", {})
+        .get("calculated_calibration_values", {})
+        .get("_measurements", [])
+    )
+    if not measurements:
+        return
+
+    for row in measurements:
+        t_ref = row[1]
+        t_c = row[2]
+        me_pre = row[3]
+        me_post = row[4]
+        u_exp = row[5]
+
+        if any(abs(v) > _MAX_LSB_THRESHOLD for v in (t_ref, t_c, me_pre, me_post, u_exp)):
+            import sys as _sys
+            print(
+                f"\n*** [R18] DOMAIN ERROR: certificate measurement values exceed "
+                f"{_MAX_LSB_THRESHOLD:.0f} {unit_symbol} — "
+                f"data appears to be in LSB domain (16-bit ADC) instead of {unit_symbol}. "
+                f"Check that the pipeline converted LSB->{unit_symbol} correctly. "
+                f"(lsb_per_y = {lsb_per_y:.2f})\n",
+                file=_sys.stderr,
+            )
+            break
+
+
 def _build_cert_filled(
     cert_input: Dict[str, Any],
     sensor_json: Dict[str, Any],
@@ -136,11 +173,14 @@ def _build_cert_filled(
 
     smt = tp["sensor_method_template"]
     _k = _get_coverage_factor(sensor_json)
+    _ref_name = (ref_json or {}).get("modelName", "")
+    _ref_cert = (ref_json or {}).get("calibrationCertificateID", "")
+    _ref_manufacturer = (ref_json or {}).get("manufacturer", "")
     smt["_notes_computed"] = [
         "Results refer to the instrument under calibration under the declared conditions.",
         "Uncertainties are determined according to ISO/IEC Guide 98-3 (GUM) and EA-4/02.",
         f"Coverage factor k = {_k}, confidence level about 95 %.",
-        "Reference instrument: thermometer readout with reference probe (U=0.065 °C, k=2).",
+        f"Reference instrument: {_ref_manufacturer} {_ref_name} (calibration certificate: {_ref_cert}).",
         (
             f"Sensor under calibration: DIGITAL thermometer "
             f"({smt.get('manufacturer', '')}, model {smt.get('model', '')})."
@@ -317,6 +357,15 @@ def _build_cert_filled(
         })
 
 
+    if ref_json is not None:
+        cal_result_entry["_ref_instrument"] = {
+            "modelName": ref_json.get("modelName", ""),
+            "mpn": ref_json.get("mpn", ""),
+            "manufacturer": ref_json.get("manufacturer", ""),
+            "calibrationCertificateID": ref_json.get("calibrationCertificateID", ""),
+            "issuedBy": ref_json.get("issuedBy", ""),
+        }
+
     out["_calibration_result"] = cal_result_entry
     return out
 
@@ -324,7 +373,7 @@ def _build_cert_filled(
 def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size: int,
                      adc_max: float, ub_ref_lsb: float, ub_sensor_lsb: float, verbose: bool,
                      risol: float, old_A, old_B, old_C, old_D,
-                     sensor_json, ref_json, check_units: bool, convert_units: bool,
+                     sensor_json, ref_json, convert_units: bool,
                      unit_symbol: str = "°C",
                      formula: str | None = None,
                      formula_vars: Dict[str, float] | None = None,
@@ -333,7 +382,7 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
     ub_ref_y = ub_ref_lsb   # caller passes reference uncertainty in Y
     unit_kwargs = dict(
         sensor_json=sensor_json, ref_json=ref_json,
-        check_units=check_units, convert_units=convert_units,
+        convert_units=convert_units,
         unit_symbol=unit_symbol,
     )
     formula_kwargs = dict(formula=formula, formula_vars=formula_vars)
@@ -440,7 +489,6 @@ def main() -> None:
         choices=["none", "always", "if-out-of-tolerance"],
         help="Parameter update strategy: none (do not adjust), always (adjust regardless), if-out-of-tolerance (adjust only when as-found errors exceed limits)",
     )
-    parser.add_argument("--check-units",   action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--convert-units", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument(
         "--charts-interactive", action="store_true", default=False,
@@ -615,7 +663,7 @@ def main() -> None:
             verbose=args.verbose, risol=float(_lookup(sensor_reading_uncertainty, "varName", "resolution", {}).get("value", 1)) / lsb_per_y,
             old_A=old_A, old_B=old_B, old_C=old_C, old_D=old_D,
             sensor_json=sensor_json, ref_json=ref_json,
-            check_units=args.check_units, convert_units=args.convert_units,
+            convert_units=args.convert_units,
             unit_symbol=_unit_sym,
             formula=_formula_str, formula_vars=_formula_vars,
             ufit=ufit,
@@ -740,6 +788,9 @@ def main() -> None:
 
     cert_filled["_calibration_done"] = calib_result.get("calibration_done", "done")
     cert_filled["_sensor_accuracy_check"] = calib_result.get("_sensor_accuracy_check")
+
+    # ── R18: output boundary validation — verify measurements are in physical units, not LSB ──
+    _validate_output_domain(cert_filled, lsb_per_y, _cert_unit_sym)
 
     if calibration_skipped:
         _apply_calibration_skipped(cert_filled, calib_result, old_A, old_B, old_C, old_D, lsb_per_y)
