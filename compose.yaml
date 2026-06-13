@@ -448,7 +448,10 @@ services:
       CALIBRATION_MODELS_PATH: "/app/calibration/models_in"
       CALIBRATION_RUNS_PATH: "/tmp/calibration-runs"
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport"
+      KEYS_PATH: "/app/keys"
     volumes:
+      # Mount keys (read-only)
+      - ../../keys:/app/keys:ro
       # Mount calibration scripts and models (read-only)
       - ../../calibration/scripts:/app/calibration/scripts:ro
       - ../../calibration/models_in:/app/calibration/models_in:ro

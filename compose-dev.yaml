@@ -234,9 +234,11 @@ services:
       CALIBRATION_MODELS_PATH: "/app/calibration/models_in"
       CALIBRATION_RUNS_PATH: "/tmp/calibration-runs"
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      KEYS_PATH: "/app/keys"
     volumes:
       - ./calibration/scripts:/app/calibration/scripts:ro
       - ./calibration/models_in:/app/calibration/models_in:ro
+      - ../../keys:/app/keys:ro
       - calibration_runs_data:/tmp/calibration-runs
     networks:
       app_network:
