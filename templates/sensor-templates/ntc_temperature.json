@@ -1,0 +1,44 @@
+{
+  "modelName": "ntc_temperature",
+  "type": "temperature",
+  "unit": "celsius",
+  "ranges": {
+    "phys": {
+      "min": -40.0,
+      "max": 105.0
+    },
+    "elec": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "sampling": {
+      "min": 0.000001,
+      "max": 1000.0
+    },
+    "threshold": {
+      "min": -40.0,
+      "max": 105.0
+    }
+  },
+  "conversion": {
+    "type": "polynomial",
+    "coefficients": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "properties": {
+    "refResOhm": 100000.0,
+    "refTempC": 25.0,
+    "responseTime": 0.16,
+    "selfHeat": 0.0
+  },
+  "metrology": {
+    "uncertaintyPdf": "uniform",
+    "absUncertainty": 5.0,
+    "uB": 2.9,
+    "k": 2.0
+  }
+}
