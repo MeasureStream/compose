@@ -195,10 +195,7 @@ def _build_cert_filled(
             _prev_A = calib_result.get("old_A")
             _prev_B = calib_result.get("old_B")
             if _prev_A is not None and _prev_B is not None:
-                _old_b_y = _prev_B / lsb_per_y if abs(_prev_B) > 300 else _prev_B
-                t_sensor_pre = _prev_A * pmean_sensor + _old_b_y
-                if abs(_prev_A) >= 1.0:
-                    t_sensor_pre = lsb_to_y(_prev_A * pmean_sensor + _prev_B, lsb_scale, adc_max)
+                t_sensor_pre = _prev_A * pmean_sensor + _prev_B
             else:
                 t_sensor_pre = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
         elif calib_model == "cubic":
@@ -639,11 +636,7 @@ def main() -> None:
         for _i, (_t, _ref_t) in enumerate(zip(temp_nominali_cr, ref_means_cr)):
             pmean_sensor_cr = risultati_cr[_t]["pmean_sensor"]
             if proc_model == "linear" and old_A is not None and old_B is not None:
-                # Detect LSB-domain old coefficients (|A|>>1 or |B|>>100)
-                if abs(old_A) >= 1.0 or abs(old_B) > 300:
-                    t_sensor_pre = lsb_to_y(old_A * pmean_sensor_cr + old_B, lsb_scale, adc_max)
-                else:
-                    t_sensor_pre = old_A * pmean_sensor_cr + old_B
+                t_sensor_pre = old_A * pmean_sensor_cr + old_B
             elif proc_model == "cubic" and all(v is not None for v in [old_A, old_B, old_C, old_D]):
                 from model_calibration.cubic_calibration import cubic_predict
                 old_theta = np.array([old_A, old_B, old_C, old_D], dtype=float)

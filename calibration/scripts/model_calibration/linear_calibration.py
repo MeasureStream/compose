@@ -309,7 +309,7 @@ def calibrate(
     uc_ref    = np.array([np.sqrt(risultati_elaborati[t]["pstd_ref"]**2    + ub_ref_y**2)      for t in temp_nominali], dtype=float)  # u_y
 
     if old_a is not None and old_b is not None:
-        _old_b_y = old_b / lsb_per_y if abs(old_b) > 300 else old_b
+        _old_b_y = old_b
         y_old = old_a * x + _old_b_y
         err_old = y_old - y
         if verbose:
