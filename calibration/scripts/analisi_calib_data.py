@@ -471,6 +471,9 @@ def _build_cert_filled(
             "issuedBy": ref_json.get("issuedBy", ""),
         }
 
+    cal_result_entry["_sensor_schema_version"] = sensor_json.get("schemaVersion", "")
+    cal_result_entry["_ref_schema_version"] = (ref_json or {}).get("schemaVersion", "")
+
     out["_calibration_result"] = cal_result_entry
     return out
 
@@ -600,9 +603,6 @@ def main() -> None:
     parser.add_argument("--check-units",   action=argparse.BooleanOptionalAction, default=False,
         help="(deprecated — unit checks now run automatically when model JSONs are provided)")
     parser.add_argument("--convert-units", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--ufit", type=float, default=None,
-        help="Calibration fitting uncertainty (overrides sensor JSON ufit). "
-             "Use rmse_pre from previous calibration for honest uncertainty propagation.")
     parser.add_argument(
         "--charts-interactive", action="store_true", default=False,
         help="Show charts interactively via matplotlib (blocks until all windows are closed). "
@@ -690,9 +690,6 @@ def main() -> None:
     # Calibration fitting uncertainty (declared by sensor manufacturer) [°C]
     _ufit_val = float(_lookup(sensor_reading_uncertainty, "varName", "ufit", {}).get("value", 0))
     ufit = _ufit_val if _ufit_val > 0 else None
-    # CLI args.ufit overrides JSON when provided (e.g. rmse_pre from previous calibration)
-    if args.ufit is not None:
-        ufit = args.ufit
 
     # Informational: sum of absolute uncertainties for certificate page 4
     sensor_abs_lsb = float(_lookup(sensor_reading_uncertainty, "varName", "absUncertainty", {}).get("value", 5.0))
