@@ -530,10 +530,14 @@ def plot_charts(
     fig5, axs5 = plt.subplots(1, 2, figsize=(18, 10))
     sensor_cal = [a * risultati_elaborati[t]["pmean_sensor"] + b for t in temp_nominali]
     axs5[0].set_title("Calibration curve [LSB]", fontsize=12)
-    axs5[0].errorbar(sensor_val, sensor_cal, xerr=sensor_err, fmt=".", color="r", ecolor="r", capsize=5)
+    axs5[0].errorbar(sensor_val, sensor_cal, fmt=".", color="r", ecolor="r", capsize=5)
     axs5[0].plot(sensor_val, ref_val, "b", linewidth=0.7, label="ref function")
     axs5[0].plot(sensor_val, sensor_cal, "r", linewidth=1, label="Calibration function")
     axs5[0].plot(sensor_val, sensor_val, color="grey", linestyle="--", linewidth=1, label="Readings")
+    for i, (x_i, y_i, t_i) in enumerate(zip(sensor_val, sensor_cal, temp_nominali)):
+        axs5[0].annotate(f"{t_i:.0f}", (x_i, y_i),
+                         textcoords="offset points", xytext=(4, -8),
+                         fontsize=7, alpha=0.7, color="tab:red")
     axs5[0].set_xlabel("sensor X [LSB]")
     axs5[0].set_ylabel("LSB")
     axs5[0].grid(True)

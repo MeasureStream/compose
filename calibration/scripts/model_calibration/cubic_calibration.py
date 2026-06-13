@@ -384,7 +384,11 @@ def plot_charts(
     ax.set_title("Calibration Curve [°C]", fontsize=12)
     log_val_c = [lsb16_to_phys(np.array([lv]), lsb_scale_sensor_info, adc_max)[0] for lv in log_val]
     ax.errorbar(log_val_c, ref_c, xerr=[e/lsb_per_y for e in log_err], yerr=[e/lsb_per_y for e in rtd_err], fmt="b.", capsize=4, label="PT100 ref")
-    ax.errorbar(log_val_c, t_cal_c, xerr=[e/lsb_per_y for e in log_err], yerr=u_cal_c, fmt="r.", capsize=4, label="cubic model")
+    ax.errorbar(log_val_c, t_cal_c, yerr=u_cal_c, fmt="r.", capsize=4, label="cubic model")
+    for i, (x_i, y_i, t_i) in enumerate(zip(log_val_c, t_cal_c, temp_nominali)):
+        ax.annotate(f"{t_i:.0f}", (x_i, y_i),
+                    textcoords="offset points", xytext=(4, -8),
+                    fontsize=7, alpha=0.7, color="tab:red")
     d_range = np.linspace(min(log_val)*0.99, max(log_val)*1.01, 300)
     t_smooth = [cubic_predict_y(d, theta_arr, lsb_scale_sensor_info, adc_max) for d in d_range]
     ax.plot(lsb16_to_phys(d_range, lsb_scale_sensor_info, adc_max), t_smooth, "r-", linewidth=1, label="cubic curve")

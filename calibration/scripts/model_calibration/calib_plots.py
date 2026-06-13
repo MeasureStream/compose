@@ -323,7 +323,7 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
     for i, (xi, yi, uxi, uyi, t) in enumerate(zip(x_lsb, y_ref, u_x, u_y, bundle.steps)):
         color  = _step_color(bundle.is_node, i)
         marker = _step_marker(bundle.is_node, i)
-        ax.errorbar(xi, yi, xerr=uxi, yerr=uyi,
+        ax.errorbar(xi, yi, yerr=uyi,
                     fmt=marker, color=color, ecolor=color,
                     capsize=4, markersize=7, linewidth=1.0)
         ax.annotate(f"{t:.0f}", (xi, yi),
@@ -379,9 +379,14 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
     for i in range(len(bundle.steps)):
         color  = _step_color(bundle.is_node, i)
         marker = _step_marker(bundle.is_node, i)
-        ax.plot(x_lsb[i], bundle.t_sensor_post[i],
+        x_i = x_lsb[i]
+        y_i = bundle.t_sensor_post[i]
+        ax.plot(x_i, y_i,
                 marker=marker, color=color, markersize=7, zorder=5,
                 linestyle="none")
+        ax.annotate(f"{bundle.steps[i]:.0f}", (x_i, y_i),
+                    textcoords="offset points", xytext=(4, -8),
+                    fontsize=7, alpha=0.7, color="tab:red")
 
     ax.plot([], [], marker="o", color="tab:red", linestyle="none",
             markersize=7, label="Calibrated prediction")
