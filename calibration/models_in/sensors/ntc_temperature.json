@@ -110,7 +110,8 @@
     "readingUncertainty": [
         { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
         { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
-        { "varName": "uB", "value": 0.30,  "PDF": "normal", "description": "" },
+        { "varName": "uB", "value": 2.9,  "PDF": "normal", "description": "" },
+        { "varName": "ufit", "value": 0.032, "coverageFactor": 2.0, "PDF": "normal", "description": "Calibration fitting uncertainty" },
         {"varName": "coverageFactor", "value": 2.0, "description": ""}
     ],
 

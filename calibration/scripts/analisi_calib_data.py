@@ -267,6 +267,14 @@ def _build_cert_filled(
             "_u_budget_per_step": u_budget_rounded,
         })
     elif calib_model == "cubic":
+        u_budget_raw = calib_result.get("per_step_budget", [])
+        u_budget_rounded = [
+            {**b,
+             "u_c": b.get("mu_E", 0.0) / 2.0, "k": 2.0,
+             "uA_ref": round_to_significant_figures(b["uA_ref"], 2),
+             "uA_sensor": round_to_significant_figures(b["uA_sensor"], 2)}
+            for b in u_budget_raw
+        ]
         cal_result_entry.update({
             "_theta": _c_theta,
             "_a0": _c_a0, "_a1": _c_a1,
@@ -274,6 +282,7 @@ def _build_cert_filled(
             "_u_a0": calib_result["u_a0"], "_u_a1": calib_result["u_a1"],
             "_u_a2": calib_result["u_a2"], "_u_a3": calib_result["u_a3"],
             "_cov_theta": calib_result["cov_theta"],
+            "_u_budget_per_step": u_budget_rounded,
         })
 
 
@@ -287,7 +296,8 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
                      sensor_json, ref_json, check_units: bool, convert_units: bool,
                      unit_symbol: str = "°C",
                      formula: str | None = None,
-                     formula_vars: Dict[str, float] | None = None):
+                     formula_vars: Dict[str, float] | None = None,
+                     ufit: float | None = None):
     ub_ref_y = ub_ref_lsb   # caller passes reference uncertainty in Y
     unit_kwargs = dict(
         sensor_json=sensor_json, ref_json=ref_json,
@@ -295,13 +305,14 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
         unit_symbol=unit_symbol,
     )
     formula_kwargs = dict(formula=formula, formula_vars=formula_vars)
+    ufit_kwargs = dict(ufit=ufit)
     if procedure == "linear":
         from model_calibration.linear_calibration import calibrate
         return calibrate(
             payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
-            old_a=old_A, old_b=old_B, **unit_kwargs, **formula_kwargs,
+            old_a=old_A, old_b=old_B, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
         )
     elif procedure == "cubic":
         from model_calibration.cubic_calibration import calibrate
@@ -309,7 +320,7 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
             payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
-            old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs, **formula_kwargs,
+            old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
         )
     else:
         raise ValueError(
@@ -477,6 +488,10 @@ def main() -> None:
     sensor_reading_uncertainty = sensor_metrology.get("readingUncertainty", [])
     ub_sensor_lsb = float(_lookup(sensor_reading_uncertainty, "varName", "uB", {}).get("value", 0.30))
 
+    # Calibration fitting uncertainty (declared by sensor manufacturer) [°C]
+    _ufit_val = float(_lookup(sensor_reading_uncertainty, "varName", "ufit", {}).get("value", 0))
+    ufit = _ufit_val if _ufit_val > 0 else None
+
     # Informational: sum of absolute uncertainties for certificate page 4
     sensor_abs_lsb = float(_lookup(sensor_reading_uncertainty, "varName", "absUncertainty", {}).get("value", 5.0))
     sensor_abs_y     = sensor_abs_lsb / lsb_per_y
@@ -564,6 +579,7 @@ def main() -> None:
             check_units=args.check_units, convert_units=args.convert_units,
             unit_symbol=_unit_sym,
             formula=_formula_str, formula_vars=_formula_vars,
+            ufit=ufit,
         )
     except ValueError as err:
         print(f"ERROR: {err}", file=sys.stderr)
@@ -880,7 +896,7 @@ def main() -> None:
             pfa_vals = [r["PFA_pct"] for r in rH] if isinstance(rH, list) else []
             if pfa_vals:
                 print(
-                    "  [H] PFA per punto: "
+                    "  [H] PFA by point: "
                     + "  ".join(f"P{r['punto']}={r['PFA_pct']:.1f}%" for r in rH)
                 )
             print(

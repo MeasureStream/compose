@@ -805,6 +805,7 @@ class TestLinearCalibUBudget:
     def test_budget_entry_keys(self, calib_result):
         expected = {
             "t_nom", "uA_ref", "uA_sensor",
+            "ub_uso", "u_fitting",
             "u_ref", "u_sensor", "u_c", "U_exp", "k",
         }
         for entry in calib_result["u_budget_per_step"]:

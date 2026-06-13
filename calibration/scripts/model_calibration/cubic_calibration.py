@@ -163,6 +163,7 @@ def calibrate(
     ub_pt_lsb: float | None = None,
     formula: str | None = None,
     formula_vars: Dict[str, float] | None = None,
+    ufit: float | None = None,
 ) -> Dict[str, Any]:
     # Backwards-compat shim for old ub_pt_lsb callers
     if ub_pt_lsb is not None and ub_ref_y is None:
@@ -236,6 +237,8 @@ def calibrate(
     # GUM uncertainty budget per step — everything in physical unit.
     # Local sensitivity: dY/dD|_i = a1 + 2*a2*D_i + 3*a3*D_i² [{unit_symbol}/LSB]
     
+    u_fitting_val = ufit if ufit is not None else rmse
+
     expanded_uncertainties: List[float] = []
     per_step_budget: List[dict] = []
 
@@ -245,20 +248,21 @@ def calibrate(
 
         uA_ref    = risultati_elaborati[t]["pstd_ref"]              # u_y type-A
         uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens_i  # u_x type-A × sens
-        uB_sensor = _ub_arr[i] * sens_i                               # u_x type-B × sens
 
         u_ref    = np.sqrt(uA_ref**2 + ub_ref_y**2)
-        u_sensor = np.sqrt(uA_sensor**2 + uB_sensor**2 + u_res**2)
-        u_c      = np.sqrt(u_ref**2 + u_sensor**2)
+        ub_uso   = np.sqrt(u_fitting_val**2 + u_res**2)
+        uc_sensor = np.sqrt(uA_sensor**2 + ub_uso**2)
+        u_c      = np.sqrt(u_ref**2 + uc_sensor**2)
         U_exp    = 2.0 * u_c
         u_cal    = cubic_uncertainty(D_i, uc_tmp[i], theta, cov_theta)
 
         expanded_uncertainties.append(float(U_exp))
         per_step_budget.append({
             "t_nominal": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
-            "uB_ref": ub_ref_y, "uB_sensor": uB_sensor, "u_res": u_res,
+            "uB_ref": ub_ref_y, "u_res": u_res,
             "sens_i": sens_i,
-            "mu_T_ref": u_ref, "mu_T_i": u_sensor, "mu_E": u_c, "U_E": U_exp,
+            "ub_uso": ub_uso, "u_fitting": u_fitting_val,
+            "mu_T_ref": u_ref, "mu_T_i": uc_sensor, "mu_E": u_c, "U_E": U_exp,
             "u_cal_poly": u_cal, "U_cal_poly": 2.0 * u_cal,
         })
 
@@ -274,6 +278,7 @@ def calibrate(
         "u_a0": float(u_a0), "u_a1": float(u_a1), "u_a2": float(u_a2), "u_a3": float(u_a3),
         "cov_theta": cov_theta.tolist(),
         "rmse": rmse,
+        "u_fitting": u_fitting_val,
         "old_a0": None if old_a is None else float(old_a),
         "old_a1": None if old_b is None else float(old_b),
         "old_a2": None if old_c is None else float(old_c),

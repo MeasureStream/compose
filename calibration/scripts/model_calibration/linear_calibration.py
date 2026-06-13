@@ -263,6 +263,7 @@ def calibrate(
     unit_symbol: str = "°C",
     formula: str | None = None,
     formula_vars: Dict[str, float] | None = None,
+    ufit: float | None = None,
 ) -> Dict[str, Any]:
     if ub_ref_y is None:
         raise ValueError("calibrate() requires ub_ref_y")
@@ -338,19 +339,26 @@ def calibrate(
     # GUM budget per step
     sens = abs(a)   # sensitivity dY/dX [{unit_symbol}/LSB]
 
+    u_ris = risol * lsb_per_y / np.sqrt(12.0)  # ADC resolution std uncertainty [LSB]
+    u_fitting_val = ufit if ufit is not None else rmse
+
     expanded_uncertainties: List[float] = []
     per_step_u_budget_raw: List[Tuple] = []
 
     for i, t in enumerate(temp_nominali):
+        R_avg     = risultati_elaborati[t]["pmean_sensor"]        # mean sensor reading [LSB]
         uA_ref    = risultati_elaborati[t]["pstd_ref"]            # u_y type-A
         uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens  # u_x type-A × sens
-        uB_sensor = _ub_arr[i] * sens                             # u_x type-B × sens
         u_ref     = np.sqrt(uA_ref**2 + ub_ref_y**2)
-        u_sensor  = np.sqrt(uA_sensor**2 + uB_sensor**2 + u_res**2)
-        u_c       = np.sqrt(u_ref**2 + u_sensor**2)
+
+        # ub_uso²(T) = (R·u_A)² + u_B² + 2R·cov(A,B) + (A·u_ris)²
+        ub_uso = np.sqrt((R_avg * u_a)**2 + u_b**2 + 2.0 * R_avg * cov_ab + (a * u_ris)**2)
+
+        uc_sensor = np.sqrt(uA_sensor**2 + ub_uso**2)  # u_x total
+        u_c       = np.sqrt(u_ref**2 + uc_sensor**2)
         U_exp     = 2.0 * u_c
         expanded_uncertainties.append(float(U_exp))
-        per_step_u_budget_raw.append((t, uA_ref, uA_sensor, u_ref, u_sensor, u_c, U_exp))
+        per_step_u_budget_raw.append((t, uA_ref, uA_sensor, ub_uso, u_fitting_val, u_ref, uc_sensor, u_c, U_exp))
 
     # ref means
     ref_temp_means: List[float] = [
@@ -360,9 +368,10 @@ def calibrate(
 
     u_budget_per_step: List[Dict[str, float]] = [
         {"t_nom": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
+         "ub_uso": ub_uso_, "u_fitting": u_fitting_,
          "u_ref": u_ref_, "u_sensor": u_sensor_,
          "u_c": u_c_, "U_exp": U_exp_, "k": 2.0}
-        for t, uA_ref, uA_sensor, u_ref_, u_sensor_, u_c_, U_exp_ in per_step_u_budget_raw
+        for t, uA_ref, uA_sensor, ub_uso_, u_fitting_, u_ref_, u_sensor_, u_c_, U_exp_ in per_step_u_budget_raw
     ]
 
     result: Dict[str, Any] = {
@@ -371,6 +380,7 @@ def calibrate(
         "B": float(b),
         "u_A": float(u_a), "u_B": float(u_b), "cov_AB": float(cov_ab),
         "rmse": rmse,
+        "u_fitting": u_fitting_val,
         "old_A": None if old_a is None else float(old_a),
         "old_B": None if old_b is None else float(old_b),
         "temp_nominali": temp_nominali,
