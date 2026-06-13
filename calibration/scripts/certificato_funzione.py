@@ -11,7 +11,7 @@ Differenze rispetto alla versione originale del generatore PDF:
 - Pagina 4: funzione di taratura T = A·D + B con tabella coefficienti
   (R25, B25/85, alpha, Interpolation uncertainty, A, B/°C, u(A), u(B)/°C, cov(A,B))
   seguita dal riquadro Approval
-- Note a piè pagina 3: solo note GUM + nota su D/LSB
+- Page 3 footnotes: only GUM notes + D/LSB note
 - Righe vuote tabella: solo i punti misurati (niente padding fino a 15)
 
 Formato measurements atteso (ogni riga):

@@ -381,7 +381,7 @@ def print_report(
 
     print()
     print(_hr("="))
-    print(f"  VERIFICA CONFORMITA' -- CERTIFICATO DI TARATURA NTC")
+    print(f"  CONFORMITY CHECK -- NTC CALIBRATION CERTIFICATE")
     print(f"  Variante : {variant.upper()}")
     print(f"  File     : {input_path.name}")
     print(f"  Punti    : {len(measurements)}")
@@ -423,14 +423,14 @@ def print_report(
     for label, (status, _detail) in check_results.items():
         detail_str = ""
         if label == "H":
-            detail_str = f"MAE=\u00b1{mae_y:.3f}  soglia={pfa_threshold_pct:.0f}%"
+            detail_str = f"MAE=\u00b1{mae_y:.3f}  threshold={pfa_threshold_pct:.0f}%"
         elif label == "B":
             detail_str = f"limite={limit_y:.4f}"
         print(_status_line(f"Check {label}", status, detail_str))
 
     statuses = {lbl: res[0] for lbl, res in check_results.items()}
     checks_for_overall = ["G", "A", "B", "H"]
-    overall = "CONFORME" if all(statuses.get(c, "FAIL") == "PASS" for c in checks_for_overall) else "NON CONFORME"
+    overall = "PASS" if all(statuses.get(c, "FAIL") == "PASS" for c in checks_for_overall) else "FAIL"
 
     print(_hr("\u2500"))
     print(f"  ESITO COMPLESSIVO: {overall}")

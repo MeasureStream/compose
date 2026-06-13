@@ -103,6 +103,9 @@ def load_input_data(path: Path) -> Dict[str, Any]:
         data["_rmse"] = calib_result.get("_rmse", 0.0)
         data["_calib_model"] = calib_result.get("_calib_model", "linear")
         data["_ref_instrument"] = calib_result.get("_ref_instrument", {})
+        data["_conformity"] = calib_result.get("_conformity", {})
+        data["_sensor_schema_version"] = calib_result.get("_sensor_schema_version", "")
+        data["_ref_schema_version"] = calib_result.get("_ref_schema_version", "")
         # Calibration coefficients for the method statement
         data["_coeffs"] = {}
         for k in ("_A", "_B", "_a0", "_a1", "_a2", "_a3"):
@@ -233,6 +236,20 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _lang_text(software_name, "generate_dcc_xml.py", "en")
     _text(software, "{https://ptb.de/dcc}release", "1.0")
 
+    sensor_schema = data.get("_sensor_schema_version", "")
+    if sensor_schema:
+        sw_sensor = ET.SubElement(dcc_software, "{https://ptb.de/dcc}software")
+        sw_sensor_name = ET.SubElement(sw_sensor, "{https://ptb.de/dcc}name")
+        _lang_text(sw_sensor_name, "Sensor model schema", "en")
+        _text(sw_sensor, "{https://ptb.de/dcc}release", sensor_schema)
+
+    ref_schema = data.get("_ref_schema_version", "")
+    if ref_schema:
+        sw_ref = ET.SubElement(dcc_software, "{https://ptb.de/dcc}software")
+        sw_ref_name = ET.SubElement(sw_ref, "{https://ptb.de/dcc}name")
+        _lang_text(sw_ref_name, "Reference model schema", "en")
+        _text(sw_ref, "{https://ptb.de/dcc}release", ref_schema)
+
     core = ET.SubElement(admin, "{https://ptb.de/dcc}coreData")
     _text(core, "{https://ptb.de/dcc}countryCodeISO3166_1", "IT")
     _text(core, "{https://ptb.de/dcc}usedLangCodeISO639_1", "de")
@@ -315,6 +332,43 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     )
     lab_name = ET.SubElement(lab_ident, "{https://ptb.de/dcc}name")
     _lang_text(lab_name, "Laboratory reference", "en")
+
+    ref_instr = data.get("_ref_instrument", {})
+    if ref_instr.get("modelName") or ref_instr.get("calibrationCertificateID"):
+        ref_item = ET.SubElement(items, "{https://ptb.de/dcc}item")
+        ref_item_name = ET.SubElement(ref_item, "{https://ptb.de/dcc}name")
+        _safe_lang_text(
+            ref_item_name,
+            ref_instr.get("modelName", ""),
+            "Reference instrument",
+            "en",
+        )
+        if ref_instr.get("manufacturer"):
+            ref_man = ET.SubElement(ref_item, "{https://ptb.de/dcc}manufacturer")
+            ref_man_name = ET.SubElement(ref_man, "{https://ptb.de/dcc}name")
+            _safe_lang_text(
+                ref_man_name,
+                ref_instr.get("manufacturer", ""),
+                "Unknown manufacturer",
+                "en",
+            )
+        if ref_instr.get("mpn"):
+            _text(ref_item, "{https://ptb.de/dcc}model", ref_instr["mpn"])
+        if ref_instr.get("calibrationCertificateID"):
+            ref_idents = ET.SubElement(ref_item, "{https://ptb.de/dcc}identifications")
+            cert_ident = ET.SubElement(ref_idents, "{https://ptb.de/dcc}identification")
+            _text(
+                cert_ident,
+                "{https://ptb.de/dcc}issuer",
+                ref_instr.get("issuedBy", "N/A"),
+            )
+            _text(
+                cert_ident,
+                "{https://ptb.de/dcc}value",
+                ref_instr["calibrationCertificateID"],
+            )
+            cert_name = ET.SubElement(cert_ident, "{https://ptb.de/dcc}name")
+            _lang_text(cert_name, "Calibration certificate", "en")
 
     cal_lab = ET.SubElement(admin, "{https://ptb.de/dcc}calibrationLaboratory")
     contact = ET.SubElement(cal_lab, "{https://ptb.de/dcc}contact")
@@ -400,6 +454,49 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     reg_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
     reg_decl = ET.SubElement(reg_statement, "{https://ptb.de/dcc}declaration")
     _lang_text(reg_decl, reg_text, "en")
+
+    conf = data.get("_conformity", {})
+    if conf:
+        conf_summary = conf.get("summary", {})
+        conf_overall = conf_summary.get("overall", "NON-COMPLIANT")
+        conf_guard = conf.get("guard_band")
+
+        dr_text = (
+            f"Decision rule: acceptance when "
+            f"G={conf_summary.get('G','?')} A={conf_summary.get('A','?')} "
+            f"B={conf_summary.get('B','?')} H={conf_summary.get('H','?')}. "
+            f"Verdict: {conf_overall}."
+        )
+        dr_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+        dr_decl = ET.SubElement(dr_statement, "{https://ptb.de/dcc}declaration")
+        _lang_text(dr_decl, dr_text, "en")
+
+        if conf_guard is not None:
+            gb_text = f"Guard band (maxTollerance): {conf_guard}."
+            gb_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+            gb_decl = ET.SubElement(gb_statement, "{https://ptb.de/dcc}declaration")
+            _lang_text(gb_decl, gb_text, "en")
+
+        rH_list = conf.get("check_H", [])
+        if rH_list:
+            pfa_parts = []
+            for r in rH_list:
+                if isinstance(r, dict):
+                    pfa_parts.append(
+                        f"P{r.get('punto','?')}={r.get('PFA_pct',0):.1f}%"
+                    )
+            if pfa_parts:
+                h_params = conf.get("check_H_params", {})
+                pfa_text = (
+                    f"PFA (Probability of False Acceptance) per point: "
+                    + " ".join(pfa_parts)
+                    + f". MAE={h_params.get('mae_y','?')}, "
+                    f"threshold={h_params.get('pfa_threshold_pct','?')}%, "
+                    f"mode={h_params.get('u_std_mode','combined')}."
+                )
+                pfa_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+                pfa_decl = ET.SubElement(pfa_statement, "{https://ptb.de/dcc}declaration")
+                _lang_text(pfa_decl, pfa_text, "en")
 
     meas_results = ET.SubElement(root, "{https://ptb.de/dcc}measurementResults")
     meas_result = ET.SubElement(meas_results, "{https://ptb.de/dcc}measurementResult")

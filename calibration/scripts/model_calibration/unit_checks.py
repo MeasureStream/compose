@@ -347,7 +347,7 @@ def _delta_factor(source_unit: str, target_unit: str) -> float:
     """
 #     Quantity(1, "delta_degC").to("kelvin") = 1.0 (doc: "the change in celsius is equal to the change in kelvin")
 # Quantity(1, "delta_degF").to("kelvin") = 0.555... (doc: "but not in fahrenheit as the scaling factor is different")
-# Quantity(1, "pascal").to("kilopascal") = 0.001 — per unità senza offset, .to() è già la conversione delta
+# Quantity(1, "pascal").to("kilopascal") = 0.001 — for non-offset units, .to() already performs delta conversion
     
     if _UREG is None:
         return 1.0
