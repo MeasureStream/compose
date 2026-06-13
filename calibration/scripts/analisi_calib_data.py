@@ -405,11 +405,6 @@ def _apply_calibration_skipped(cert_filled: Dict, calib_result: Dict,
 
 
 def main() -> None:
-    # conformity thresholds for Check H
-    CONFORMITY_MAE_Y: float = 0.30
-    CONFORMITY_PFA_THRESHOLD_PCT: float = 20.0
-    CONFORMITY_PFA_U_STD_MODE: str = "combined"
-
     default_input_json  = DATA_DIR    / "export2_tmp126_lsb16.json"
     default_sensor_json = SENSORS_DIR / "ntc_temperature.json"
     default_ref_json    = REFERENCES_DIR / "fluke_9142.json"
@@ -453,6 +448,15 @@ def main() -> None:
              "Skips saving PNGs. Mutually usable with --charts (both save AND show). "
              "Requires a display / GUI backend (not suitable for headless/Docker runs)."
     )
+    parser.add_argument("--mae-y", type=float, default=0.30,
+        help="Maximum Acceptable Error for Check H (default: 0.30)")
+    parser.add_argument("--pfa-threshold-pct", type=float, default=20.0,
+        help="PFA threshold percentage for Check H (default: 20.0)")
+    parser.add_argument("--pfa-u-std-mode", type=str, default="combined",
+        choices=["combined", "type_a"],
+        help="Uncertainty mode for PFA computation: combined (u_exp/k) or type_a (uA_sensor) (default: combined)")
+    parser.add_argument("--u-ref", type=float, default=0.065,
+        help="Reference expanded uncertainty U_ref (k=2) for overlap check (default: 0.065)")
     # Previous calibration coefficients injected by the orchestrator from the sensor DB record.
     # When provided they override coeffA/B/C/D read from the sensor JSON (which may be 0.0 = unset).
     # linear: --old-a = A,  --old-b = B
@@ -902,9 +906,9 @@ def main() -> None:
 
         u_budget_conf = calib_cr.get("_u_budget_per_step", [])
         sH, rH = _conformita.check_H(
-            measurements, mae_y=CONFORMITY_MAE_Y,
-            pfa_threshold_pct=CONFORMITY_PFA_THRESHOLD_PCT,
-            verbose=False, u_std_mode=CONFORMITY_PFA_U_STD_MODE,
+            measurements, mae_y=args.mae_y,
+            pfa_threshold_pct=args.pfa_threshold_pct,
+            verbose=False, u_std_mode=args.pfa_u_std_mode,
             u_budget_per_step=u_budget_conf,
             adc_bits=adc_bits, adc_max=adc_max,
             coverage_factor=_get_coverage_factor(sensor_json),
@@ -933,9 +937,9 @@ def main() -> None:
                     + "  ".join(f"P{r['punto']}={r['PFA_pct']:.1f}%" for r in rH)
                 )
             print(
-                f"  [H] MAE=±{CONFORMITY_MAE_Y:.3f}{_unit_sym}  "
-                f"soglia={CONFORMITY_PFA_THRESHOLD_PCT:.0f}%  "
-                f"u_std_mode={CONFORMITY_PFA_U_STD_MODE}"
+                f"  [H] MAE=±{args.mae_y:.3f}{_unit_sym}  "
+                f"soglia={args.pfa_threshold_pct:.0f}%  "
+                f"u_std_mode={args.pfa_u_std_mode}"
             )
 
         if args.conformity_output is not None:
@@ -943,9 +947,9 @@ def main() -> None:
                 "summary": conformity_summary,
                 "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
                 "check_H_params": {
-                    "mae_y": CONFORMITY_MAE_Y,
-                    "pfa_threshold_pct": CONFORMITY_PFA_THRESHOLD_PCT,
-                    "u_std_mode": CONFORMITY_PFA_U_STD_MODE,
+                    "mae_y": args.mae_y,
+                    "pfa_threshold_pct": args.pfa_threshold_pct,
+                    "u_std_mode": args.pfa_u_std_mode,
                 },
             }
             args.conformity_output.parent.mkdir(parents=True, exist_ok=True)
