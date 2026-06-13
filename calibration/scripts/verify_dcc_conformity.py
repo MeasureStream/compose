@@ -32,6 +32,31 @@ def normal_cdf(x: float, mu: float = 0.0, sigma: float = 1.0) -> float:
     return 0.5 * (1.0 + math.erf((x - mu) / (sigma * math.sqrt(2.0))))
 
 
+def _erfinv_manual(z: float) -> float:
+    if z <= -1.0:
+        return -float("inf")
+    if z >= 1.0:
+        return float("inf")
+    a = 0.147
+    ln1z2 = math.log(1.0 - z * z)
+    inner = (2.0 / (math.pi * a) + ln1z2 / 2.0)
+    x = math.sqrt(math.sqrt(inner * inner - ln1z2 / a) - inner)
+    x = math.copysign(x, z)
+    sp = math.sqrt(math.pi)
+    for _ in range(3):
+        er = math.erf(x)
+        x = x - (er - z) * sp * math.exp(x * x) / 2.0
+    return x
+
+
+def inverse_normal_cdf(p: float, mu: float = 0.0, sigma: float = 1.0) -> float:
+    if p <= 0.0:
+        return -float("inf")
+    if p >= 1.0:
+        return float("inf")
+    return mu + sigma * math.sqrt(2.0) * _erfinv_manual(2.0 * p - 1.0)
+
+
 def parse_dcc_xml(xml_path: Path) -> Tuple[List[float], List[float], List[float], List[float], List[float]]:
     try:
         tree = ET.parse(xml_path)
@@ -283,6 +308,34 @@ def print_results_report(
         print(f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {pt['u_std']:>12.4f}  {pt['pfa_pct']:>10.1f}%  {PASS if pt['pass'] else FAIL:>10}")
     print(f"\n  Check H Verdict: [{h_res['status']}]")
 
+    # Guard Band (ILAC-G8, consumer risk only — PFA threshold drives g)
+    alpha = pfa_threshold / 100.0
+    g = inverse_normal_cdf(1.0 - alpha)
+
+    print("\n" + _hr("-"))
+    print(f"  GUARD BAND ANALYSIS (ILAC-G8: consumer risk PFA <= {pfa_threshold:.1f}%)")
+    print(f"       MAE = +/-{mae:.3f},  g = invCDF(1-alpha) = {g:.4f},  GB_limit = MAE - g * U_exp")
+    print(_hr("-"))
+    print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'U_sensor':>12}  {'GB_Limit':>12}  {'Verdict':>12}")
+    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*12}  {'-'*12}")
+
+    n_gb_pass = n_gb_fail = n_gb_amb = 0
+    for i in range(len(t_ref)):
+        gb_limit = mae - g * u_sensor[i]
+        error_val = me_pre[i]
+        if gb_limit <= 0.0:
+            gb_verdict = "AMBIGUOUS"
+            n_gb_amb += 1
+        elif abs(error_val) <= gb_limit:
+            gb_verdict = "PASS"
+            n_gb_pass += 1
+        else:
+            gb_verdict = "FAIL"
+            n_gb_fail += 1
+        print(f"  {i+1:>3}  {t_ref[i]:>12.4f}  {error_val:>13.4e}  {u_sensor[i]:>12.4f}  {gb_limit:>12.4f}  {gb_verdict:>12}")
+
+    print(f"\n  Guard Band Recap: {n_gb_pass} PASS, {n_gb_fail} FAIL, {n_gb_amb} AMBIGUOUS (of {len(t_ref)} total)")
+
     overlap_res = results["check_overlap"]
     print("\n" + _hr("-"))
     print(f"  UNCERTAINTIES OVERLAP & COMPATIBILITY CHECK")
@@ -347,7 +400,7 @@ def save_charts(
     pts = list(range(1, len(t_ref) + 1))
     t_arr = np.array(t_ref)
 
-    DPI = 150
+    DPI = 75
     COLOR_PASS = "#2ecc71"
     COLOR_FAIL = "#e74c3c"
     COLOR_WARN = "#f39c12"
