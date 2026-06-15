@@ -238,7 +238,7 @@ services:
     volumes:
       - ./calibration/scripts:/app/calibration/scripts:ro
       - ./calibration/models_in:/app/calibration/models_in:ro
-      - ../../keys:/app/keys:ro
+      - /../keys:/app/keys:ro
       - calibration_runs_data:/tmp/calibration-runs
     networks:
       app_network:

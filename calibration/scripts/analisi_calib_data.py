@@ -788,12 +788,53 @@ def main() -> None:
 
     # Read old coefficients from --last-calibration JSON (if file exists).
     # Source precedence: CLI --old-* > last-calibration file > sensor JSON coeff* > None.
+    # Two input schemas are supported:
+    #   (a) Comprehensive JSON written by a previous run of this script:
+    #         { "model": "linear"|"cubic", "coefficients": { "A","B",... or "a0","a1",... } }
+    #   (b) Filled certificate JSON containing a top-level "_calibration_result" block
+    #       (e.g. last_calibration/simulated_cubic.json): keys prefixed with "_"
+    #         { "_calibration_result": { "_calib_model": "linear"|"cubic",
+    #                                    "_A","_B"      for linear,
+    #                                    "_a0","_a1","_a2","_a3" for cubic } }
     _last_calib_old: Dict[str, Any] = {}
     if args.last_calibration is not None and args.last_calibration.exists():
         try:
             _last_calib_data = json.loads(args.last_calibration.read_text(encoding="utf-8"))
-            _last_coeffs = _last_calib_data.get("coefficients", {}) or {}
-            _last_model = _last_calib_data.get("model", "linear")
+
+            # (b) _calibration_result block (strip leading "_" from keys)
+            _calib_result_block = _last_calib_data.get("_calibration_result")
+            if isinstance(_calib_result_block, dict):
+                _last_coeffs = {k.lstrip("_"): v for k, v in _calib_result_block.items()}
+                _last_model = _calib_result_block.get("_calib_model", "linear")
+            else:
+                # (a) comprehensive JSON written by a previous run
+                _last_coeffs = _last_calib_data.get("coefficients", {}) or {}
+                _last_model = _last_calib_data.get("model", "linear")
+
+            if args.verbose:
+                _summary_keys = (
+                    "model", "lsb_per_y", "fit_quality",
+                    "coefficients", "old_coefficients",
+                    "temp_nominali", "ref_temp_means", "expanded_uncertainties",
+                )
+                _summary = {k: _last_calib_data[k] for k in _summary_keys if k in _last_calib_data}
+                if isinstance(_calib_result_block, dict):
+                    _whitelist = {
+                        "calib_model", "A", "B", "a0", "a1", "a2", "a3",
+                        "u_A", "u_B", "u_a0", "u_a1", "u_a2", "u_a3",
+                        "rmse", "rmse_pre", "lsb_per_y",
+                        "temp_nominali", "ref_temp_means", "expanded_uncertainties",
+                        "cov_AB", "cov_theta",
+                    }
+                    _summary["_calibration_result"] = {
+                        k.lstrip("_"): v for k, v in _calib_result_block.items()
+                        if k.lstrip("_") in _whitelist
+                    }
+                print("=== --last-calibration: loaded previous calibration ===")
+                print(f"  source file:    {args.last_calibration}")
+                print(f"  detected model: {_last_model}")
+                print(f"  summary:        {json.dumps(_summary, indent=2, ensure_ascii=False, default=str)}")
+
             if _last_model == "linear":
                 _last_calib_old = {
                     "A": _last_coeffs.get("A"),

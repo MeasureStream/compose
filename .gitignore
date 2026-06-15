@@ -1,4 +1,5 @@
 .env
+
 connect-plugins/*
 gateway/*
 mqtt-source.json

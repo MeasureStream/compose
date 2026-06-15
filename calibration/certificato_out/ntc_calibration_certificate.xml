@@ -88,7 +88,7 @@
                 <dcc:model>9142</dcc:model>
                 <dcc:identifications>
                     <dcc:identification>
-                        <dcc:issuer>LAT-999</dcc:issuer>
+                        <dcc:issuer>calibrationLaboratory</dcc:issuer>
                         <dcc:value>012-00000</dcc:value>
                         <dcc:name>
                             <dcc:content lang="en">Calibration certificate</dcc:content>
@@ -159,12 +159,12 @@
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + D*D^3. Coefficients: A=-2.177642e+02, B=1.831347e-02, C=-5.135646e-07, D=4.716858e-12.</dcc:content>
+                    <dcc:content lang="en">Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + D*D^3. Coefficients: A=-2.933521e+01, B=4.350349e-03, C=-1.094277e-07, D=1.249147e-12.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 2.32e+01. RMSE = 1.16e+01.</dcc:content>
+                    <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 3.69e+00. RMSE = 1.84e+00.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
@@ -179,7 +179,7 @@
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">PFA (Probability of False Acceptance) per point: P1=98.0% P2=98.2% P3=98.1% P4=98.2% P5=98.8% P6=98.6% P7=98.1% P8=98.8%. MAE=0.3, threshold=20.0%, mode=combined.</dcc:content>
+                    <dcc:content lang="en">PFA (Probability of False Acceptance) per point: P1=89.8% P2=89.2% P3=88.6% P4=91.0% P5=91.6% P6=89.1% P7=89.6% P8=90.3%. MAE=0.3, threshold=20.0%, mode=combined.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
         </dcc:statements>
@@ -306,7 +306,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-22.14 -3.71 -4.65 19.09 62.47 85.61 95.58 97.75</si:valueXMLList>
+                                        <si:valueXMLList>-18.72 -11.1 -0.91 26.57 48.28 76.06 101.21 108.61</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -317,7 +317,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-2.14 6.29 -4.65 -5.91 12.47 10.61 -4.42 -12.25</si:valueXMLList>
+                                        <si:valueXMLList>1.28 -1.1 -0.91 1.57 -1.72 1.06 1.21 -1.39</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -328,10 +328,10 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-2.14 6.29 -4.65 -5.91 12.47 10.61 -4.42 -12.25</si:valueXMLList>
+                                        <si:valueXMLList>1.28 -1.1 -0.91 1.57 -1.72 1.06 1.21 -1.39</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                         <si:expandedUncXMLList>
-                                            <si:uncertaintyXMLList>23.21 23.21 23.21 23.21 23.21 23.21 23.21 23.21</si:uncertaintyXMLList>
+                                            <si:uncertaintyXMLList>3.7 3.7 3.7 3.7 3.7 3.7 3.7 3.7</si:uncertaintyXMLList>
                                             <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
                                             <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
                                             <si:distributionXMLList>normal</si:distributionXMLList>
@@ -356,7 +356,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.072 0.011 0.0073 0.061 0.027 0.02 0.0097 0.006</si:valueXMLList>
+                                        <si:valueXMLList>0.013 0.02 0.033 0.03 0.02 0.038 0.031 0.022</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -367,7 +367,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>5.80142224 5.80131321 5.80131186 5.80139233 5.80132693 5.80131904 5.80131318 5.80131188</si:valueXMLList>
+                                        <si:valueXMLList>0.92528334 0.9253136 0.92540383 0.92538529 0.92531249 0.92545479 0.92539324 0.92532408</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -389,10 +389,10 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:real>
-                                        <si:value>1.160165e+01</si:value>
+                                        <si:value>1.844428e+00</si:value>
                                         <si:unit>\degreeCelsius</si:unit>
                                         <si:expandedUnc>
-                                            <si:uncertainty>2.320330e+01</si:uncertainty>
+                                            <si:uncertainty>3.688855e+00</si:uncertainty>
                                             <si:coverageFactor>2.0</si:coverageFactor>
                                             <si:coverageProbability>0.95</si:coverageProbability>
                                         </si:expandedUnc>
