@@ -232,6 +232,8 @@ def calibrate(
     # Local sensitivity: dY/dD|_i = a1 + 2*a2*D_i + 3*a3*D_i² [{unit_symbol}/LSB]
     
     u_fitting_val = ufit if ufit is not None else rmse
+    u_fitting_val = rmse
+    print("ufitt ", u_fitting_val)
 
     expanded_uncertainties: List[float] = []
     per_step_budget: List[dict] = []

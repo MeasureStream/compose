@@ -152,7 +152,7 @@
           1.0,
           0.258249146875,
           0.23761206866273454,
-          -4.897182422033316,
+          -0.02063707821226546,
           -0.02063707821226546,
           0.3713079312072752
         ],
@@ -160,7 +160,7 @@
           2.0,
           25.14286285,
           25.18888219378259,
-          -7.915180330536458,
+          0.04601934378258932,
           0.04601934378258932,
           0.341526514605463
         ],
@@ -168,7 +168,7 @@
           3.0,
           49.66639189375,
           49.66487763120526,
-          -10.988611413853747,
+          -0.0015142625447452929,
           -0.0015142625447452929,
           0.3260653711762359
         ],
@@ -176,7 +176,7 @@
           4.0,
           73.97829340000001,
           73.94535715379722,
-          -14.021759799829425,
+          -0.03293624620279445,
           -0.03293624620279445,
           0.32649177014464115
         ],
@@ -184,7 +184,7 @@
           5.0,
           98.301705225,
           98.29127083015888,
-          -17.00907378850843,
+          -0.01043439484112696,
           -0.01043439484112696,
           0.34241317063436494
         ],
@@ -192,7 +192,7 @@
           6.0,
           122.11914698846157,
           122.13864962647978,
-          -19.927320150972108,
+          0.01950263801820995,
           0.01950263801820995,
           0.37542208400826416
         ]
@@ -202,7 +202,7 @@
           1,
           0.26,
           0.24,
-          -4.9,
+          -0.02,
           -0.02,
           0.37
         ],
@@ -210,7 +210,7 @@
           2,
           25.14,
           25.19,
-          -7.92,
+          0.05,
           0.05,
           0.34
         ],
@@ -218,7 +218,7 @@
           3,
           49.67,
           49.66,
-          -10.99,
+          -0.0,
           -0.0,
           0.33
         ],
@@ -226,7 +226,7 @@
           4,
           73.98,
           73.95,
-          -14.02,
+          -0.03,
           -0.03,
           0.33
         ],
@@ -234,7 +234,7 @@
           5,
           98.3,
           98.29,
-          -17.01,
+          -0.01,
           -0.01,
           0.34
         ],
@@ -242,7 +242,7 @@
           6,
           122.12,
           122.14,
-          -19.93,
+          0.02,
           0.02,
           0.38
         ]
@@ -359,7 +359,7 @@
     "_interp_unc_sum_abs": 0.1610627908751049,
     "_interp_unc_fixed_2sig": 0.16,
     "_rmse": 0.032093565514268896,
-    "_rmse_pre": 13.4808412421149,
+    "_rmse_pre": 0.02620428651218053,
     "_ref_temp_means": [
       0.258249146875,
       25.14286285,
@@ -403,7 +403,7 @@
         "uA_ref": 0.0025,
         "uA_sensor": 0.002,
         "ub_uso": 0.10934877785256795,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.15002052316450123,
         "u_sensor": 0.10936744293347085,
         "u_c": 0.19,
@@ -415,7 +415,7 @@
         "uA_ref": 0.0028,
         "uA_sensor": 0.0038,
         "ub_uso": 0.0814699099977436,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.1500270533352055,
         "u_sensor": 0.08155963040741596,
         "u_c": 0.17,
@@ -427,7 +427,7 @@
         "uA_ref": 0.0012,
         "uA_sensor": 0.0011,
         "ub_uso": 0.06385165616021647,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.15000445539795101,
         "u_sensor": 0.06386172508504799,
         "u_c": 0.16,
@@ -439,7 +439,7 @@
         "uA_ref": 0.0022,
         "uA_sensor": 0.0024,
         "ub_uso": 0.06432975995919962,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.15001643515555177,
         "u_sensor": 0.0643761460190452,
         "u_c": 0.16,
@@ -451,7 +451,7 @@
         "uA_ref": 0.0019,
         "uA_sensor": 0.0026,
         "ub_uso": 0.08246795061529806,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.1500125110232676,
         "u_sensor": 0.08251025022664578,
         "u_c": 0.17,
@@ -463,7 +463,7 @@
         "uA_ref": 0.021,
         "uA_sensor": 0.019,
         "ub_uso": 0.10924431942921091,
-        "u_fitting": 0.032093565514268896,
+        "u_fitting": 0.032,
         "u_ref": 0.15142088013442673,
         "u_sensor": 0.11093760566008541,
         "u_c": 0.19,
@@ -477,53 +477,308 @@
       "manufacturer": "Fluke / Hart Scientific",
       "calibrationCertificateID": "012-00000",
       "issuedBy": "LAT-999"
+    },
+    "_sensor_schema_version": "1.0.2",
+    "_ref_schema_version": "1.0.0",
+    "_conformity": {
+      "summary": {
+        "G": "PASS",
+        "A": "PASS",
+        "B": "FAIL",
+        "H": "PASS",
+        "calibration_done": "done",
+        "overall": "NON-COMPLIANT"
+      },
+      "check_G": {
+        "status": "PASS",
+        "calib_model": "linear",
+        "note": "Interpolation model: all calibration points are within the declared tolerance.",
+        "G1_all_in_range": true,
+        "G2_all_covered": true,
+        "per_point": [
+          {
+            "punto": 1,
+            "T_ref_y": 0.26,
+            "M_e_pre_y": -0.02,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          },
+          {
+            "punto": 2,
+            "T_ref_y": 25.14,
+            "M_e_pre_y": 0.05,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          },
+          {
+            "punto": 3,
+            "T_ref_y": 49.67,
+            "M_e_pre_y": -0.0,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          },
+          {
+            "punto": 4,
+            "T_ref_y": 73.98,
+            "M_e_pre_y": -0.03,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          },
+          {
+            "punto": 5,
+            "T_ref_y": 98.3,
+            "M_e_pre_y": -0.01,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          },
+          {
+            "punto": 6,
+            "T_ref_y": 122.12,
+            "M_e_pre_y": 0.02,
+            "max_allowed_error_y": 0.6,
+            "G1_in_range": true,
+            "G2_covered": true
+          }
+        ]
+      },
+      "check_A": [
+        {
+          "punto": 1,
+          "T_ref": 0.26,
+          "T_sensor": 0.24,
+          "M_e": -0.02,
+          "U_exp": 0.37,
+          "pass": true
+        },
+        {
+          "punto": 2,
+          "T_ref": 25.14,
+          "T_sensor": 25.19,
+          "M_e": 0.05,
+          "U_exp": 0.34,
+          "pass": true
+        },
+        {
+          "punto": 3,
+          "T_ref": 49.67,
+          "T_sensor": 49.66,
+          "M_e": -0.0,
+          "U_exp": 0.33,
+          "pass": true
+        },
+        {
+          "punto": 4,
+          "T_ref": 73.98,
+          "T_sensor": 73.95,
+          "M_e": -0.03,
+          "U_exp": 0.33,
+          "pass": true
+        },
+        {
+          "punto": 5,
+          "T_ref": 98.3,
+          "T_sensor": 98.29,
+          "M_e": -0.01,
+          "U_exp": 0.34,
+          "pass": true
+        },
+        {
+          "punto": 6,
+          "T_ref": 122.12,
+          "T_sensor": 122.14,
+          "M_e": 0.02,
+          "U_exp": 0.38,
+          "pass": true
+        }
+      ],
+      "check_B": [
+        {
+          "punto": 1,
+          "U_exp": 0.37,
+          "limit": 0.1,
+          "excess": 0.27,
+          "pass": false
+        },
+        {
+          "punto": 2,
+          "U_exp": 0.34,
+          "limit": 0.1,
+          "excess": 0.24000000000000002,
+          "pass": false
+        },
+        {
+          "punto": 3,
+          "U_exp": 0.33,
+          "limit": 0.1,
+          "excess": 0.23,
+          "pass": false
+        },
+        {
+          "punto": 4,
+          "U_exp": 0.33,
+          "limit": 0.1,
+          "excess": 0.23,
+          "pass": false
+        },
+        {
+          "punto": 5,
+          "U_exp": 0.34,
+          "limit": 0.1,
+          "excess": 0.24000000000000002,
+          "pass": false
+        },
+        {
+          "punto": 6,
+          "U_exp": 0.38,
+          "limit": 0.1,
+          "excess": 0.28,
+          "pass": false
+        }
+      ],
+      "check_H": [
+        {
+          "punto": 1,
+          "T_ref_y": 0.26,
+          "M_e_pre_y": -0.02,
+          "Ein": -0.06666666666666667,
+          "U_exp_y": 0.37,
+          "u_std_y": 0.185,
+          "u_Ein": 0.6166666666666667,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 10.691392280966987,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        },
+        {
+          "punto": 2,
+          "T_ref_y": 25.14,
+          "M_e_pre_y": 0.05,
+          "Ein": 0.16666666666666669,
+          "U_exp_y": 0.34,
+          "u_std_y": 0.17,
+          "u_Ein": 0.5666666666666668,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 9.045682713208752,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        },
+        {
+          "punto": 3,
+          "T_ref_y": 49.67,
+          "M_e_pre_y": -0.0,
+          "Ein": -0.0,
+          "U_exp_y": 0.33,
+          "u_std_y": 0.165,
+          "u_Ein": 0.55,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 6.903634799441521,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        },
+        {
+          "punto": 4,
+          "T_ref_y": 73.98,
+          "M_e_pre_y": -0.03,
+          "Ein": -0.1,
+          "U_exp_y": 0.33,
+          "u_std_y": 0.165,
+          "u_Ein": 0.55,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 7.363188442380802,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        },
+        {
+          "punto": 5,
+          "T_ref_y": 98.3,
+          "M_e_pre_y": -0.01,
+          "Ein": -0.03333333333333333,
+          "U_exp_y": 0.34,
+          "u_std_y": 0.17,
+          "u_Ein": 0.5666666666666668,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 7.812661633285137,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        },
+        {
+          "punto": 6,
+          "T_ref_y": 122.12,
+          "M_e_pre_y": 0.02,
+          "Ein": 0.06666666666666667,
+          "U_exp_y": 0.38,
+          "u_std_y": 0.19,
+          "u_Ein": 0.6333333333333334,
+          "u_std_mode": "combined",
+          "MAE_y": 0.3,
+          "PFA_pct": 11.6353812851301,
+          "PFA_threshold_pct": 20.0,
+          "pass": true
+        }
+      ],
+      "check_H_params": {
+        "mae_y": 0.3,
+        "pfa_threshold_pct": 20.0,
+        "u_std_mode": "combined"
+      },
+      "guard_band": 0.6
     }
   },
   "_calibration_done": "done",
   "_sensor_accuracy_check": {
-    "all_in_range": false,
+    "all_in_range": true,
     "per_point": [
       {
         "point": 1,
         "T_ref_y": 0.258249146875,
-        "as_found_error_y": -4.897182422033316,
+        "as_found_error_y": -0.02063707821226546,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       },
       {
         "point": 2,
         "T_ref_y": 25.14286285,
-        "as_found_error_y": -7.915180330536458,
+        "as_found_error_y": 0.04601934378258932,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       },
       {
         "point": 3,
         "T_ref_y": 49.66639189375,
-        "as_found_error_y": -10.988611413853747,
+        "as_found_error_y": -0.0015142625447452929,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       },
       {
         "point": 4,
         "T_ref_y": 73.97829340000001,
-        "as_found_error_y": -14.021759799829425,
+        "as_found_error_y": -0.03293624620279445,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       },
       {
         "point": 5,
         "T_ref_y": 98.301705225,
-        "as_found_error_y": -17.00907378850843,
+        "as_found_error_y": -0.01043439484112696,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       },
       {
         "point": 6,
         "T_ref_y": 122.11914698846157,
-        "as_found_error_y": -19.927320150972108,
+        "as_found_error_y": 0.01950263801820995,
         "max_allowed_error_y": 0.6,
-        "in_range": false
+        "in_range": true
       }
     ]
   }

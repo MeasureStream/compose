@@ -94,44 +94,42 @@ python scripts/analisi_calib_data.py `
 
 ```powershell
 python scripts/analisi_calib_data.py `
-  --input                              data_in/points_40_50.json `
+  --input                              data_in/simulated_8p.json `
   --sensor                             models_in/sensors/ntc_temperature.json `
   --ref                                models_in/references/fluke_9142.json `
   --cert-input                         template_in/certificato_funzione_input.json `
   --cert-output                        certificato_out/certificato_funzione_filled.json `
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
   --xml                                certificato_out/ntc_calibration_certificate.xml `
-  --last-calibration                   last_calibration/last_calibration.json `
+  --last-calibration                   last_calibration/simulated_cubic.json `
   --conformity-output                  certificato_out/conformity_results.json `
-  --images-dir                         my_run/images `
+  --images-dir                         images `
   --procedure                          linear `
-  --old-a 0.00221 --old-b -40.0 `
-  --update-parameters                  if-out-of-tolerance `
+  --update-parameters                  always `
   --convert-units `
-  --mae-y                              0.30 `
-  --pfa-threshold-pct                  20.0 `
-  --pfa-u-std-mode                     combined `
-  --u-ref                              0.065 `
   --charts `
-  --charts-interactive `
   --verbose
 ```
 ```powershell
-python scripts/analisi_calib_data.py `
-   --input                              data_in/export2_tmp126_lsb16.json `
-   --sensor                             models_in/sensors/pt100_temp.json `
-   --ref                                models_in/references/fluke_old.json `
-   --cert-input                         template_in/certificato_funzione_input.json `
-   --cert-output                        certificato_out/certificato_funzione_filled.json `
-   --pdf                                certificato_out/ntc_cert_funzione.pdf `
-   --xml                                certificato_out/ntc_calibration_certificate.xml `
-   --conformity-output                  certificato_out/conformity_results.json `
-   --images-dir                         ./images/calibration `
-   --procedure                          linear `
-   --charts `
-   --convert-units `
-   --old-a 0.0025246 --old-b -40.20 `
-   --verbose
+
+
+uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_data.py `
+  --input                              data_in/simulated_8p.json `
+  --sensor                             models_in/sensors/ntc_temperature.json `
+  --ref                                models_in/references/fluke_9142.json `
+  --cert-input                         template_in/certificato_funzione_input.json `
+  --cert-output                        certificato_out/certificato_funzione_filled.json `
+  --pdf                                certificato_out/ntc_cert_funzione.pdf `
+  --xml                                certificato_out/ntc_calibration_certificate.xml `
+  --last-calibration                   last_calibration/simulated_cubic.json `
+  --conformity-output                  certificato_out/conformity_results.json `
+  --images-dir                         images `
+  --procedure                          cubic `
+  --update-parameters                  always `
+  --convert-units `
+  --charts `
+  --verbose
+
 
 ```
 
