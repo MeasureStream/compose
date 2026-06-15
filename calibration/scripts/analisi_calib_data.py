@@ -90,15 +90,39 @@ def _validate_output_domain(
     sensor_json: Dict[str, Any],
     unit_symbol: str,
 ) -> None:
-    """R18: verify certificate measurements fall within the declared physical range."""
+    """R18: verify certificate measurements fall within the declared physical range.
+    Pint-aware: if the sensor's phys range is in degC but the certificate is in a
+    different unit (e.g. mK, K), the range values are converted to the cert unit
+    before the check. When the cert unit is degC (no conversion), values are
+    compared directly.
+    """
     phys = sensor_json.get("ranges", {}).get("phys", {})
-    phys_min = float(phys.get("min", float("-inf")))
-    phys_max = float(phys.get("max", float("inf")))
+    phys_dsi = phys.get("dsi", "\\degreeCelsius")
+    phys_min_raw = float(phys.get("min", float("-inf")))
+    phys_max_raw = float(phys.get("max", float("inf")))
 
-    if phys_min == float("-inf") and phys_max == float("inf"):
+    if phys_min_raw == float("-inf") and phys_max_raw == float("inf"):
         return
 
-    margin = max(0.5 * (phys_max - phys_min), 10.0)  # 50% range or 10 unit margin
+    # Convert the range to the certificate unit (if they differ) using Pint
+    phys_min = phys_min_raw
+    phys_max = phys_max_raw
+    if unit_symbol and unit_symbol != "°C" and unit_symbol != "degC":
+        try:
+            import sys as _sys
+            sys.path.insert(0, str(Path(__file__).resolve().parent / "model_calibration"))
+            from unit_checks import _dsi_to_pint_name, _UREG
+            src = _dsi_to_pint_name(phys_dsi)
+            tgt = unit_symbol
+            if _UREG is not None and src != tgt:
+                phys_min = float(_UREG.Quantity(phys_min_raw, src).to(tgt).magnitude)
+                phys_max = float(_UREG.Quantity(phys_max_raw, src).to(tgt).magnitude)
+        except Exception:
+            # Pint not available or units incompatible — fall back to raw
+            phys_min = phys_min_raw
+            phys_max = phys_max_raw
+
+    margin = max(0.5 * (phys_max - phys_min), 10.0)
 
     measurements = (
         cert_filled.get("template_parts", {})
@@ -120,7 +144,8 @@ def _validate_output_domain(
             import sys as _sys
             print(
                 f"\n*** [R18] DOMAIN ERROR: certificate values outside declared physical range "
-                f"[{phys_min:.0f}, {phys_max:.0f}] {unit_symbol}. "
+                f"[{phys_min:.0f}, {phys_max:.0f}] {unit_symbol} "
+                f"(sensor JSON declares [{phys_min_raw:.0f}, {phys_max_raw:.0f}] {phys_dsi}). "
                 f"Data may be in LSB domain (16-bit ADC 0-65535) instead of {unit_symbol}. "
                 f"Check pipeline LSB->{unit_symbol} conversion.\n",
                 file=_sys.stderr,
@@ -143,6 +168,12 @@ def _build_last_calib_json(
     )
     calib_cr = cert_filled.get("_calibration_result", {})
 
+    # Prefer converted values when --convert-units was applied
+    _conv = calib_result.get("converted", {})
+
+    def _conv_or(key: str, default):
+        return _conv.get(key, default)
+
     out: Dict[str, Any] = {
         "model": calib_model,
         "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
@@ -159,17 +190,20 @@ def _build_last_calib_json(
             "ub_sensor_lsb": calib_result.get("ub_sensor_lsb"),
             "ub_sensor_lsb_per_step": calib_result.get("ub_sensor_lsb_per_step"),
         },
-        "expanded_uncertainties": calib_result.get("expanded_uncertainties"),
+        "expanded_uncertainties": _conv_or("expanded_uncertainties",
+                                          calib_result.get("expanded_uncertainties")),
         "temp_nominali": calib_result.get("temp_nominali"),
-        "ref_temp_means": calib_result.get("ref_temp_means"),
+        "ref_temp_means": _conv_or("ref_temp_means", calib_result.get("ref_temp_means")),
     }
+    if _conv:
+        out["units"] = calib_result.get("units", {})
 
     if calib_model == "linear":
         out["coefficients"] = {
-            "A":    calib_result.get("A"),
-            "B":    calib_result.get("B"),
-            "u_A":  calib_result.get("u_A"),
-            "u_B":  calib_result.get("u_B"),
+            "A":    _conv_or("A", calib_result.get("A")),
+            "B":    _conv_or("B", calib_result.get("B")),
+            "u_A":  _conv_or("u_A", calib_result.get("u_A")),
+            "u_B":  _conv_or("u_B", calib_result.get("u_B")),
             "cov_AB": calib_result.get("cov_AB"),
         }
         out["old_coefficients"] = {
@@ -179,10 +213,14 @@ def _build_last_calib_json(
         budget = calib_result.get("u_budget_per_step", [])
     elif calib_model == "cubic":
         out["coefficients"] = {
-            "a0": calib_result.get("a0"), "a1": calib_result.get("a1"),
-            "a2": calib_result.get("a2"), "a3": calib_result.get("a3"),
-            "u_a0": calib_result.get("u_a0"), "u_a1": calib_result.get("u_a1"),
-            "u_a2": calib_result.get("u_a2"), "u_a3": calib_result.get("u_a3"),
+            "a0": _conv_or("a0", calib_result.get("a0")),
+            "a1": _conv_or("a1", calib_result.get("a1")),
+            "a2": _conv_or("a2", calib_result.get("a2")),
+            "a3": _conv_or("a3", calib_result.get("a3")),
+            "u_a0": _conv_or("u_a0", calib_result.get("u_a0")),
+            "u_a1": _conv_or("u_a1", calib_result.get("u_a1")),
+            "u_a2": _conv_or("u_a2", calib_result.get("u_a2")),
+            "u_a3": _conv_or("u_a3", calib_result.get("u_a3")),
             "cov_theta": calib_result.get("cov_theta"),
         }
         out["old_coefficients"] = {
@@ -193,16 +231,15 @@ def _build_last_calib_json(
     else:
         budget = []
 
-    # Per-step calibration points with uncertainties
+    # Per-step calibration points with uncertainties (use converted values)
+    ref_means_for_points = out["ref_temp_means"] or []
+    exp_uncs_for_points = out["expanded_uncertainties"] or []
     calibration_points = []
-    for i, (t_nom, ref_t) in enumerate(zip(
-        calib_result.get("temp_nominali", []),
-        calib_result.get("ref_temp_means", []),
-    )):
+    for i, t_nom in enumerate(calib_result.get("temp_nominali", [])):
         point: Dict[str, Any] = {
             "point": i + 1,
             "t_nominal": t_nom,
-            "T_ref": ref_t,
+            "T_ref": ref_means_for_points[i] if i < len(ref_means_for_points) else None,
         }
         if i < len(measurements):
             m = measurements[i]
@@ -212,8 +249,8 @@ def _build_last_calib_json(
                 "M_e_post":      m[4],
                 "U_exp":         m[5],
             })
-        if i < len(calib_result.get("expanded_uncertainties", [])):
-            point["U_exp"] = calib_result["expanded_uncertainties"][i]
+        if i < len(exp_uncs_for_points):
+            point["U_exp"] = exp_uncs_for_points[i]
         if i < len(budget):
             b = budget[i]
             for key in ("uA_ref", "uA_sensor", "ub_uso", "u_fitting",
@@ -957,8 +994,7 @@ def main() -> None:
     # ── R18: output boundary validation — verify measurements are in physical units, not LSB ──
     _validate_output_domain(cert_filled, sensor_json, _cert_unit_sym)
 
-    # ── R18: --last-calibration is currently INPUT-only (read old baseline).
-    #   Writing new results back is disabled pending a clearer contract.
+    # ── R18: for now not use
     # if args.last_calibration is not None:
     #     last_calib_json = _build_last_calib_json(calib_result, cert_filled)
     #     args.last_calibration.parent.mkdir(parents=True, exist_ok=True)

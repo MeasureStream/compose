@@ -58,7 +58,7 @@ _BLOCKED_NODES = frozenset({
     ast.NamedExpr,
     ast.Delete, ast.Assert, ast.Pass, ast.Break, ast.Continue, ast.Raise, ast.Return,
     ast.For, ast.AsyncFor, ast.While, ast.If, ast.With, ast.AsyncWith,
-    ast.Try, ast.ExceptHandler, ast.TryStar,
+    ast.Try, ast.ExceptHandler, getattr(ast, "TryStar", None),
     ast.Match, ast.MatchValue, ast.MatchSingleton, ast.MatchSequence, ast.MatchMapping,
     ast.MatchClass, ast.MatchStar, ast.MatchAs, ast.MatchOr,
     ast.AnnAssign, ast.AugAssign, ast.Assign,

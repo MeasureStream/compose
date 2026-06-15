@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+
 DPI       = 100
 FIG_W_1x2 = 24.0
 FIG_H_1x2 = 10.0

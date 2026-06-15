@@ -19,6 +19,8 @@ _DSI_EXCEPTIONS: Dict[str, str] = {
     "\\degreeCelsius":    "degC",
     "\\degreeFahrenheit": "degF",
     "\\one":              "dimensionless",
+    "\\milli\\degreeCelsius": "millidegreeCelsius",
+    "\\milli\\kelvin":    "millikelvin",
 }
 
 _PINT_EXCEPTIONS: Dict[str, str] = {v: k for k, v in _DSI_EXCEPTIONS.items()}
