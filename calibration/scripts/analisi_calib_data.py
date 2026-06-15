@@ -994,16 +994,16 @@ def main() -> None:
     # ── R18: output boundary validation — verify measurements are in physical units, not LSB ──
     _validate_output_domain(cert_filled, sensor_json, _cert_unit_sym)
 
-    # ── R18: for now not use
-    # if args.last_calibration is not None:
-    #     last_calib_json = _build_last_calib_json(calib_result, cert_filled)
-    #     args.last_calibration.parent.mkdir(parents=True, exist_ok=True)
-    #     args.last_calibration.write_text(
-    #         json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
-    #         encoding="utf-8",
-    #     )
-    #     if args.verbose:
-    #         print(f"Last calibration JSON written to: {args.last_calibration}")
+    # ── R18: write full calibration result JSON for downstream consumers ──
+    if args.last_calibration is not None:
+        last_calib_json = _build_last_calib_json(calib_result, cert_filled)
+        args.last_calibration.parent.mkdir(parents=True, exist_ok=True)
+        args.last_calibration.write_text(
+            json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+        if args.verbose:
+            print(f"Last calibration JSON written to: {args.last_calibration}")
 
     if calibration_skipped:
         _apply_calibration_skipped(cert_filled, calib_result, old_A, old_B, old_C, old_D, lsb_per_y)
