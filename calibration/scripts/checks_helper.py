@@ -301,61 +301,62 @@ def save_charts(
     saved.append(p1)
 
     # --- fig2: as-found errors with sensorAccuracy limits (Check G visual) ---
-    fig2, ax2 = plt.subplots(figsize=(9, 5))
-    ax2.set_title(f"Check G \u2014 As-found errors (pre-calibration) vs tolerance", fontsize=11)
-
-    x_pos = np.arange(len(punti))
-    width = 0.40
-
-    bars = ax2.bar(x_pos, me_pre, width, color="#4472C4", edgecolor="white", linewidth=0.8, label="M_e_pre (as-found)")
-
-    if accuracy_ranges is not None:
-        for i, p in enumerate(punti):
-            max_err = float(accuracy_ranges) if isinstance(accuracy_ranges, (int, float)) else _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
-            if max_err < float("inf"):
-                ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
-                         [max_err, max_err], color="red", linewidth=2.0, linestyle="--")
-                ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
-                         [-max_err, -max_err], color="red", linewidth=2.0, linestyle="--")
-
-        ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="tolerance")
-
-    ax2.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
-    ax2.set_xticks(x_pos)
-    ax2.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)], fontsize=8)
-    ax2.set_xlabel("Calibration point")
-    ax2.set_ylabel(f"Error as-found M_e_pre  [{unit_symbol}]")
-
-    if len(me_pre) > 0:
-        y_max = float(np.max(np.abs(me_pre)))
-        if isinstance(accuracy_ranges, (int, float)):
-            y_max = max(y_max, abs(float(accuracy_ranges)))
-        elif accuracy_ranges:
-            for r in accuracy_ranges:
-                try:
-                    y_max = max(y_max, abs(float(r.get("maxError", 0.0))))
-                except (TypeError, ValueError):
-                    pass
-        ax2.set_ylim(-max(y_max, 1e-9) * 1.20, max(y_max, 1e-9) * 1.20)
-
-    ax2.legend(loc="upper right", fontsize=9)
-    ax2.grid(True, alpha=0.3, axis="y")
-
-    for i, (bar, val) in enumerate(zip(bars, me_pre)):
-        if isinstance(accuracy_ranges, (int, float)):
-            max_err_val = float(accuracy_ranges) if accuracy_ranges is not None else float("inf")
-        else:
-            max_err_val = _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
-        color = "darkgreen" if abs(val) <= max_err_val else "darkred"
-        ax2.text(bar.get_x() + bar.get_width()/2, val + (0.02 if val >= 0 else -0.06),
-                 f"{val:+.4f}", ha="center", va="bottom" if val >= 0 else "top",
-                 fontsize=8, color=color, fontweight="bold")
-
-    plt.tight_layout()
-    p2 = output_dir / f"{prefix}_fig2_asfound.png"
-    fig2.savefig(p2, dpi=75, bbox_inches="tight")
-    plt.close(fig2)
-    saved.append(p2)
+    # DISABLED: only fig1 (post-calibration residuals) is generated.
+    # fig2, ax2 = plt.subplots(figsize=(9, 5))
+    # ax2.set_title(f"Check G \u2014 As-found errors (pre-calibration) vs tolerance", fontsize=11)
+    #
+    # x_pos = np.arange(len(punti))
+    # width = 0.40
+    #
+    # bars = ax2.bar(x_pos, me_pre, width, color="#4472C4", edgecolor="white", linewidth=0.8, label="M_e_pre (as-found)")
+    #
+    # if accuracy_ranges is not None:
+    #     for i, p in enumerate(punti):
+    #         max_err = float(accuracy_ranges) if isinstance(accuracy_ranges, (int, float)) else _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
+    #         if max_err < float("inf"):
+    #             ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
+    #                      [max_err, max_err], color="red", linewidth=2.0, linestyle="--")
+    #             ax2.plot([x_pos[i] - width/2 - 0.05, x_pos[i] + width/2 + 0.05],
+    #                      [-max_err, -max_err], color="red", linewidth=2.0, linestyle="--")
+    #
+    #     ax2.plot([], [], color="red", linewidth=2.0, linestyle="--", label="tolerance")
+    #
+    # ax2.axhline(0, color="black", linestyle="-", linewidth=0.7, alpha=0.5)
+    # ax2.set_xticks(x_pos)
+    # ax2.set_xticklabels([f"P{p}\n({t_ref[i]:.2f} {unit_symbol})" for i, p in enumerate(punti)], fontsize=8)
+    # ax2.set_xlabel("Calibration point")
+    # ax2.set_ylabel(f"Error as-found M_e_pre  [{unit_symbol}]")
+    #
+    # if len(me_pre) > 0:
+    #     y_max = float(np.max(np.abs(me_pre)))
+    #     if isinstance(accuracy_ranges, (int, float)):
+    #         y_max = max(y_max, abs(float(accuracy_ranges)))
+    #     elif accuracy_ranges:
+    #         for r in accuracy_ranges:
+    #             try:
+    #                 y_max = max(y_max, abs(float(r.get("maxError", 0.0))))
+    #             except (TypeError, ValueError):
+    #                 pass
+    #     ax2.set_ylim(-max(y_max, 1e-9) * 1.20, max(y_max, 1e-9) * 1.20)
+    #
+    # ax2.legend(loc="upper right", fontsize=9)
+    # ax2.grid(True, alpha=0.3, axis="y")
+    #
+    # for i, (bar, val) in enumerate(zip(bars, me_pre)):
+    #     if isinstance(accuracy_ranges, (int, float)):
+    #         max_err_val = float(accuracy_ranges) if accuracy_ranges is not None else float("inf")
+    #     else:
+    #         max_err_val = _max_error_for_temp(float(t_ref[i]), accuracy_ranges)
+    #     color = "darkgreen" if abs(val) <= max_err_val else "darkred"
+    #     ax2.text(bar.get_x() + bar.get_width()/2, val + (0.02 if val >= 0 else -0.06),
+    #              f"{val:+.4f}", ha="center", va="bottom" if val >= 0 else "top",
+    #              fontsize=8, color=color, fontweight="bold")
+    #
+    # plt.tight_layout()
+    # p2 = output_dir / f"{prefix}_fig2_asfound.png"
+    # fig2.savefig(p2, dpi=75, bbox_inches="tight")
+    # plt.close(fig2)
+    # saved.append(p2)
 
     return saved
 

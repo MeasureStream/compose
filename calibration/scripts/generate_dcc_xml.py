@@ -360,7 +360,7 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
             _text(
                 cert_ident,
                 "{https://ptb.de/dcc}issuer",
-                ref_instr.get("issuedBy", "N/A"),
+                "calibrationLaboratory",
             )
             _text(
                 cert_ident,
