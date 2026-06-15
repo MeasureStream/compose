@@ -753,7 +753,16 @@ def main() -> None:
     old_D: float | None = args.old_d if args.old_d is not None else _coeff_from_json(_get_calib_coeff(sensor_json, "D"))
 
     if args.verbose:
-        print(f"Previous coefficients: A={old_A}, B={old_B}, C={old_C}, D={old_D}")
+        print("=== Previous results (as-found baseline) ===")
+        _src_a = "CLI --old-a" if args.old_a is not None else ("sensor JSON coeffA" if _get_calib_coeff(sensor_json, "A") != 0.0 else "identity (first calibration)")
+        _src_b = "CLI --old-b" if args.old_b is not None else ("sensor JSON coeffB" if _get_calib_coeff(sensor_json, "B") != 0.0 else "identity (first calibration)")
+        _src_c = "CLI --old-c" if args.old_c is not None else ("sensor JSON coeffC" if _get_calib_coeff(sensor_json, "C") != 0.0 else "identity (first calibration)")
+        _src_d = "CLI --old-d" if args.old_d is not None else ("sensor JSON coeffD" if _get_calib_coeff(sensor_json, "D") != 0.0 else "identity (first calibration)")
+        print(f"  old_A = {old_A}  [source: {_src_a}]")
+        print(f"  old_B = {old_B}  [source: {_src_b}]")
+        print(f"  old_C = {old_C}  [source: {_src_c}]")
+        print(f"  old_D = {old_D}  [source: {_src_d}]")
+        print(f"  ufit  = {ufit}  [source: {'sensor JSON' if ufit else 'not set'}]")
 
     # Build formula variables from readingUncertainty and calibration coefficients
     _formula_vars: Dict[str, float] | None = None

@@ -101,12 +101,17 @@ python scripts/analisi_calib_data.py `
   --cert-output                        certificato_out/certificato_funzione_filled.json `
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
   --xml                                certificato_out/ntc_calibration_certificate.xml `
+  --last-calibration                   last_calibration/last_calibration.json `
   --conformity-output                  certificato_out/conformity_results.json `
   --images-dir                         my_run/images `
   --procedure                          linear `
+  --old-a 0.00221 --old-b -40.0 `
   --update-parameters                  if-out-of-tolerance `
-  --check-units `
   --convert-units `
+  --mae-y                              0.30 `
+  --pfa-threshold-pct                  20.0 `
+  --pfa-u-std-mode                     combined `
+  --u-ref                              0.065 `
   --charts `
   --charts-interactive `
   --verbose
@@ -146,6 +151,7 @@ python scripts/analisi_calib_data.py `
 | `--cert-output PATH` | `certificato_out/certificato_funzione_filled.json` | Filled certificate JSON output |
 | `--pdf PATH` | `certificato_out/ntc_cert_funzione.pdf` | PDF certificate output |
 | `--xml PATH` | `certificato_out/ntc_calibration_certificate.xml` | DCC XML output |
+| `--last-calibration PATH` | `last_calibration/last_calibration.json` | Output path for the **comprehensive JSON** containing every coefficient, uncertainty, and per-point budget — for downstream consumers and the **next** calibration run (where `rmse_pre` is fed back as `ufit`). |
 | `--conformity-output PATH` | _(none)_ | Optional path to write conformity results JSON |
 | `--images-dir PATH` | _(none)_ | Override base directory for plot PNGs. Subfolders `calibration/` and `conformity/` are created inside. When omitted, defaults to `images/calibration/` and `images/conformity/` relative to the calibration root. |
 | `--procedure` | _(from sensor JSON)_ | Force calibration model: `linear`, `cubic`, `cube-log`, `linear_interp`, `cubic_interp` |
@@ -159,8 +165,12 @@ python scripts/analisi_calib_data.py `
 | `--no-pdf` | `False` | Skip PDF generation |
 | `--no-xml` | `False` | Skip DCC XML generation |
 | `--update-parameters` | `none` | Parameter update strategy: `none` (do not adjust), `always` (adjust regardless), `if-out-of-tolerance` (skip when all as-found errors are within `sensorAccuracy` limits) |
-| `--check-units` | `False` | Enable dimensional unit analysis via pint |
+| `--check-units` | `False` | **(deprecated — no-op)** Unit checks now run automatically when model JSONs are provided. |
 | `--convert-units` | `False` | Convert results to the preferred output unit declared in the sensor JSON |
+| `--mae-y FLOAT` | `0.30` | Maximum Accepted Error [°C] for **Check H (PFA)** — see `--pfa-threshold-pct`. |
+| `--pfa-threshold-pct FLOAT` | `20.0` | PFA acceptance threshold [%]. A calibration point passes Check H if `PFA_pct ≤ pfa_threshold_pct`. |
+| `--pfa-u-std-mode {combined,type_a}` | `combined` | How Check H estimates `u_std`: `combined` uses `u_exp / k` (expanded uncertainty divided by k=2); `type_a` uses only the type-A component `uA_sensor` from the per-step budget. |
+| `--u-ref FLOAT` | `0.065` | Reference instrument expanded uncertainty [°C] at k=2. Used by `verify_dcc_conformity.py` and some conformity check H comparisons. |
 
 Outputs written to `--cert-output` parent directory (default `certificato_out/`):
 
@@ -170,6 +180,7 @@ Outputs written to `--cert-output` parent directory (default `certificato_out/`)
 | `ntc_cert_funzione.pdf` | 4-page A4 PDF calibration certificate |
 | `ntc_calibration_certificate.xml` | PTB DCC v3.3.0 XML |
 | `conformity_results.json` | Conformity check results (only with `--conformity-output`) |
+| `last_calibration/last_calibration.json` | Comprehensive JSON with every coefficient, uncertainty, per-step budget, measurements, and `rmse_pre` — for downstream consumers and the next calibration run. |
 
 Charts are saved automatically (PNG) to:
 
@@ -247,6 +258,122 @@ python scripts/analisi_calib_data.py ... --update-parameters always
 - `if-out-of-tolerance` — skip update when ALL as-found errors are within `sensorAccuracy.maxError`; proceed normally if any point is out of range
 
 When `if-out-of-tolerance` is set and all points are in range, the coefficient update is skipped (`calibration_done = "not_necessary"`) and the certificate reports initial coefficients for both as-found and as-left.
+
+**Comprehensive last-calibration JSON (`--last-calibration`):**
+
+Every run writes a self-contained JSON with **all** calibration artefacts — coefficients, parameter uncertainties, covariance, RMSE, per-step budget, every measurement row, and the previous-fit residuals. This is the artefact that the DCC service stores in the `calibration.last_calibration_json` column and feeds back into the **next** calibration for the same sensor.
+
+```json
+{
+  "model": "cubic",
+  "timestamp": "2026-06-13T18:22:29.262+00:00",
+  "lsb_per_y": 451.97,
+  "fit_quality": {
+    "rmse":      0.02303,    // current fit RMSE
+    "u_fitting": 0.02303,    // propagated uncertainty (or sensor JSON ufit)
+    "rmse_pre":  0.45        // RMSE using OLD coefficients — fed back as ufit next time
+  },
+  "reference": { "ub_ref_y": 0.15 },
+  "sensor":    { "ub_sensor_lsb": 2.9, "ub_sensor_lsb_per_step": [2.9, ...] },
+  "expanded_uncertainties": [0.30, 0.30, ...],
+  "temp_nominali":  [0.0, 25.0, 50.0, ...],
+  "ref_temp_means":  [0.26, 25.14, 49.67, ...],
+  "coefficients": {
+    "a0": -39.79, "a1": 0.00249, "a2": 0.0, "a3": 0.0,
+    "u_a0": 0.16, "u_a1": 4e-6, "u_a2": 0.0, "u_a3": 0.0,
+    "cov_theta": [[...], [...], ...]
+  },
+  "old_coefficients": { "a0": null, "a1": null, "a2": null, "a3": null },
+  "calibration_points": [
+    { "point": 1, "t_nominal": 0.0, "T_ref": 0.26, "T_sensor_post": 0.24,
+      "M_e_pre": -4.90, "M_e_post": -0.02, "U_exp": 0.37,
+      "uA_ref": 0.002, "uA_sensor": 0.002, "ub_uso": 0.05,
+      "u_fitting": 0.023, "u_ref": 0.15, "u_sensor": 0.05, "u_c": 0.18 }
+  ]
+}
+```
+
+**Full example — first calibration followed by a subsequent run with previous results:**
+
+```powershell
+# 1) First calibration for a brand-new sensor.
+#    No --old-a/b/c/d, no ufit in sensor JSON — engine uses identity defaults.
+python scripts/analisi_calib_data.py `
+  --input               test/data_in/export2_tmp126_lsb16.json `
+  --sensor              models_in/sensors/ntc_temperature.json `
+  --ref                 models_in/references/fluke_9142.json `
+  --procedure           cubic `
+  --last-calibration    last_calibration/run_001.json `
+  --no-pdf --no-xml
+# stdout shows:
+#   === Previous results (as-found baseline) ===
+#     old_A = None  [source: identity (first calibration)]
+#     old_B = None  [source: identity (first calibration)]
+#     old_C = None  [source: identity (first calibration)]
+#     old_D = None  [source: identity (first calibration)]
+#     ufit  = None  [source: not set]
+
+# 2) Read previous results (the DCC service does this from DB automatically).
+$prev = Get-Content last_calibration/run_001.json | ConvertFrom-Json
+$coefA = $prev.coefficients.a0
+$coefB = $prev.coefficients.a1
+$coefC = $prev.coefficients.a2
+$coefD = $prev.coefficients.a3
+$ufitFromRmse = $prev.fit_quality.rmse_pre
+
+# 3) Patch the sensor JSON with the new ufit (mirrors what dcc_service does).
+#    Option A — set the ufit value via sed/PowerShell on the JSON before launching.
+$tmpSensor = "last_calibration/sensor_patched_$((Get-Date).ToString('yyyyMMddHHmmss')).json"
+(Get-Content models_in/sensors/ntc_temperature.json -Raw) `
+  | ConvertFrom-Json `
+  | ForEach-Object {
+      $ru = $_.metrology.readingUncertainty | Where-Object { $_.varName -eq 'ufit' }
+      if ($ru) { $ru.value = $ufitFromRmse } else {
+          $_.metrology.readingUncertainty += [PSCustomObject]@{
+              varName='ufit'; value=$ufitFromRmse; coverageFactor=2.0; PDF='normal';
+              description='Injected from previous calibration rmse_pre'
+          }
+      }
+      $_
+    } | ConvertTo-Json -Depth 10 | Set-Content $tmpSensor
+
+# 4) Subsequent calibration — pass old coefficients (from JSON or DB) and the patched sensor JSON.
+python scripts/analisi_calib_data.py `
+  --input               test/data_in/export2_tmp126_lsb16.json `
+  --sensor              $tmpSensor `
+  --ref                 models_in/references/fluke_9142.json `
+  --procedure           cubic `
+  --old-a $coefA --old-b $coefB --old-c $coefC --old-d $coefD `
+  --last-calibration    last_calibration/run_002.json `
+  --no-pdf --no-xml
+# stdout shows:
+#   === Previous results (as-found baseline) ===
+#     old_A = -39.79...  [source: CLI --old-a]
+#     old_B = 0.00249... [source: CLI --old-b]
+#     old_C = 0.0         [source: CLI --old-c]
+#     old_D = 0.0         [source: CLI --old-d]
+#     ufit  = 0.45        [source: sensor JSON]
+```
+
+**Conformity H parameters (`--mae-y`, `--pfa-threshold-pct`, `--pfa-u-std-mode`, `--u-ref`):**
+
+Check H (Probability of False Acceptance) is the only conformity check that has multiple CLI parameters:
+
+```powershell
+# Strict acceptance: only 0.10 °C MAE and 10% PFA allowed
+python scripts/analisi_calib_data.py `
+  --input                  test/data_in/export2_tmp126_lsb16.json `
+  --procedure              linear `
+  --mae-y                  0.10 `
+  --pfa-threshold-pct      10.0 `
+  --pfa-u-std-mode         type_a `    # use only type-A (sensor pstd)
+  --u-ref                  0.065 `     # expanded uncertainty of reference
+  --no-pdf --no-xml
+```
+
+`--pfa-u-std-mode` values:
+- `combined` (default) — `u_std = u_exp / k` (k=2). Conservative, uses the full budget.
+- `type_a` — `u_std = uA_sensor` (only the sensor's type-A component from the per-step budget). Less conservative; meaningful when the sensor's own repeatability dominates. Falls back to `combined` automatically if no budget is present.
 
 **Dimensional analysis (unit checks):**
 ```powershell
