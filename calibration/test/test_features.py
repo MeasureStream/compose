@@ -536,6 +536,24 @@ def _bad_ref_json() -> dict:
     return {"ranges": {"phys": {"dsi": "\\pascal"}}}
 
 
+def _kelvin_sensor_json() -> dict:
+    return {
+        "ranges": {
+            "phys": {"dsi": "\\kelvin"},
+            "elec": {"dsi": "\\one"},
+        }
+    }
+
+
+def _millikelvin_sensor_json() -> dict:
+    return {
+        "ranges": {
+            "phys": {"dsi": "\\milli\\kelvin"},
+            "elec": {"dsi": "\\one"},
+        }
+    }
+
+
 class TestLinearPrechecks:
 
     def test_ok_with_enough_steps(self):
@@ -590,6 +608,34 @@ class TestLinearPrechecks:
         assert result["unit_check"].ok is False
         assert result["ok"] is False
         assert len(result["errors"]) >= 1
+
+    def test_unit_check_warns_when_units_differ_but_compatible(self):
+        """kelvin sensor + degC reference: same dimensionality, Pint can convert. Should warn, not error."""
+        from model_calibration.linear_calibration import run_prechecks
+        result = run_prechecks(
+            _payload_with_n_steps(6),
+            sensor_json=_kelvin_sensor_json(), ref_json=_good_ref_json(),
+        )
+        assert result["unit_check"] is not None
+        assert result["unit_check"].ok is True       # same dimensionality = PASS
+        assert result["ok"] is True
+        assert len(result["unit_check"].warnings) >= 1
+        assert "kelvin" in result["unit_check"].warnings[0].lower()
+        assert "convert-units" in result["unit_check"].warnings[0]
+
+    def test_unit_check_warns_when_units_differ_but_compatible_millikelvin(self):
+        """millikelvin sensor + degC reference: same dimensionality, Pint can convert. Should warn, not error."""
+        from model_calibration.linear_calibration import run_prechecks
+        result = run_prechecks(
+            _payload_with_n_steps(6),
+            sensor_json=_millikelvin_sensor_json(), ref_json=_good_ref_json(),
+        )
+        assert result["unit_check"] is not None
+        assert result["unit_check"].ok is True
+        assert result["ok"] is True
+        assert len(result["unit_check"].warnings) >= 1
+        assert "milli" in result["unit_check"].warnings[0].lower()
+        assert "convert-units" in result["unit_check"].warnings[0]
 
     def test_both_checks_fail_errors_combined(self):
         from model_calibration.linear_calibration import run_prechecks, MIN_STEPS_LINEAR
@@ -648,6 +694,30 @@ class TestCubicPrechecks:
             sensor_json=_good_sensor_json(), ref_json=_bad_ref_json(),
         )
         assert result["ok"] is False
+
+    def test_unit_check_warns_when_units_differ_but_compatible(self):
+        """kelvin sensor + degC reference: same dimensionality, Pint can convert. Should warn, not error."""
+        from model_calibration.cubic_calibration import run_prechecks, _N_COEFFS
+        result = run_prechecks(
+            _payload_with_n_steps(_N_COEFFS),
+            sensor_json=_kelvin_sensor_json(), ref_json=_good_ref_json(),
+        )
+        assert result["unit_check"].ok is True
+        assert result["ok"] is True
+        assert len(result["unit_check"].warnings) >= 1
+        assert "kelvin" in result["unit_check"].warnings[0].lower()
+
+    def test_unit_check_warns_when_units_differ_but_compatible_millikelvin(self):
+        """millikelvin sensor + degC reference: same dimensionality, Pint can convert. Should warn, not error."""
+        from model_calibration.cubic_calibration import run_prechecks, _N_COEFFS
+        result = run_prechecks(
+            _payload_with_n_steps(_N_COEFFS),
+            sensor_json=_millikelvin_sensor_json(), ref_json=_good_ref_json(),
+        )
+        assert result["unit_check"].ok is True
+        assert result["ok"] is True
+        assert len(result["unit_check"].warnings) >= 1
+        assert "milli" in result["unit_check"].warnings[0].lower()
 
     def test_calibrate_raises_on_too_few_steps(self):
         from model_calibration.cubic_calibration import calibrate, _N_COEFFS

@@ -217,9 +217,10 @@ def _flag_unit_mismatch(
 
     if sensor_dim is not None and ref_dim is not None and sensor_dim == ref_dim:
         if result.sensor_phys_unit != result.ref_phys_unit:
-            result.add_error(
+            result.add_warning(
                 f"{model_label}: sensor unit '{result.sensor_phys_unit}' differs from "
-                f"reference unit '{result.ref_phys_unit}'."
+                f"reference unit '{result.ref_phys_unit}' (same dimensionality — Pint can convert). "
+                f"Pass --convert-units to auto-normalize results to the sensor target unit."
             )
 
 
