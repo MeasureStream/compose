@@ -157,6 +157,7 @@ def calibrate(
     formula: str | None = None,
     formula_vars: Dict[str, float] | None = None,
     ufit: float | None = None,
+    ufitfromJson: bool = False,  # se True, usa ufit dai residui del fit (rmse); se False, usa ufit dichiarato nel JSON sensore
     coverage_factor: float = 2.0,
 ) -> Dict[str, Any]:
     # Backwards-compat shim for old ub_pt_lsb callers

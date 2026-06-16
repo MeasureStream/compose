@@ -476,23 +476,15 @@ def save_charts(
             ax.scatter(d["t_ref"], d["me_pre"], color=color, marker=marker,
                        s=80, zorder=5, linewidths=1.5, edgecolors="white")
 
-            if d["max_allowed_error"] is not None:
-                ax.annotate(
-                    f"±{d['max_allowed_error']:.3f}",
-                    xy=(d["t_ref"], d["me_pre"]),
-                    xytext=(5, 8), textcoords="offset points",
-                    fontsize=7, color="#555555",
-                )
-
-        # Draw the sensor accuracy band as step function
-        limits_used: Dict[Tuple[float, float], float] = {}
-        from itertools import groupby
-        t_sorted = sorted(g_details, key=lambda d: d["t_ref"])
-        for d in t_sorted:
-            if d["max_allowed_error"] is not None:
-                # Draw horizontal band at this point
-                ax.vlines(d["t_ref"], -d["max_allowed_error"], d["max_allowed_error"],
-                          color="#e74c3c", linewidth=0.6, alpha=0.5, zorder=2)
+        # Horizontal MAE band: ±MAE across the whole temperature range.
+        # Legend shows the MAE value directly.
+        mae_label = f"MAE = ±{mae:.3f} {UNIT}"
+        ax.axhspan(-mae, mae, facecolor=COLOR_FAIL, alpha=0.10, zorder=1,
+                   label=mae_label)
+        ax.axhline( mae, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
+                    alpha=0.85, zorder=2, label=f"Max Admitted Error (+{mae:.3f} {UNIT})")
+        ax.axhline(-mae, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
+                    alpha=0.85, zorder=2)
 
         ax.axhline(0, color="black", linewidth=0.8, zorder=2)
         ax.set_xlabel(f"Reference Temperature [{UNIT}]", fontsize=11)
@@ -500,12 +492,12 @@ def save_charts(
         ax.set_title(f"[G] Sensor Accuracy As-Found Conformity — {model_label} ({variant})",
                      fontsize=13, fontweight="bold")
 
-        pass_patch = mpatches.Patch(color=COLOR_PASS, label="In limit (PASS)")
-        fail_patch = mpatches.Patch(color=COLOR_FAIL, label="Out of limit (FAIL)")
-        ax.legend(handles=[pass_patch, fail_patch], fontsize=9)
+        pass_patch = mpatches.Patch(color=COLOR_PASS, label="In MAE limit (PASS)")
+        fail_patch = mpatches.Patch(color=COLOR_FAIL, label="Out of MAE (FAIL)")
+        ax.legend(handles=[pass_patch, fail_patch], fontsize=9, loc="best")
         ax.grid(alpha=0.4, zorder=0)
         fig.tight_layout()
-        out = images_dir / "fig4_check_g_accuracy.png"
+        out = images_dir / "fig2_check_g_accuracy.png"
         fig.savefig(out, dpi=DPI)
         plt.close(fig)
         saved.append(str(out))

@@ -646,6 +646,12 @@ def main() -> None:
              "Skips saving PNGs. Mutually usable with --charts (both save AND show). "
              "Requires a display / GUI backend (not suitable for headless/Docker runs)."
     )
+    parser.add_argument(
+        "--tolerance", type=float, default=None,
+        help="Override the sensor's maxTollerance (Check G as-found accuracy limit). "
+             "When omitted, the value is read from the sensor JSON (Uncertainty[varName=maxTollerance] "
+             "or legacy sensorAccuracy[0].maxError).",
+    )
     parser.add_argument("--mae-y", type=float, default=0.30,
         help="Maximum Acceptable Error for Check H (default: 0.30)")
     parser.add_argument("--pfa-threshold-pct", type=float, default=20.0,
@@ -918,7 +924,15 @@ def main() -> None:
 
     # sensor accuracy gate
     calibration_skipped = False
-    max_tollerance = _get_max_tollerance(sensor_json)
+    max_tollerance = (
+        args.tolerance if args.tolerance is not None
+        else _get_max_tollerance(sensor_json)
+    )
+    if args.tolerance is not None and args.verbose:
+        print(
+            f"[INFO] --tolerance override active: using {max_tollerance} "
+            "instead of sensor JSON maxTollerance for Check G."
+        )
     checker = SensorAccuracyChecker(max_tollerance) if max_tollerance is not None else None
 
     if checker is not None:

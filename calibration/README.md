@@ -165,6 +165,7 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
 | `--update-parameters` | `none` | Parameter update strategy: `none` (do not adjust), `always` (adjust regardless), `if-out-of-tolerance` (skip when all as-found errors are within `sensorAccuracy` limits) |
 | `--check-units` | `False` | **(deprecated — no-op)** Unit checks now run automatically when model JSONs are provided. |
 | `--convert-units` | `False` | Convert results to the preferred output unit declared in the sensor JSON |
+| `--tolerance FLOAT` | _(from sensor JSON)_ | Override the sensor's `maxTollerance` (Check G as-found accuracy limit). When omitted, the value is read from the sensor JSON (`Uncertainty[varName=maxTollerance]` or legacy `sensorAccuracy[0].maxError`). The same value is also used by the conformity charts. |
 | `--mae-y FLOAT` | `0.30` | Maximum Accepted Error [°C] for **Check H (PFA)** — see `--pfa-threshold-pct`. |
 | `--pfa-threshold-pct FLOAT` | `20.0` | PFA acceptance threshold [%]. A calibration point passes Check H if `PFA_pct ≤ pfa_threshold_pct`. |
 | `--pfa-u-std-mode {combined,type_a}` | `combined` | How Check H estimates `u_std`: `combined` uses `u_exp / k` (expanded uncertainty divided by k=2); `type_a` uses only the type-A component `uA_sensor` from the per-step budget. |
@@ -351,6 +352,23 @@ python scripts/analisi_calib_data.py `
 #     old_C = 0.0         [source: CLI --old-c]
 #     old_D = 0.0         [source: CLI --old-d]
 #     ufit  = 0.45        [source: sensor JSON]
+```
+
+**Override the sensor tolerance (Check G):**
+
+`--tolerance` lets you override the `maxTollerance` declared in the sensor JSON without
+editing the model file. It propagates to Check G (`check_G`) and to the conformity
+charts. Useful when you want to re-evaluate an old dataset against tighter or looser
+acceptance limits.
+
+```powershell
+# Accept the sensor only if as-found error stays within 0.20 °C (instead of the
+# 0.30 °C declared in the sensor JSON)
+python scripts/analisi_calib_data.py `
+  --input               test/data_in/export2_tmp126_lsb16.json `
+  --procedure           linear `
+  --tolerance           0.20 `
+  --no-pdf --no-xml
 ```
 
 **Conformity H parameters (`--mae-y`, `--pfa-threshold-pct`, `--pfa-u-std-mode`, `--u-ref`):**

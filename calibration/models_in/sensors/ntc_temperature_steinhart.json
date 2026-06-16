@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0.2",
+
+  "modelName": "TemperatureSensorNTCSteinhart",
+
+  "mpn": "NTCLP450E3",
+  "manufacturer": "Vishay",
+  "datasheet": "https://www.vishay.com/docs/29110/ntclp450e3.pdf",
+  "templateId": 201,
+
+  "type": "temperature",
+
+  "usercomment_0": "The measurement are provided with the unit reported hereafter (namely 'unit')",
+  "unit": "\\degreeCelsius",
+
+  "usercomment_1": "elecUnit and elec array are relative to the reading values of the sensor, to be used along with the readingUncertainty parameters",
+  "elecUnit": "\\one",
+
+  "obsList": [
+    "Results refer exclusively to the instrument identified in this certificate.",
+    "Calibration is valid under the declared conditions and on the execution date.",
+    "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
+    "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
+  ],
+  "methodDescription": "GUM-compliant Ordinary Least Squares (OLS) Steinhart-Hart regression in the resistance domain. The raw NTC ADC reading D [LSB] is first converted to thermistor resistance R [Ω] using a voltage-divider chain declared in preprocessingFormula (R = D / (adcMax - D) * rDivider). The regression model is 1/T_K = a + b*ln(R) + c*(ln R)^3, where T_K is the absolute temperature. Sensor type-B uncertainty is computed per step via evaluationFormula (currently uB only). Hardware constants (rDivider, vRef, adcMax) are declared in preprocessingFormulaConstants and propagate as Type-B contributions. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+  "calibrationFormula": "1/T_K = a + b*ln(R) + c*(ln R)^3,  R = D / (ADC_MAX - D) * rDivider",
+
+  "ranges": {
+
+    "phys": {
+      "min": -40.0,
+      "max": 105.0,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius"
+    },
+
+    "physROC": {
+      "min": 0.0,
+      "max": 105.0,
+      "siExp": 0,
+      "si": [0, 0, -1, 0, 1, 0, 0, 0],
+      "dsi": "\\degreeCelsius\\per\\second"
+    },
+
+    "elec": {
+      "min": 0.0,
+      "max": 65535.0,
+      "adcBits": 16,
+      "siExp": 0,
+      "si": [0, 0, 0, 0, 0, 0, 0, 0],
+      "dsi": "\\one"
+    },
+
+    "sampling": {
+      "min": 0.001,
+      "max": 0.0,
+      "siExp": 0,
+      "si": [0, 0, 1, 0, 0, 0, 0, 0],
+      "dsi": "\\second"
+    },
+
+    "threshold": {
+      "min": -40.0,
+      "max": 105.0
+    }
+
+  },
+  "properties": {
+
+    "responseTime": 0.16,
+    "responseTimeSiExp": 0,
+    "responseTimeSi": [0, 0, 1, 0, -1, 0, 0, 0],
+    "responseTimeDsi": "\\second\\per\\degreeCelsius",
+
+    "selfHeat": 0.0,
+    "selfHeatSiExp": 0,
+    "selfHeatSi": [0, 0, -1, 0, 1, 0, 0, 0],
+    "selfHeatDsi": "\\kelvin\\per\\second",
+
+    "readingConsumption": 0.5,
+    "readingConsumptionSiExp": -9,
+    "readingConsumptionSi": [0, 0, 1, 1, 0, 0, 0, 0],
+    "readingConsumptionDsi": "\\coulomb"
+  },
+  "calibration": {
+
+    "type": "stei",
+    "coefficients": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "calibrationCoefficients": {
+      "a": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "b": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "c": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "d": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" }
+    }
+  },
+  "metrology": {
+
+    "evaluationFormula": "uB",
+    "requiredInputs": ["uB"],
+
+    "preprocessingFormula": "(d_in / (adcMax - d_in)) * rDivider",
+    "preprocessingInputUnit": "\\one",
+    "preprocessingOutputUnit": "\\ohm",
+    "requiredPreprocessingInputs": ["rDivider", "adcMax"],
+
+    "preprocessingFormulaConstants": {
+      "rDivider": 100000.0,
+      "rDivider_tol": 100.0,
+      "rDivider_tol_pdf": "uniform",
+      "vRef": 3.3,
+      "vRef_tol": 0.033,
+      "vRef_tol_pdf": "uniform",
+      "adcMax": 65535,
+      "adcMax_tol": 1,
+      "adcMax_tol_pdf": "uniform"
+    },
+
+    "readingUncertainty": [
+        { "varName": "resolution", "value": 1,  "PDF": "uniform", "description": "" },
+        { "varName": "absUncertainty", "value": 5.0, "PDF": "uniform", "description": "" },
+        { "varName": "uB", "value": 0.30,  "PDF": "normal", "description": "" },
+        { "varName": "coverageFactor", "value": 2.0, "description": "" }
+    ],
+
+    "UncertaintyPdf": "normal",
+    "Uncertainty": [
+       { "varName": "maxTollerance", "value": 0.60, "PDF": "uniform", "description": "Maximum calibration tolerance" },
+       { "varName": "ufit", "value": 0.04, "coverageFactor": 2.0, "PDF": "normal", "description": "Steinhart-Hart fitting uncertainty" },
+       { "varName": "absUncertainty", "value": 0.10, "uc": 0, "k": 2.0 }
+    ],
+
+    "calDate": 0,
+    "calPeriod": 365,
+    "certificateId": ""
+  }
+}
