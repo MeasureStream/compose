@@ -167,21 +167,6 @@
                     <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 3.69e+00. RMSE = 1.84e+00.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
-            <dcc:statement>
-                <dcc:declaration>
-                    <dcc:content lang="en">Decision rule: acceptance when G=FAIL A=PASS B=FAIL H=FAIL. Verdict: NON-COMPLIANT.</dcc:content>
-                </dcc:declaration>
-            </dcc:statement>
-            <dcc:statement>
-                <dcc:declaration>
-                    <dcc:content lang="en">Guard band (maxTollerance): 0.6.</dcc:content>
-                </dcc:declaration>
-            </dcc:statement>
-            <dcc:statement>
-                <dcc:declaration>
-                    <dcc:content lang="en">PFA (Probability of False Acceptance) per point: P1=89.8% P2=89.2% P3=88.6% P4=91.0% P5=91.6% P6=89.1% P7=89.6% P8=90.3%. MAE=0.3, threshold=20.0%, mode=combined.</dcc:content>
-                </dcc:declaration>
-            </dcc:statement>
         </dcc:statements>
     </dcc:administrativeData>
     <dcc:measurementResults>
@@ -317,7 +302,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>1.28 -1.1 -0.91 1.57 -1.72 1.06 1.21 -1.39</si:valueXMLList>
+                                        <si:valueXMLList>1.38 -1 -0.81 1.67 -1.62 1.16 1.31 -1.29</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -331,7 +316,7 @@
                                         <si:valueXMLList>1.28 -1.1 -0.91 1.57 -1.72 1.06 1.21 -1.39</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                         <si:expandedUncXMLList>
-                                            <si:uncertaintyXMLList>3.7 3.7 3.7 3.7 3.7 3.7 3.7 3.7</si:uncertaintyXMLList>
+                                            <si:uncertaintyXMLList>0.3 0.3 0.31 0.31 0.3 0.31 0.31 0.3</si:uncertaintyXMLList>
                                             <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
                                             <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
                                             <si:distributionXMLList>normal</si:distributionXMLList>
@@ -367,7 +352,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>0.92528334 0.9253136 0.92540383 0.92538529 0.92531249 0.92545479 0.92539324 0.92532408</si:valueXMLList>
+                                        <si:valueXMLList>0.07530511 0.07567596 0.0767714 0.07654765 0.07566245 0.0773832 0.07664369 0.07580398</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>

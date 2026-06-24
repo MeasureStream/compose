@@ -66,7 +66,7 @@
         "C_steinhart": 8.76741e-08,
         "alpha_25": -0.04443,
         "uncertainty_limit": 0.1,
-        "calibration_formula": "T = A · D + B",
+        "calibration_formula": "T = A · N + B",
         "calibration_procedure": "linear",
         "method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
         "observations": [
@@ -99,7 +99,7 @@
         "C_steinhart": 8.76741e-08,
         "alpha_25": -0.04443,
         "uncertainty_limit": 0.1,
-        "calibration_formula": "T = A · D + B",
+        "calibration_formula": "T = A · N + B",
         "calibration_procedure": "linear",
         "method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
         "observations": [
@@ -153,14 +153,12 @@
           0.258249146875,
           0.23761206866273454,
           -0.02063707821226546,
-          -0.02063707821226546,
           0.3713079312072752
         ],
         [
           2.0,
           25.14286285,
           25.18888219378259,
-          0.04601934378258932,
           0.04601934378258932,
           0.341526514605463
         ],
@@ -169,14 +167,12 @@
           49.66639189375,
           49.66487763120526,
           -0.0015142625447452929,
-          -0.0015142625447452929,
           0.3260653711762359
         ],
         [
           4.0,
           73.97829340000001,
           73.94535715379722,
-          -0.03293624620279445,
           -0.03293624620279445,
           0.32649177014464115
         ],
@@ -185,14 +181,12 @@
           98.301705225,
           98.29127083015888,
           -0.01043439484112696,
-          -0.01043439484112696,
           0.34241317063436494
         ],
         [
           6.0,
           122.11914698846157,
           122.13864962647978,
-          0.01950263801820995,
           0.01950263801820995,
           0.37542208400826416
         ]
@@ -203,14 +197,12 @@
           0.26,
           0.24,
           -0.02,
-          -0.02,
           0.37
         ],
         [
           2,
           25.14,
           25.19,
-          0.05,
           0.05,
           0.34
         ],
@@ -219,14 +211,12 @@
           49.67,
           49.66,
           -0.0,
-          -0.0,
           0.33
         ],
         [
           4,
           73.98,
           73.95,
-          -0.03,
           -0.03,
           0.33
         ],
@@ -235,14 +225,12 @@
           98.3,
           98.29,
           -0.01,
-          -0.01,
           0.34
         ],
         [
           6,
           122.12,
           122.14,
-          0.02,
           0.02,
           0.38
         ]
@@ -272,7 +260,6 @@
         "Receiver",
         "Request number",
         "Request date",
-        "Date of receipt of item",
         "Date of measurements",
         "Item",
         "Manufacturer",
@@ -314,9 +301,8 @@
       "results_headers": [
         "Point",
         "T_ref / °C\nReference temperature",
-        "T_c / °C\nsensor value as left",
-        "M_e pre / °C\nfound",
-        "M_e post / °C\nas left",
+        "T_c / °C\nMeasured value",
+        "M_e / °C\nM_e (As found)",
         "U(E) / °C\nMeasurement Uncertainty"
       ],
       "notes_title": "Notes",
@@ -328,7 +314,7 @@
         "Measurement uncertainty U(E) is expanded (k=2), confidence level about 95 %."
       ],
       "measurement_note_template": "Calibration was performed with measurement current {measurement_current} and a {connection_terminals}-terminal connection.",
-      "page4_title": "Tabulazione T/°C = f(D/LSB)",
+      "page4_title": "Tabulazione T/°C = f(N/LSB)",
       "page4_intro_text": "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:",
       "coeff_labels": {
         "r25": "R25",
@@ -336,7 +322,7 @@
         "alpha25": "alpha (25 degC)",
         "interp": "regression uncertainty"
       },
-      "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A · D + B. The calibration was determined over 6 calibration points (0 °C to 125 °C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer.",
+      "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A · N + B. The calibration was determined over 6 calibration points (0 °C to 125 °C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer.",
       "footer_left_text": "Laboratory measurestream 001 — Calibration certificate MS-CAL-2026-00419"
     }
   },

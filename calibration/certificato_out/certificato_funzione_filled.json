@@ -66,7 +66,7 @@
         "C_steinhart": 8.76741e-08,
         "alpha_25": -0.04443,
         "uncertainty_limit": 0.1,
-        "calibration_formula": "T = A · D + B",
+        "calibration_formula": "T = A · N + B",
         "calibration_procedure": "linear",
         "method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
         "observations": [
@@ -134,7 +134,7 @@
         "C_steinhart": 8.76741e-08,
         "alpha_25": -0.04443,
         "uncertainty_limit": 0.1,
-        "calibration_formula": "T = A · D + B",
+        "calibration_formula": "T = A · N + B",
         "calibration_procedure": "linear",
         "method_description": "GUM-compliant Ordinary Least Squares (OLS) linear regression in the 16-bit LSB domain. The calibration model is T_ref_lsb = A * T_sensor_lsb + B, where T_ref_lsb are the PT100 reference readings (converted to LSB) and T_sensor_lsb are the raw NTC ADC readings. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
         "observations": [
@@ -222,65 +222,57 @@
           1.0,
           -19.999239130434777,
           -18.72228541382735,
-          1.2769537166074265,
-          1.2769537166074265,
-          3.701133362571954
+          1.376953716607428,
+          0.30122043890284167
         ],
         [
           2.0,
           -10.0000090625,
           -11.100914643825892,
-          -1.1009055813258914,
-          -1.1009055813258914,
-          3.7012543856637805
+          -1.0009055813258936,
+          0.3027038365548336
         ],
         [
           3.0,
           -0.000506071428571428,
           -0.9065044235446916,
-          -0.9059983521161202,
-          -0.9059983521161202,
-          3.7016153190648375
+          -0.8059983521161224,
+          0.30708558351887016
         ],
         [
           4.0,
           25.000575086666668,
           26.570839232543854,
-          1.5702641458771858,
-          1.5702641458771858,
-          3.701541178243348
+          1.67026414587718,
+          0.30619059342310867
         ],
         [
           5.0,
           49.9991384375,
           48.27761746263444,
-          -1.7215209748655624,
-          -1.7215209748655624,
-          3.7012499656947964
+          -1.6215209748655681,
+          0.3026497874200097
         ],
         [
           6.0,
           74.99979076923077,
           76.05973866491556,
-          1.059947895684786,
-          1.059947895684786,
-          3.7018191429703666
+          1.1599478956847804,
+          0.30953279718230936
         ],
         [
           7.0,
           100.00059495666666,
           101.21033766477845,
-          1.20974270811179,
-          1.20974270811179,
-          3.701572976852771
+          1.3097427081117843,
+          0.3065747677750508
         ],
         [
           8.0,
           109.99977434333331,
           108.61129078519679,
-          -1.388483558136528,
-          -1.388483558136528,
-          3.7012963006000357
+          -1.2884835581365337,
+          0.3032159133441983
         ]
       ],
       "measurements": [
@@ -288,65 +280,57 @@
           1,
           -20.0,
           -18.72,
-          1.28,
-          1.28,
-          3.7
+          1.38,
+          0.3
         ],
         [
           2,
           -10.0,
           -11.1,
-          -1.1,
-          -1.1,
-          3.7
+          -1.0,
+          0.3
         ],
         [
           3,
           -0.0,
           -0.91,
-          -0.91,
-          -0.91,
-          3.7
+          -0.81,
+          0.31
         ],
         [
           4,
           25.0,
           26.57,
-          1.57,
-          1.57,
-          3.7
+          1.67,
+          0.31
         ],
         [
           5,
           50.0,
           48.28,
-          -1.72,
-          -1.72,
-          3.7
+          -1.62,
+          0.3
         ],
         [
           6,
           75.0,
           76.06,
-          1.06,
-          1.06,
-          3.7
+          1.16,
+          0.31
         ],
         [
           7,
           100.0,
           101.21,
-          1.21,
-          1.21,
-          3.7
+          1.31,
+          0.31
         ],
         [
           8,
           110.0,
           108.61,
-          -1.39,
-          -1.39,
-          3.7
+          -1.29,
+          0.3
         ]
       ],
       "_observations": [
@@ -374,7 +358,6 @@
         "Receiver",
         "Request number",
         "Request date",
-        "Date of receipt of item",
         "Date of measurements",
         "Item",
         "Manufacturer",
@@ -416,9 +399,8 @@
       "results_headers": [
         "Point",
         "T_ref / °C\nReference temperature",
-        "T_c / °C\nsensor value as left",
-        "M_e pre / °C\nfound",
-        "M_e post / °C\nas left",
+        "T_c / °C\nMeasured value",
+        "M_e / °C\nM_e (As found)",
         "U(E) / °C\nMeasurement Uncertainty"
       ],
       "notes_title": "Notes",
@@ -430,7 +412,7 @@
         "Measurement uncertainty U(E) is expanded (k=2), confidence level about 95 %."
       ],
       "measurement_note_template": "Calibration was performed with measurement current {measurement_current} and a {connection_terminals}-terminal connection.",
-      "page4_title": "Tabulazione T/°C = f(D/LSB)",
+      "page4_title": "Tabulazione T/°C = f(N/LSB)",
       "page4_intro_text": "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:",
       "coeff_labels": {
         "r25": "R25",
@@ -438,7 +420,7 @@
         "alpha25": "alpha (25 degC)",
         "interp": "regression uncertainty"
       },
-      "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A · D + B. The calibration was determined over 6 calibration points (0 °C to 125 °C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer.",
+      "intro_text": "This certificate is issued in compliance with the laboratory internal procedure PRO-CAL-MST-003. The results refer exclusively to the identified DIGITAL thermometer and to the declared calibration conditions. After having identified the F. taratura, the calibration function is: T = A · N + B. The calibration was determined over 6 calibration points (0 °C to 125 °C) using a Fluke 1502A metrology well readout and Pt100 reference thermometer.",
       "footer_left_text": "Laboratory measurestream 001 — Calibration certificate MS-CAL-2026-00419"
     }
   },
@@ -451,19 +433,19 @@
     "_phys_unit_symbol": "°C",
     "_phys_unit_dsi": "\\degreeCelsius",
     "_expanded_uncertainties": [
-      3.701133362571954,
-      3.7012543856637805,
-      3.7016153190648375,
-      3.701541178243348,
-      3.7012499656947964,
-      3.7018191429703666,
-      3.701572976852771,
-      3.7012963006000357
+      0.30122043890284167,
+      0.3027038365548336,
+      0.30708558351887016,
+      0.30619059342310867,
+      0.3026497874200097,
+      0.30953279718230936,
+      0.3065747677750508,
+      0.3032159133441983
     ],
     "_interp_unc_sum_abs": 0.1610627908751049,
     "_interp_unc_fixed_2sig": 0.16,
     "_rmse": 1.8444277171205676,
-    "_rmse_pre": 1.3042073461843766,
+    "_rmse_pre": 1.30803547422737,
     "_ref_temp_means": [
       -19.999239130434777,
       -10.0000090625,
@@ -486,14 +468,14 @@
     ],
     "_variant": "funzione",
     "_expanded_uncertainties_phys": [
-      3.701133362571954,
-      3.7012543856637805,
-      3.7016153190648375,
-      3.701541178243348,
-      3.7012499656947964,
-      3.7018191429703666,
-      3.701572976852771,
-      3.7012963006000357
+      0.30122043890284167,
+      0.3027038365548336,
+      0.30708558351887016,
+      0.30619059342310867,
+      0.3026497874200097,
+      0.30953279718230936,
+      0.3065747677750508,
+      0.3032159133441983
     ],
     "_unc_sum_abs_phys": 0.1610627908751049,
     "_unc_fixed_2sig_phys": 0.16,
@@ -559,11 +541,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15002706075096695,
         "mu_T_i": 1.8444752432408031,
-        "mu_E": 1.850566681285977,
-        "U_E": 3.701133362571954,
+        "mu_E": 0.15061021945142083,
+        "U_E": 0.30122043890284167,
         "u_cal_poly": 0.11610524839826385,
         "U_cal_poly": 0.2322104967965277,
-        "u_c": 0.9252833406429884,
+        "u_c": 0.07530510972571042,
         "k": 2.0
       },
       {
@@ -577,11 +559,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15000445621312578,
         "mu_T_i": 1.8445377930432998,
-        "mu_E": 1.8506271928318903,
-        "U_E": 3.7012543856637805,
+        "mu_E": 0.1513519182774168,
+        "U_E": 0.3027038365548336,
         "u_cal_poly": 0.09073494437693652,
         "U_cal_poly": 0.18146988875387304,
-        "u_c": 0.9253135964159451,
+        "u_c": 0.0756759591387084,
         "k": 2.0
       },
       {
@@ -595,11 +577,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15001251519051775,
         "mu_T_i": 1.8447182001243672,
-        "mu_E": 1.8508076595324188,
-        "U_E": 3.7016153190648375,
+        "mu_E": 0.15354279175943508,
+        "U_E": 0.30708558351887016,
         "u_cal_poly": 0.09478187056632867,
         "U_cal_poly": 0.18956374113265734,
-        "u_c": 0.9254038297662094,
+        "u_c": 0.07677139587971754,
         "k": 2.0
       },
       {
@@ -613,11 +595,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.1500693826431152,
         "mu_T_i": 1.8446763819030432,
-        "mu_E": 1.850770589121674,
-        "U_E": 3.701541178243348,
+        "mu_E": 0.15309529671155434,
+        "U_E": 0.30619059342310867,
         "u_cal_poly": 0.1333044754982476,
         "U_cal_poly": 0.2666089509964952,
-        "u_c": 0.925385294560837,
+        "u_c": 0.07654764835577717,
         "k": 2.0
       },
       {
@@ -631,11 +613,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.1500205102899258,
         "mu_T_i": 1.8445342701157068,
-        "mu_E": 1.8506249828473982,
-        "U_E": 3.7012499656947964,
+        "mu_E": 0.15132489371000485,
+        "U_E": 0.3026497874200097,
         "u_cal_poly": 0.11998968332852293,
         "U_cal_poly": 0.23997936665704586,
-        "u_c": 0.9253124914236991,
+        "u_c": 0.07566244685500242,
         "k": 2.0
       },
       {
@@ -649,11 +631,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15001644038093317,
         "mu_T_i": 1.8448201292892754,
-        "mu_E": 1.8509095714851833,
-        "U_E": 3.7018191429703666,
+        "mu_E": 0.15476639859115468,
+        "U_E": 0.30953279718230936,
         "u_cal_poly": 0.11143788710116712,
         "U_cal_poly": 0.22287577420233423,
-        "u_c": 0.9254547857425917,
+        "u_c": 0.07738319929557734,
         "k": 2.0
       },
       {
@@ -667,11 +649,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15008122253796302,
         "mu_T_i": 1.844691370496209,
-        "mu_E": 1.8507864884263856,
-        "U_E": 3.701572976852771,
+        "mu_E": 0.1532873838875254,
+        "U_E": 0.3065747677750508,
         "u_cal_poly": 0.10128142071355391,
         "U_cal_poly": 0.20256284142710781,
-        "u_c": 0.9253932442131928,
+        "u_c": 0.0766436919437627,
         "k": 2.0
       },
       {
@@ -685,11 +667,11 @@
         "u_fitting": 1.8444277171205676,
         "mu_T_ref": 0.15007335780434078,
         "mu_T_i": 1.8445532151407853,
-        "mu_E": 1.8506481503000178,
-        "U_E": 3.7012963006000357,
+        "mu_E": 0.15160795667209914,
+        "U_E": 0.3032159133441983,
         "u_cal_poly": 0.11919212857377953,
         "U_cal_poly": 0.23838425714755906,
-        "u_c": 0.9253240751500089,
+        "u_c": 0.07580397833604957,
         "k": 2.0
       }
     ],
@@ -701,334 +683,7 @@
       "issuedBy": "LAT-999"
     },
     "_sensor_schema_version": "1.0.2",
-    "_ref_schema_version": "1.0.0",
-    "_conformity": {
-      "summary": {
-        "G": "FAIL",
-        "A": "PASS",
-        "B": "FAIL",
-        "H": "FAIL",
-        "calibration_done": "done",
-        "overall": "NON-COMPLIANT"
-      },
-      "check_G": {
-        "status": "FAIL",
-        "calib_model": "cubic",
-        "note": "Interpolation model: all calibration points are within the declared tolerance.",
-        "G1_all_in_range": false,
-        "G2_all_covered": true,
-        "per_point": [
-          {
-            "punto": 1,
-            "T_ref_y": -20.0,
-            "M_e_pre_y": 1.28,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 2,
-            "T_ref_y": -10.0,
-            "M_e_pre_y": -1.1,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 3,
-            "T_ref_y": -0.0,
-            "M_e_pre_y": -0.91,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 4,
-            "T_ref_y": 25.0,
-            "M_e_pre_y": 1.57,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 5,
-            "T_ref_y": 50.0,
-            "M_e_pre_y": -1.72,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 6,
-            "T_ref_y": 75.0,
-            "M_e_pre_y": 1.06,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 7,
-            "T_ref_y": 100.0,
-            "M_e_pre_y": 1.21,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 8,
-            "T_ref_y": 110.0,
-            "M_e_pre_y": -1.39,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          }
-        ]
-      },
-      "check_A": [
-        {
-          "punto": 1,
-          "T_ref": -20.0,
-          "T_sensor": -18.72,
-          "M_e": 1.28,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 2,
-          "T_ref": -10.0,
-          "T_sensor": -11.1,
-          "M_e": -1.1,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 3,
-          "T_ref": -0.0,
-          "T_sensor": -0.91,
-          "M_e": -0.91,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 4,
-          "T_ref": 25.0,
-          "T_sensor": 26.57,
-          "M_e": 1.57,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 5,
-          "T_ref": 50.0,
-          "T_sensor": 48.28,
-          "M_e": -1.72,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 6,
-          "T_ref": 75.0,
-          "T_sensor": 76.06,
-          "M_e": 1.06,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 7,
-          "T_ref": 100.0,
-          "T_sensor": 101.21,
-          "M_e": 1.21,
-          "U_exp": 3.7,
-          "pass": true
-        },
-        {
-          "punto": 8,
-          "T_ref": 110.0,
-          "T_sensor": 108.61,
-          "M_e": -1.39,
-          "U_exp": 3.7,
-          "pass": true
-        }
-      ],
-      "check_B": [
-        {
-          "punto": 1,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 2,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 3,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 4,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 5,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 6,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 7,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        },
-        {
-          "punto": 8,
-          "U_exp": 3.7,
-          "limit": 0.1,
-          "excess": 3.6,
-          "pass": false
-        }
-      ],
-      "check_H": [
-        {
-          "punto": 1,
-          "T_ref_y": -20.0,
-          "M_e_pre_y": 1.28,
-          "Ein": 4.266666666666667,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 89.83878538669252,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 2,
-          "T_ref_y": -10.0,
-          "M_e_pre_y": -1.1,
-          "Ein": -3.666666666666667,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 89.18842270172274,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 3,
-          "T_ref_y": -0.0,
-          "M_e_pre_y": -0.91,
-          "Ein": -3.0333333333333337,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 88.57363967179775,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 4,
-          "T_ref_y": 25.0,
-          "M_e_pre_y": 1.57,
-          "Ein": 5.233333333333333,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 90.98503024264333,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 5,
-          "T_ref_y": 50.0,
-          "M_e_pre_y": -1.72,
-          "Ein": -5.733333333333333,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 91.60682426085656,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 6,
-          "T_ref_y": 75.0,
-          "M_e_pre_y": 1.06,
-          "Ein": 3.5333333333333337,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 89.05229663977765,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 7,
-          "T_ref_y": 100.0,
-          "M_e_pre_y": 1.21,
-          "Ein": 4.033333333333333,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 89.57903566164774,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        },
-        {
-          "punto": 8,
-          "T_ref_y": 110.0,
-          "M_e_pre_y": -1.39,
-          "Ein": -4.633333333333333,
-          "U_exp_y": 3.7,
-          "u_std_y": 1.85,
-          "u_Ein": 6.166666666666667,
-          "u_std_mode": "combined",
-          "MAE_y": 0.3,
-          "PFA_pct": 90.26190805888385,
-          "PFA_threshold_pct": 20.0,
-          "pass": false
-        }
-      ],
-      "check_H_params": {
-        "mae_y": 0.3,
-        "pfa_threshold_pct": 20.0,
-        "u_std_mode": "combined"
-      },
-      "guard_band": 0.6
-    }
+    "_ref_schema_version": "1.0.0"
   },
   "_calibration_done": "done",
   "_sensor_accuracy_check": {
@@ -1037,56 +692,56 @@
       {
         "point": 1,
         "T_ref_y": -19.999239130434777,
-        "as_found_error_y": 1.2769537166074265,
+        "as_found_error_y": 1.376953716607428,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 2,
         "T_ref_y": -10.0000090625,
-        "as_found_error_y": -1.1009055813258914,
+        "as_found_error_y": -1.0009055813258936,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 3,
         "T_ref_y": -0.000506071428571428,
-        "as_found_error_y": -0.9059983521161202,
+        "as_found_error_y": -0.8059983521161224,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 4,
         "T_ref_y": 25.000575086666668,
-        "as_found_error_y": 1.5702641458771858,
+        "as_found_error_y": 1.67026414587718,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 5,
         "T_ref_y": 49.9991384375,
-        "as_found_error_y": -1.7215209748655624,
+        "as_found_error_y": -1.6215209748655681,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 6,
         "T_ref_y": 74.99979076923077,
-        "as_found_error_y": 1.059947895684786,
+        "as_found_error_y": 1.1599478956847804,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 7,
         "T_ref_y": 100.00059495666666,
-        "as_found_error_y": 1.20974270811179,
+        "as_found_error_y": 1.3097427081117843,
         "max_allowed_error_y": 0.6,
         "in_range": false
       },
       {
         "point": 8,
         "T_ref_y": 109.99977434333331,
-        "as_found_error_y": -1.388483558136528,
+        "as_found_error_y": -1.2884835581365337,
         "max_allowed_error_y": 0.6,
         "in_range": false
       }
