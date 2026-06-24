@@ -31,10 +31,11 @@ pip install pint
 Three calibration engines are available, selected via `--procedure`:
 
 | `--procedure` | Model | Coefficients | Use when |
-|---|---|---|---|
+|---|---|---|---|---|
 | `linear` | `T_ref_lsb = A·D + B` | A, B | First-order approximation, wide temperature range, baseline |
-| `cubic` | `T_ref_lsb = a0 + a1·D + a2·D² + a3·D³` | a0…a3 | Polynomial correction for NTC nonlinearity in LSB domain |
-| `cube-log` | `1/T[K] = C0 + C1·ln(D) + C3·(ln(D))³` | C0, C1, C3 | Steinhart-Hart equation — physically motivated NTC model |
+| `quadratic` | `T_ref_lsb = a0 + a1·D + a2·D²` | a0…a2 | Polynomial correction for moderately nonlinear NTC |
+| `cubic` | `T_ref_lsb = a0 + a1·D + a2·D² + a3·D³` | a0…a3 | Strong polynomial correction for NTC nonlinearity in LSB domain |
+| `steinhart` | `1/T_K = a + b·ln(R) + c·(ln R)³` | a, b, c | Steinhart-Hart equation — physically motivated NTC model in resistance domain |
 
 All three engines work entirely in the **16-bit LSB domain** and propagate uncertainties
 according to **ISO/IEC Guide 98-3 (GUM)** using analytical sensitivity coefficients.
@@ -101,14 +102,15 @@ python scripts/analisi_calib_data.py `
   --cert-output                        certificato_out/certificato_funzione_filled.json `
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
   --xml                                certificato_out/ntc_calibration_certificate.xml `
-  --last-calibration                   last_calibration/simulated_cubic.json `
-  --conformity-output                  certificato_out/conformity_results.json `
-  --images-dir                         images `
-  --procedure                          linear `
-  --update-parameters                  always `
-  --convert-units `
-  --charts `
-  --verbose
+   --last-calibration                   last_calibration/simulated_cubic.json `
+   --result-calibration                 last_calibration/last_calibration.json `
+   --conformity-output                  certificato_out/conformity_results.json `
+   --images-dir                         images `
+   --procedure                          linear `
+   --update-parameters                  always `
+   --convert-units `
+   --charts `
+   --verbose
 ```
 ```powershell
 
@@ -122,6 +124,7 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
   --xml                                certificato_out/ntc_calibration_certificate.xml `
   --last-calibration                   last_calibration/simulated_cubic.json `
+  --result-calibration                 last_calibration/last_calibration.json `
   --conformity-output                  certificato_out/conformity_results.json `
   --images-dir                         images `
   --procedure                          cubic `
@@ -149,7 +152,8 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
 | `--cert-output PATH` | `certificato_out/certificato_funzione_filled.json` | Filled certificate JSON output |
 | `--pdf PATH` | `certificato_out/ntc_cert_funzione.pdf` | PDF certificate output |
 | `--xml PATH` | `certificato_out/ntc_calibration_certificate.xml` | DCC XML output |
-| `--last-calibration PATH` | `last_calibration/last_calibration.json` | Output path for the **comprehensive JSON** containing every coefficient, uncertainty, and per-point budget — for downstream consumers and the **next** calibration run (where `rmse_pre` is fed back as `ufit`). |
+| `--last-calibration PATH` | `last_calibration/last_calibration.json` | **Read** previous calibration result JSON (old coefficients, `rmse_pre` for ufit). If the file exists it is loaded and used as the as-found baseline. |
+| `--result-calibration PATH` | `last_calibration/last_calibration.json` | **Write** full calibration result JSON (coefficients, uncertainties, per-step budget, measurements) for downstream consumers and the next calibration run. |
 | `--conformity-output PATH` | _(none)_ | Optional path to write conformity results JSON |
 | `--images-dir PATH` | _(none)_ | Override base directory for plot PNGs. Subfolders `calibration/` and `conformity/` are created inside. When omitted, defaults to `images/calibration/` and `images/conformity/` relative to the calibration root. |
 | `--procedure` | _(from sensor JSON)_ | Force calibration model: `linear`, `cubic`, `cube-log`, `linear_interp`, `cubic_interp` |
@@ -179,7 +183,7 @@ Outputs written to `--cert-output` parent directory (default `certificato_out/`)
 | `ntc_cert_funzione.pdf` | 4-page A4 PDF calibration certificate |
 | `ntc_calibration_certificate.xml` | PTB DCC v3.3.0 XML |
 | `conformity_results.json` | Conformity check results (only with `--conformity-output`) |
-| `last_calibration/last_calibration.json` | Comprehensive JSON with every coefficient, uncertainty, per-step budget, measurements, and `rmse_pre` — for downstream consumers and the next calibration run. |
+| `last_calibration/last_calibration.json` | Comprehensive JSON with every coefficient, uncertainty, per-step budget, measurements, and `rmse_pre` — written via `--result-calibration`, for downstream consumers and the next calibration run. |
 
 Charts are saved automatically (PNG) to:
 
@@ -258,9 +262,9 @@ python scripts/analisi_calib_data.py ... --update-parameters always
 
 When `if-out-of-tolerance` is set and all points are in range, the coefficient update is skipped (`calibration_done = "not_necessary"`) and the certificate reports initial coefficients for both as-found and as-left.
 
-**Comprehensive last-calibration JSON (`--last-calibration`):**
+**Comprehensive result-calibration JSON (`--result-calibration`):**
 
-Every run writes a self-contained JSON with **all** calibration artefacts — coefficients, parameter uncertainties, covariance, RMSE, per-step budget, every measurement row, and the previous-fit residuals. This is the artefact that the DCC service stores in the `calibration.last_calibration_json` column and feeds back into the **next** calibration for the same sensor.
+Every run writes a self-contained JSON with **all** calibration artefacts — coefficients, parameter uncertainties, covariance, RMSE, per-step budget, every measurement row, and the previous-fit residuals. This is the artefact that the DCC service stores in the `calibration.last_calibration_json` column and feeds back into the **next** calibration for the same sensor (via `--last-calibration`).
 
 ```json
 {
@@ -301,9 +305,9 @@ python scripts/analisi_calib_data.py `
   --input               test/data_in/export2_tmp126_lsb16.json `
   --sensor              models_in/sensors/ntc_temperature.json `
   --ref                 models_in/references/fluke_9142.json `
-  --procedure           cubic `
-  --last-calibration    last_calibration/run_001.json `
-  --no-pdf --no-xml
+   --procedure           cubic `
+   --result-calibration  last_calibration/run_001.json `
+   --no-pdf --no-xml
 # stdout shows:
 #   === Previous results (as-found baseline) ===
 #     old_A = None  [source: identity (first calibration)]
@@ -342,9 +346,10 @@ python scripts/analisi_calib_data.py `
   --sensor              $tmpSensor `
   --ref                 models_in/references/fluke_9142.json `
   --procedure           cubic `
-  --old-a $coefA --old-b $coefB --old-c $coefC --old-d $coefD `
-  --last-calibration    last_calibration/run_002.json `
-  --no-pdf --no-xml
+   --old-a $coefA --old-b $coefB --old-c $coefC --old-d $coefD `
+   --last-calibration    last_calibration/run_001.json `
+   --result-calibration  last_calibration/run_002.json `
+   --no-pdf --no-xml
 # stdout shows:
 #   === Previous results (as-found baseline) ===
 #     old_A = -39.79...  [source: CLI --old-a]
