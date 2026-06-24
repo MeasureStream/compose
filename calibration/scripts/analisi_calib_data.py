@@ -228,6 +228,42 @@ def _build_last_calib_json(
             "a2": calib_result.get("old_a2"), "a3": calib_result.get("old_a3"),
         }
         budget = calib_result.get("per_step_budget", [])
+    elif calib_model == "quadratic":
+        out["coefficients"] = {
+            "a0": _conv_or("a0", calib_result.get("a0")),
+            "a1": _conv_or("a1", calib_result.get("a1")),
+            "a2": _conv_or("a2", calib_result.get("a2")),
+            "u_a0": _conv_or("u_a0", calib_result.get("u_a0")),
+            "u_a1": _conv_or("u_a1", calib_result.get("u_a1")),
+            "u_a2": _conv_or("u_a2", calib_result.get("u_a2")),
+            "cov_theta": calib_result.get("cov_theta"),
+        }
+        out["old_coefficients"] = {
+            "a0": calib_result.get("old_a0"), "a1": calib_result.get("old_a1"),
+            "a2": calib_result.get("old_a2"),
+        }
+        budget = calib_result.get("per_step_budget", [])
+    elif calib_model == "steinhart":
+        out["coefficients"] = {
+            "a": _conv_or("a", calib_result.get("a")),
+            "b": _conv_or("b", calib_result.get("b")),
+            "c": _conv_or("c", calib_result.get("c")),
+            "u_a": _conv_or("u_a", calib_result.get("u_a")),
+            "u_b": _conv_or("u_b", calib_result.get("u_b")),
+            "u_c": _conv_or("u_c", calib_result.get("u_c")),
+            "cov_theta": calib_result.get("cov_theta"),
+        }
+        out["old_coefficients"] = {
+            "a": calib_result.get("old_a"), "b": calib_result.get("old_b"),
+            "c": calib_result.get("old_c"),
+        }
+        out["preprocessing"] = {
+            "formula": calib_result.get("preprocessing_formula"),
+            "R_arr": calib_result.get("R_arr"),
+            "ln_R_arr": calib_result.get("ln_R_arr"),
+            "T_K_arr": calib_result.get("T_K_arr"),
+        }
+        budget = calib_result.get("per_step_budget", [])
     else:
         budget = []
 
@@ -364,6 +400,32 @@ def _build_cert_filled(
             "_u_a2": calib_result["u_a2"], "_u_a3": calib_result["u_a3"],
             "_cov_theta": calib_result["cov_theta"],
         })
+    elif calib_model == "quadratic":
+        _c_a0 = _conv.get("a0", calib_result["a0"])
+        _c_a1 = _conv.get("a1", calib_result["a1"])
+        _c_a2 = _conv.get("a2", calib_result["a2"])
+        _c_theta = [_c_a0, _c_a1, _c_a2]
+        sensor_model.update({
+            "_theta": _c_theta,
+            "_a0": _c_a0, "_a1": _c_a1, "_a2": _c_a2,
+            "_u_a0": calib_result["u_a0"], "_u_a1": calib_result["u_a1"],
+            "_u_a2": calib_result["u_a2"],
+            "_cov_theta": calib_result["cov_theta"],
+        })
+    elif calib_model == "steinhart":
+        _c_a = _conv.get("a", calib_result["a"])
+        _c_b = _conv.get("b", calib_result["b"])
+        _c_c = _conv.get("c", calib_result["c"])
+        _c_theta = [_c_a, _c_b, _c_c]
+        sensor_model.update({
+            "_theta": _c_theta,
+            "_a": _c_a, "_b": _c_b, "_c": _c_c,
+            "_u_a": calib_result["u_a"], "_u_b": calib_result["u_b"],
+            "_u_c": calib_result["u_c"],
+            "_cov_theta": calib_result["cov_theta"],
+            "_R_arr": calib_result.get("R_arr"),
+            "_preprocessing_formula": calib_result.get("preprocessing_formula"),
+        })
 
     smt["sensor_model"] = sensor_model
 
@@ -391,6 +453,28 @@ def _build_cert_filled(
                 t_sensor_pre = cubic_predict(float(pmean_sensor), _old_theta)
             else:
                 t_sensor_pre = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
+        elif calib_model == "quadratic":
+            _prev_a0 = calib_result.get("old_a0")
+            _prev_a1 = calib_result.get("old_a1")
+            _prev_a2 = calib_result.get("old_a2")
+            if all(v is not None for v in [_prev_a0, _prev_a1, _prev_a2]):
+                from model_calibration.quadratic_calibration import quadratic_predict
+                _old_theta = np.array([_prev_a0, _prev_a1, _prev_a2], dtype=float)
+                t_sensor_pre = quadratic_predict(float(pmean_sensor), _old_theta)
+            else:
+                t_sensor_pre = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
+        elif calib_model == "steinhart":
+            _prev_a = calib_result.get("old_a")
+            _prev_b = calib_result.get("old_b")
+            _prev_c = calib_result.get("old_c")
+            if all(v is not None for v in [_prev_a, _prev_b, _prev_c]):
+                from model_calibration.steinhart_calibration import steinhart_predict_sh
+                _R_arr = calib_result.get("R_arr", [])
+                _R_i = float(_R_arr[i]) if i < len(_R_arr) else float(pmean_sensor)
+                _old_theta = np.array([_prev_a, _prev_b, _prev_c], dtype=float)
+                t_sensor_pre = steinhart_predict_sh(_R_i, _old_theta)
+            else:
+                t_sensor_pre = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
         else:
             t_sensor_pre = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
 
@@ -400,6 +484,14 @@ def _build_cert_filled(
         elif calib_model == "cubic":
             from model_calibration.cubic_calibration import cubic_predict
             t_sensor_post = cubic_predict(float(pmean_sensor), np.array(_c_theta))
+        elif calib_model == "quadratic":
+            from model_calibration.quadratic_calibration import quadratic_predict
+            t_sensor_post = quadratic_predict(float(pmean_sensor), np.array(_c_theta))
+        elif calib_model == "steinhart":
+            from model_calibration.steinhart_calibration import steinhart_predict_sh
+            _R_arr = calib_result.get("R_arr", [])
+            _R_i = float(_R_arr[i]) if i < len(_R_arr) else float(pmean_sensor)
+            t_sensor_post = steinhart_predict_sh(_R_i, np.array(_c_theta))
         else:
             t_sensor_post = lsb_to_y(pmean_sensor, lsb_scale, adc_max)
 
@@ -550,10 +642,32 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
             old_a=old_A, old_b=old_B, old_c=old_C, old_d=old_D, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
             coverage_factor=coverage_factor,
         )
+    elif procedure == "quadratic":
+        from model_calibration.quadratic_calibration import calibrate
+        return calibrate(
+            payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
+            adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
+            verbose=verbose, risol=risol,
+            old_a=old_A, old_b=old_B, old_c=old_C, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
+            coverage_factor=coverage_factor,
+        )
+    elif procedure == "steinhart":
+        from model_calibration.steinhart_calibration import calibrate
+        pp_formula = sensor_json.get("metrology", {}).get("preprocessingFormula") if sensor_json else None
+        pp_consts = sensor_json.get("metrology", {}).get("preprocessingFormulaConstants", {}) if sensor_json else {}
+        return calibrate(
+            payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
+            adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
+            verbose=verbose, risol=risol,
+            old_a=old_A, old_b=old_B, old_c=old_C, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
+            preprocessing_formula=pp_formula,
+            preprocessing_vars=dict(pp_consts) if pp_consts else None,
+            coverage_factor=coverage_factor,
+        )
     else:
         raise ValueError(
             f"Unknown procedure '{procedure}'. "
-            "Supported: linear, cubic"
+            "Supported: linear, cubic, quadratic, steinhart"
         )
 
 
@@ -584,6 +698,24 @@ def _apply_calibration_skipped(cert_filled: Dict, calib_result: Dict,
             section.update({
                 "_a0": init_a0, "_a1": init_a1, "_a2": init_a2, "_a3": init_a3,
                 "_u_a0": 0.0, "_u_a1": 0.0, "_u_a2": 0.0, "_u_a3": 0.0,
+            })
+    elif model == "quadratic":
+        init_a0 = old_A if old_A is not None else 0.0
+        init_a1 = old_B if old_B is not None else 1.0
+        init_a2 = old_C if old_C is not None else 0.0
+        for section in (cal, cert_filled["template_parts"]["sensor_method_template"].get("sensor_model", {})):
+            section.update({
+                "_a0": init_a0, "_a1": init_a1, "_a2": init_a2,
+                "_u_a0": 0.0, "_u_a1": 0.0, "_u_a2": 0.0,
+            })
+    elif model == "steinhart":
+        init_a = old_A if old_A is not None else 0.0
+        init_b = old_B if old_B is not None else 0.0
+        init_c = old_C if old_C is not None else 0.0
+        for section in (cal, cert_filled["template_parts"]["sensor_method_template"].get("sensor_model", {})):
+            section.update({
+                "_a": init_a, "_b": init_b, "_c": init_c,
+                "_u_a": 0.0, "_u_b": 0.0, "_u_c": 0.0,
             })
 
     cert_filled["_calibration_result"] = cal
@@ -619,6 +751,9 @@ def main() -> None:
     parser.add_argument("--pdf",  type=str, default=default_pdf_output)
     parser.add_argument("--xml",  type=Path, default=default_xml_output)
     parser.add_argument("--last-calibration", type=Path, default=default_last_calib,
+        help="Read previous calibration result JSON (input: old coefficients, rmse_pre for ufit). "
+             "If the file exists it is loaded and used as the as-found baseline for the current run.")
+    parser.add_argument("--result-calibration", type=Path, default=default_last_calib,
         help="Write full calibration result JSON (coefficients, uncertainties, per-step budget, measurements) for downstream consumers")
     parser.add_argument("--conformity-output", type=Path, default=None)
     parser.add_argument("--images-dir", type=Path, default=None,
@@ -630,7 +765,7 @@ def main() -> None:
     parser.add_argument("--no-xml",  action="store_true", default=False)
     parser.add_argument(
         "--procedure", type=str, default=None,
-        choices=["linear", "cubic"],
+        choices=["linear", "cubic", "quadratic", "steinhart"],
     )
     parser.add_argument(
         "--update-parameters", type=str, default="none",
@@ -780,7 +915,7 @@ def main() -> None:
             print(f"INFO: mapping '{procedure}' -> '{mapped}'.")
         procedure = mapped
 
-    if procedure not in ("linear", "cubic"):
+    if procedure not in ("linear", "cubic", "quadratic", "steinhart"):
         print(f"WARNING: Unknown procedure '{procedure}', falling back to JSON default '{_json_procedure}'.", file=sys.stderr)
         procedure = _json_procedure
         if procedure in _PROCEDURE_ALIASES:
@@ -854,6 +989,20 @@ def main() -> None:
                     "B": _last_coeffs.get("a1"),
                     "C": _last_coeffs.get("a2"),
                     "D": _last_coeffs.get("a3"),
+                }
+            elif _last_model == "quadratic":
+                _last_calib_old = {
+                    "A": _last_coeffs.get("a0"),
+                    "B": _last_coeffs.get("a1"),
+                    "C": _last_coeffs.get("a2"),
+                    "D": None,
+                }
+            elif _last_model == "steinhart":
+                _last_calib_old = {
+                    "A": _last_coeffs.get("a"),
+                    "B": _last_coeffs.get("b"),
+                    "C": _last_coeffs.get("c"),
+                    "D": None,
                 }
         except Exception as _exc:
             if args.verbose:
@@ -950,6 +1099,15 @@ def main() -> None:
                 from model_calibration.cubic_calibration import cubic_predict
                 old_theta = np.array([old_A, old_B, old_C, old_D], dtype=float)
                 t_sensor_pre = cubic_predict(float(pmean_sensor_cr), old_theta)
+            elif proc_model == "quadratic" and all(v is not None for v in [old_A, old_B, old_C]):
+                from model_calibration.quadratic_calibration import quadratic_predict
+                old_theta = np.array([old_A, old_B, old_C], dtype=float)
+                t_sensor_pre = quadratic_predict(float(pmean_sensor_cr), old_theta)
+            elif proc_model == "steinhart" and all(v is not None for v in [old_A, old_B, old_C]):
+                from model_calibration.steinhart_calibration import steinhart_predict_sh
+                _R_cr = float(pmean_sensor_cr)
+                old_theta = np.array([old_A, old_B, old_C], dtype=float)
+                t_sensor_pre = steinhart_predict_sh(_R_cr, old_theta)
             else:
                 t_sensor_pre = lsb_to_y(pmean_sensor_cr, lsb_scale, adc_max)
             as_found_errors.append(t_sensor_pre - _ref_t)
@@ -1023,6 +1181,24 @@ def main() -> None:
                 "u_a2": calib_result["u_a2"], "u_a3": calib_result["u_a3"],
                 "expanded_uncertainties": calib_result["expanded_uncertainties"],
             }
+        elif model == "quadratic":
+            summary = {
+                "model": model,
+                "a0": calib_result["a0"], "a1": calib_result["a1"],
+                "a2": calib_result["a2"],
+                "u_a0": calib_result["u_a0"], "u_a1": calib_result["u_a1"],
+                "u_a2": calib_result["u_a2"],
+                "expanded_uncertainties": calib_result["expanded_uncertainties"],
+            }
+        elif model == "steinhart":
+            summary = {
+                "model": model,
+                "a": calib_result["a"], "b": calib_result["b"],
+                "c": calib_result["c"],
+                "u_a": calib_result["u_a"], "u_b": calib_result["u_b"],
+                "u_c": calib_result["u_c"],
+                "expanded_uncertainties": calib_result["expanded_uncertainties"],
+            }
         print(json.dumps(summary, indent=2))
 
         calc_interp_unc  = max(calib_result.get("expanded_uncertainties", [0.0]))
@@ -1050,15 +1226,15 @@ def main() -> None:
     _validate_output_domain(cert_filled, sensor_json, _cert_unit_sym)
 
     # ── R18: write full calibration result JSON for downstream consumers ──
-    if args.last_calibration is not None:
+    if args.result_calibration is not None:
         last_calib_json = _build_last_calib_json(calib_result, cert_filled)
-        args.last_calibration.parent.mkdir(parents=True, exist_ok=True)
-        args.last_calibration.write_text(
+        args.result_calibration.parent.mkdir(parents=True, exist_ok=True)
+        args.result_calibration.write_text(
             json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
             encoding="utf-8",
         )
         if args.verbose:
-            print(f"Last calibration JSON written to: {args.last_calibration}")
+            print(f"Calibration result JSON written to: {args.result_calibration}")
 
     if calibration_skipped:
         _apply_calibration_skipped(cert_filled, calib_result, old_A, old_B, old_C, old_D, lsb_per_y)
@@ -1263,6 +1439,36 @@ def main() -> None:
                     _calib_result=calib_result,
                     **_common_kw,
                 )
+            elif model == "quadratic":
+                from model_calibration.quadratic_calibration import save_charts as save_calib_charts
+                saved = save_calib_charts(
+                    theta=calib_result["theta"],
+                    temp_nominali=calib_result["temp_nominali"],
+                    dati_raw=calib_result["dati_raw"],
+                    risultati_elaborati=calib_result["risultati_elaborati"],
+                    sample_size=sample_size, lsb_scale_sensor_info=lsb_scale,
+                    adc_max=adc_max,
+                    ub_ref_lsb=calib_result.get("ub_ref_lsb", ub_ref_y * lsb_per_y),
+                    ub_sensor_lsb=ub_sensor_lsb,
+                    output_dir=_images_calib_dir, cov_theta=calib_result.get("cov_theta"),
+                    _calib_result=calib_result,
+                    **_common_kw,
+                )
+            elif model == "steinhart":
+                from model_calibration.steinhart_calibration import save_charts as save_calib_charts
+                saved = save_calib_charts(
+                    theta=calib_result["theta"],
+                    temp_nominali=calib_result["temp_nominali"],
+                    dati_raw=calib_result["dati_raw"],
+                    risultati_elaborati=calib_result["risultati_elaborati"],
+                    sample_size=sample_size, lsb_scale_sensor_info=lsb_scale,
+                    adc_max=adc_max,
+                    ub_ref_lsb=calib_result.get("ub_ref_lsb", ub_ref_y * lsb_per_y),
+                    ub_sensor_lsb=ub_sensor_lsb,
+                    output_dir=_images_calib_dir, cov_theta=calib_result.get("cov_theta"),
+                    _calib_result=calib_result,
+                    **_common_kw,
+                )
             else:
                 saved = []
             if args.verbose:
@@ -1304,6 +1510,32 @@ def main() -> None:
                     ub_ref_lsb=calib_result.get("ub_ref_lsb", ub_ref_y * lsb_per_y),
                     ub_sensor_lsb=ub_sensor_lsb,
                     cov_theta=calib_result["cov_theta"],
+                )
+            elif model == "quadratic":
+                from model_calibration.quadratic_calibration import plot_charts as plot_calib_charts
+                plot_calib_charts(
+                    theta=calib_result["theta"],
+                    temp_nominali=calib_result["temp_nominali"],
+                    dati_raw=calib_result["dati_raw"],
+                    risultati_elaborati=calib_result["risultati_elaborati"],
+                    sample_size=sample_size, lsb_scale_sensor_info=lsb_scale,
+                    adc_max=adc_max,
+                    ub_ref_lsb=calib_result.get("ub_ref_lsb", ub_ref_y * lsb_per_y),
+                    ub_sensor_lsb=ub_sensor_lsb,
+                    cov_theta=calib_result.get("cov_theta"),
+                )
+            elif model == "steinhart":
+                from model_calibration.steinhart_calibration import plot_charts as plot_calib_charts
+                plot_calib_charts(
+                    theta=calib_result["theta"],
+                    temp_nominali=calib_result["temp_nominali"],
+                    dati_raw=calib_result["dati_raw"],
+                    risultati_elaborati=calib_result["risultati_elaborati"],
+                    sample_size=sample_size, lsb_scale_sensor_info=lsb_scale,
+                    adc_max=adc_max,
+                    ub_ref_lsb=calib_result.get("ub_ref_lsb", ub_ref_y * lsb_per_y),
+                    ub_sensor_lsb=ub_sensor_lsb,
+                    cov_theta=calib_result.get("cov_theta"),
                 )
         except Exception as ex:
             import traceback

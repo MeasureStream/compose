@@ -124,7 +124,7 @@ def _expand_template_parts(
         "receiver": calibration["receiver"],
         "request_number": calibration["request_number"],
         "request_date": calibration["request_date"],
-        "receipt_date": calibration["receipt_date"],
+        "receipt_date": calibration.get("receipt_date", ""),
         "measurement_dates": calibration["measurement_dates"],
         "item": sensor["item"],
         "manufacturer": sensor["manufacturer"],
@@ -205,11 +205,31 @@ def fmt_sci(value: float, decimals: int = 10) -> str:
 
 
 def fmt_sci_sig(value: float, sig: int = 2) -> str:
-    """Format with 2 significant digits, comma as decimal separator."""
+    """Format a number with `sig` significant figures (comma decimal sep).
+    - If |exponent| >= 4 -> use 10^ notation: mantissa in [1, 10)  (e.g. 1,2·10^-4)
+    - Otherwise            -> plain decimal, with all digits needed to keep
+      the `sig` significant figures  (e.g. 0.05 -> "0,050", 1.0 -> "1,0",
+      0.9999 -> "1,00", 1234.5 -> "1234,5").
+    Edge case: when rounding bumps the mantissa to 10, the exponent is
+    incremented so the mantissa stays in [1, 10).
+    """
     if value == 0.0:
         return "0"
     import math
-    return f"{value:.{sig - 1 - int(math.floor(math.log10(abs(value))))}f}".replace(".", ",")
+    abs_v = abs(value)
+    exp10 = int(math.floor(math.log10(abs_v)))
+    if exp10 >= 4 or exp10 <= -4:
+        mantissa = abs_v / (10 ** exp10)
+        mantissa_str = f"{mantissa:.{sig - 1}f}"
+        if mantissa_str.startswith("10") or float(mantissa_str.replace(",", ".")) >= 10.0:
+            exp10 += 1
+            mantissa = abs_v / (10 ** exp10)
+            mantissa_str = f"{mantissa:.{sig - 1}f}"
+        mantissa_str = mantissa_str.replace(".", ",")
+        sign = "-" if value < 0 else ""
+        return f"{sign}{mantissa_str}\u00b710^{exp10}"
+    decimals = max(0, sig - 1 - exp10)
+    return f"{value:.{decimals}f}".replace(".", ",")
 
 
 def make_table(data, col_widths, style=None):
@@ -298,7 +318,6 @@ def build_story(styles):
         CERT["receiver"],
         CERT["request_number"],
         CERT["request_date"],
-        CERT["receipt_date"],
         CERT["measurement_dates"],
         CERT["item"],
         CERT["manufacturer"],
@@ -438,42 +457,17 @@ def build_story(styles):
     # Tabella risultati: 5 colonne [Point, T_ref/°C, T_c/°C, M_e/°C, U(E)/°C]
     # MEASUREMENTS formato: [point, T_ref_degC, T_sensor_degC, error_degC, U_exp_degC]
     # Temperatura con risoluzione 0.01°C -> max 2 decimali in tabella
-    # Incertezza con 2 cifre significative -> virgola, max 2 decimali
-    # 6-column table: Point | T_ref | T_c (post) | M_e pre | M_e post | U(E)
-    # Row format: [point, T_ref, T_c_post, M_e_pre, M_e_post, U_exp]
-    # Backwards-compat: rows with only 5 elements treated as old format (no pre column).
-    _has_pre = len(MEASUREMENTS) > 0 and len(MEASUREMENTS[0]) >= 6
-
+    # Incertezza con 2 cifre significative, mai superata; usa 10^ solo se |exp| >= 4
     u = PHYS_UNIT_SYMBOL   # short alias for header strings
-    if _has_pre:
-        default_headers = [
-            "Point",
-            f"T_ref / {u}\nReference temperature",
-            f"T_c / {u}\nsensor value as left",
-            f"M_e pre / {u}\nfound",
-            f"M_e post / {u}\nas left",
-            f"U(E) / {u}\nMeasurement Uncertainty",
-        ]
-    else:
-        default_headers = [
-            "Point",
-            f"T_ref / {u}\nReference temperature",
-            f"T_c / {u}\nMeasured value",
-            f"M_e / {u}\nMeasurement error",
-            f"U(E) / {u}\nMeasurement Uncertainty",
-        ]
+    default_headers = [
+        "Point",
+        f"T_ref / {u}\nReference temperature",
+        f"T_c / {u}\nMeasured value",
+        f"M_e / {u}\nM_e (As found)",
+        f"U(E) / {u}\nMeasurement Uncertainty",
+    ]
 
     headers = text_cfg.get("results_headers", default_headers)
-    # If template still has the old 5-element header list but data has 6 cols, extend it.
-    if _has_pre and len(headers) == 5:
-        headers = [
-            headers[0],
-            headers[1],
-            headers[2],
-            f"M_e pre / {u}\nError before cal.",
-            headers[3],
-            headers[4],
-        ]
 
     cleaned_headers = []
     for h in headers:
@@ -498,34 +492,22 @@ def build_story(styles):
         point  = row[0]
         t_ref  = row[1]
         t_sensor = row[2]
-        if len(row) >= 6:
-            me_pre  = row[3]
-            me_post = row[4]
-            u_exp   = row[5]
-        else:
-            me_pre  = None
-            me_post = row[3]
-            u_exp   = row[4]
+        # row may be 5-col (legacy) or 6-col (pre/post). Take error index 3 by default;
+        # if a 6-col row is supplied, use the as-found (= pre) value at index 3.
+        error = row[3]
+        u_exp = row[4] if len(row) <= 6 else row[5]
 
         data_row = [
             p(f"<font size='8'>{int(point)}</font>", styles["table"]),
             p(f"<font size='8'>{fmt_dec(t_ref, 2)}</font>", styles["table"]),
             p(f"<font size='8'>{fmt_dec(t_sensor, 2)}</font>", styles["table"]),
+            p(f"<font size='8'>{fmt_dec(error, 2)}</font>", styles["table"]),
+            p(f"<font size='8'>{fmt_sci_sig(u_exp)}</font>", styles["table"]),
         ]
-        if me_pre is not None:
-            data_row.append(p(f"<font size='8'>{fmt_dec(me_pre, 2)}</font>", styles["table"]))
-        data_row.append(p(f"<font size='8'>{fmt_dec(me_post, 2)}</font>", styles["table"]))
-        u_exp_fmt = "0" if u_exp == 0.0 else f"{u_exp:.1e}".replace(".", ",")
-        data_row.append(p(f"<font size='8'>{u_exp_fmt}</font>", styles["table"]))
         rows.append(data_row)
 
-    # Column widths — scale to fit A4 body (173 mm usable)
-    if _has_pre:
-        # 6 columns: 14 + 30 + 28 + 28 + 28 + 25 = 153 mm
-        col_widths = [mmv(14), mmv(30), mmv(28), mmv(28), mmv(28), mmv(25)]
-    else:
-        # 5 columns (legacy)
-        col_widths = [mmv(18), mmv(36), mmv(36), mmv(36), mmv(30)]
+    # 5 columns — larghezze per stare nella pagina A4
+    col_widths = [mmv(18), mmv(36), mmv(36), mmv(36), mmv(30)]
     results_tbl = Table(rows, colWidths=col_widths, hAlign="LEFT")
     results_tbl.setStyle(
         TableStyle(
@@ -606,11 +588,25 @@ def build_story(styles):
     story.append(p(f"<para align='center'><font size='10'><b>{cal_formula}</b></font></para>", styles["body"]))
     story.append(Spacer(1, mmv(4)))
 
-    # Helper: scientific notation with N significant digits
+    # Helper: same 10^ convention as fmt_sci_sig (use 10^ only when |exp| >= 4)
     def _fmt_sci(val: float, sig: int = 4) -> str:
         if val == 0.0:
             return "0"
-        return f"{val:.{sig - 1}e}".replace(".", ",")
+        import math
+        abs_v = abs(val)
+        exp10 = int(math.floor(math.log10(abs_v)))
+        if exp10 >= 4 or exp10 <= -4:
+            mantissa = abs_v / (10 ** exp10)
+            mantissa_str = f"{mantissa:.{sig - 1}f}"
+            if mantissa_str.startswith("10") or float(mantissa_str.replace(",", ".")) >= 10.0:
+                exp10 += 1
+                mantissa = abs_v / (10 ** exp10)
+                mantissa_str = f"{mantissa:.{sig - 1}f}"
+            mantissa_str = mantissa_str.replace(".", ",")
+            sign = "-" if val < 0 else ""
+            return f"{sign}{mantissa_str}\u00b710^{exp10}"
+        decimals = max(0, sig - 1 - exp10)
+        return f"{val:.{decimals}f}".replace(".", ",")
 
     # Tabella coefficienti
     coeff_headers = text_cfg.get("coeff_table_headers", ["Parameter", "Value"])
