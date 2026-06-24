@@ -85,7 +85,7 @@
   },
   "calibration": {
 
-    "type": "stei",
+    "type": "steinhart",
     "coefficients": [
       0.0,
       0.0,
@@ -107,6 +107,7 @@
     "preprocessingFormula": "(d_in / (adcMax - d_in)) * rDivider",
     "preprocessingInputUnit": "\\one",
     "preprocessingOutputUnit": "\\ohm",
+    "preprocessingOutputRange": { "min": 0.0, "max": 10000000.0, "dsi": "\\ohm" },
     "requiredPreprocessingInputs": ["rDivider", "adcMax"],
 
     "preprocessingFormulaConstants": {

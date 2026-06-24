@@ -849,3 +849,141 @@ def bundle_from_cubic(
         sample_size=20,
         accuracy_limit=accuracy_limit,
     )
+
+
+def bundle_from_quadratic(
+    calib_result: Dict[str, Any],
+    lsb_scale_sensor_info: Dict[str, Any],
+    adc_max: float,
+    unit_symbol: str = "°C",
+    measurand_label: str = "Temperature",
+    sensor_label: str = "Sensor",
+    ref_label: str = "Reference",
+    accuracy_limit: Optional[float] = None,
+) -> PlotBundle:
+    from .linear_calibration import get_scale_from_sensor
+    from .quadratic_calibration import quadratic_predict_y
+
+    min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
+    lsb_per_y = adc_max / (max_v - min_v)
+
+    theta     = calib_result["theta"]
+    theta_arr = np.array(theta)
+
+    steps     = calib_result["temp_nominali"]
+    risultati = calib_result["risultati_elaborati"]
+    ref_means = calib_result["ref_temp_means"]
+    sensor_means = [risultati[t]["pmean_sensor"] for t in steps]
+
+    if "ub_ref_y" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_y"])
+    elif "ub_ref_lsb" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_lsb"]) / lsb_per_y
+    else:
+        ub_ref_y = 0.0
+    ub_sensor_lsb = float(calib_result.get("ub_sensor_lsb", 0.0))
+    budget        = calib_result.get("per_step_budget", [])
+
+    u_ref_y, u_sensor_lsb_, u_sensor_y, u_E = _extract_unc_from_budget(
+        steps, risultati, budget, lsb_per_y, ub_ref_y, ub_sensor_lsb,
+    )
+    if calib_result.get("expanded_uncertainties"):
+        u_E = list(calib_result["expanded_uncertainties"])
+
+    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
+    t_sensor_post = [
+        quadratic_predict_y(float(lsb), theta_arr, lsb_scale_sensor_info, adc_max)
+        for lsb in sensor_means
+    ]
+    me_pre  = [p - r for p, r in zip(t_sensor_pre,  ref_means)]
+    me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
+
+    x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
+    y_dense = [
+        quadratic_predict_y(float(xi), theta_arr, lsb_scale_sensor_info, adc_max)
+        for xi in x_dense
+    ]
+
+    return PlotBundle(
+        steps=steps, ref_means=ref_means, sensor_means=sensor_means,
+        u_ref_y=u_ref_y, u_sensor_lsb=u_sensor_lsb_, u_sensor_y=u_sensor_y, u_E=u_E,
+        me_pre=me_pre, me_post=me_post,
+        t_sensor_pre=t_sensor_pre, t_sensor_post=t_sensor_post,
+        model_x_lsb=x_dense.tolist(), model_y=y_dense,
+        lsb_per_y=lsb_per_y, lsb_min=min_v, lsb_max=max_v, adc_max=adc_max,
+        unit_symbol=unit_symbol, measurand_label=measurand_label,
+        sensor_label=sensor_label, ref_label=ref_label,
+        model_label="Quadratic OLS  y = a₀ + a₁·x + a₂·x²",
+        is_node=None, sample_data=risultati, sample_size=20,
+        accuracy_limit=accuracy_limit,
+    )
+
+
+def bundle_from_steinhart(
+    calib_result: Dict[str, Any],
+    lsb_scale_sensor_info: Dict[str, Any],
+    adc_max: float,
+    unit_symbol: str = "°C",
+    measurand_label: str = "Temperature",
+    sensor_label: str = "Sensor",
+    ref_label: str = "Reference",
+    accuracy_limit: Optional[float] = None,
+) -> PlotBundle:
+    from .linear_calibration import get_scale_from_sensor
+    from .steinhart_calibration import steinhart_predict_sh
+
+    min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
+    lsb_per_y = adc_max / (max_v - min_v)
+
+    theta     = calib_result["theta"]
+    theta_arr = np.array(theta)
+
+    steps     = calib_result["temp_nominali"]
+    risultati = calib_result["risultati_elaborati"]
+    ref_means = calib_result["ref_temp_means"]
+    sensor_means = [risultati[t]["pmean_sensor"] for t in steps]
+
+    R_arr = calib_result.get("R_arr", sensor_means)
+
+    if "ub_ref_y" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_y"])
+    elif "ub_ref_lsb" in calib_result:
+        ub_ref_y = float(calib_result["ub_ref_lsb"]) / lsb_per_y
+    else:
+        ub_ref_y = 0.0
+    ub_sensor_lsb = float(calib_result.get("ub_sensor_lsb", 0.0))
+    budget        = calib_result.get("per_step_budget", [])
+
+    u_ref_y, u_sensor_lsb_, u_sensor_y, u_E = _extract_unc_from_budget(
+        steps, risultati, budget, lsb_per_y, ub_ref_y, ub_sensor_lsb,
+    )
+    if calib_result.get("expanded_uncertainties"):
+        u_E = list(calib_result["expanded_uncertainties"])
+
+    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
+    t_sensor_post = [
+        steinhart_predict_sh(float(R_arr[i]), theta_arr)
+        for i in range(len(R_arr))
+    ]
+    me_pre  = [p - r for p, r in zip(t_sensor_pre,  ref_means)]
+    me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
+
+    x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
+    y_dense = [
+        steinhart_predict_sh(float(xi), theta_arr)
+        for xi in x_dense
+    ]
+
+    return PlotBundle(
+        steps=steps, ref_means=ref_means, sensor_means=sensor_means,
+        u_ref_y=u_ref_y, u_sensor_lsb=u_sensor_lsb_, u_sensor_y=u_sensor_y, u_E=u_E,
+        me_pre=me_pre, me_post=me_post,
+        t_sensor_pre=t_sensor_pre, t_sensor_post=t_sensor_post,
+        model_x_lsb=x_dense.tolist(), model_y=y_dense,
+        lsb_per_y=lsb_per_y, lsb_min=min_v, lsb_max=max_v, adc_max=adc_max,
+        unit_symbol=unit_symbol, measurand_label=measurand_label,
+        sensor_label=sensor_label, ref_label=ref_label,
+        model_label="Steinhart-Hart  1/T = a + b\u00b7ln(R) + c\u00b7(ln R)\u00b3",
+        is_node=None, sample_data=risultati, sample_size=20,
+        accuracy_limit=accuracy_limit,
+    )
