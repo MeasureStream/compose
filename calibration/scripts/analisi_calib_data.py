@@ -178,6 +178,7 @@ def _build_last_calib_json(
     out: Dict[str, Any] = {
         "model": calib_model,
         "timestamp": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "calibration_done": calib_result.get("calibration_done", "done"),
         "lsb_per_y": calib_result.get("lsb_per_y"),
         "fit_quality": {
             "rmse": calib_result.get("rmse"),
