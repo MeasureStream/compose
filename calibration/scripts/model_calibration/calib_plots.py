@@ -2,6 +2,7 @@
 fig1  Sample block-mean time-series per step.
       Reference bands = ±mu_T_ref[i] (combined ref uncertainty).
       Sensor bands    = ±u_sensor_lsb[i] (combined sensor uncertainty in LSB).
+      Right axis: plain LSB (no per-step °C translation).
 
 fig2  Raw scatter (pre-calibration).
       X error bars: ±u_sensor_lsb[i] [LSB].
@@ -68,7 +69,7 @@ class PlotBundle:
     """
     steps:          List[float]
     ref_means:      List[float]        # [°C]
-    sensor_means:   List[float]        # [LSB]
+    sensor_means:   List[float]        # [LSB] (or post-preprocess domain, e.g. Ω)
     u_ref_y:        List[float]        # [°C]  per-point combined ref unc
     u_sensor_lsb:   List[float]        # [LSB] per-point combined sensor unc
     u_sensor_y:     List[float]        # [°C]  per-point combined sensor unc
@@ -92,6 +93,11 @@ class PlotBundle:
     sample_data:    Optional[Dict[float, Any]] = None
     sample_size:    int = 20
     accuracy_limit: Optional[float] = None
+    # Unit of the sensor reading on the X-axis. "LSB" (default) keeps the
+    # legacy °C↔LSB secondary axis. Any other value (e.g. "Ω") disables
+    # the secondary axis and uses x_unit_symbol as the X label.
+    x_unit:         str = "LSB"
+    x_unit_symbol:  str = "LSB"
 
 
 
@@ -139,53 +145,15 @@ def _annotate(ax, x_vals, y_vals, steps, fontsize=7):
 # Figure 1 — Sample block-mean time-series per step
 
 
-def _local_sens_lsb_per_unit(bundle: PlotBundle) -> List[float]:
-    # Per-step local sensitivity dLSB/d°C estimated by central finite differences
-    # on the calibration step means.
-
-    # Uses (sensor[i+1] - sensor[i-1]) / (ref[i+1] - ref[i-1]) for interior steps,
-    # and the one-sided difference for the two endpoints.
-
-
-    sm = bundle.sensor_means  # [LSB]
-    rm = bundle.ref_means     # [°C]
-    n  = len(sm)
-    if n < 2:
-        return [bundle.lsb_per_y] * n
-
-    sens = []
-    for i in range(n):
-        if i == 0:
-            i1, i2 = 0, 1
-        elif i == n - 1:
-            i1, i2 = n - 2, n - 1
-        else:
-            i1, i2 = i - 1, i + 1
-        dT = rm[i2] - rm[i1]
-        dL = sm[i2] - sm[i1]
-        # Guard against degenerate steps (same ref value)
-        if abs(dT) > 1e-9:
-            sens.append(abs(dL / dT))
-        else:
-            sens.append(bundle.lsb_per_y)
-    return sens
-
-
 def _fig1_sample_timeseries(bundle: PlotBundle, plt):
     """Per-step block-mean time-series.
 
-    Both axes span the same physical window [°C]:
-      - Left axis  : reference [°C]
-      - Right axis : sensor [LSB]  with tick labels showing BOTH LSB and °C
-        (e.g. "15982 LSB  /  0.26 °C")
+    Left axis  : reference [unit_symbol]
+    Right axis : sensor [LSB]  (plain LSB labels, no per-step °C translation)
 
-    The °C equivalent on the sensor tick labels is computed using the
-    LOCAL sensitivity dLSB/d°C at that step (central finite differences),
-    not the global affine lsb_per_y.
-
-    Scale alignment: half-span in °C = max(ref_halfspan, sensor_halfspan)
-    where sensor_halfspan is derived via the local sensitivity, then
-    converted back to LSB for the sensor axis limits.
+    Scale alignment: both axes share a window sized to the wider of the
+    reference and sensor half-spans, converted back to LSB for the sensor
+    axis using the global lsb_per_y.
     """
     if not bundle.sample_data:
         return None
@@ -193,12 +161,7 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
     if not steps:
         return None
 
-    from matplotlib.ticker import FuncFormatter
-
-    step_to_idx  = {t: i for i, t in enumerate(bundle.steps)}
-    local_sens   = _local_sens_lsb_per_unit(bundle)  # [LSB/°C] per step
-    # For tick label formatting we need a per-step reference point (ref_mean[i])
-    # and local_sens[i] so we can write:  T ≈ ref_mean[i] + (LSB - sen_mean[i]) / local_sens[i]
+    step_to_idx = {t: i for i, t in enumerate(bundle.steps)}
 
     ncols = min(3, len(steps))
     nrows = math.ceil(len(steps) / ncols)
@@ -206,11 +169,10 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
                              figsize=(FIG_W_2x3, max(FIG_H_2x3 * nrows / 2, 8)),
                              dpi=DPI, squeeze=False)
     fig.suptitle(
-        f"Sample block-means per calibration step  (block size = {bundle.sample_size})\n"
+        f"Sample block-means per calibration step\n"
         f"Left axis: {bundle.ref_label} [{bundle.unit_symbol}]  |  "
-        f"Right axis: {bundle.sensor_label} [LSB  /  {bundle.unit_symbol} (local sensitivity)]\n"
-        f"Shaded bands = combined standard uncertainty u_c (type-A + type-B, per point)\n"
-        f"Both axes share the same physical window width [±{bundle.unit_symbol}]",
+        f"Right axis: {bundle.sensor_label} [{bundle.x_unit_symbol}]\n"
+        f"Shaded bands = combined standard uncertainty u_c (type-A + type-B, per point)",
         fontsize=10, y=1.02,
     )
 
@@ -222,30 +184,30 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
 
         bi             = step_to_idx.get(t, idx)
         u_ref_i        = bundle.u_ref_y[bi]      # [°C]
-        u_sensor_lsb_i = bundle.u_sensor_lsb[bi] # [LSB]
-        sens_i         = local_sens[bi]          # [LSB/°C] — local at this step
+        u_sensor_lsb_i = bundle.u_sensor_lsb[bi] # [LSB] (or preprocessed unit)
+        _x_unit        = bundle.x_unit_symbol
 
-        smean_rtd = np.asarray(sd["smean_ref"])     # Y
-        smean_log = np.asarray(sd["smean_sensor"]) # X [LSB]
+        smean_rtd = np.asarray(sd["smean_ref"])     # Y [°C]
+        smean_log = np.asarray(sd["smean_sensor"]) # X [LSB or preprocessed unit]
 
         # ── Shared physical half-span ──────────────────────────────────────
-        # Both spans expressed in °C using the LOCAL sensitivity for the sensor.
-        # No global lsb_per_y used here.
+        # When the X-domain is LSB we can convert the sensor span to °C using
+        # the global lsb_per_y and align the two axes. After preprocessing
+        # (e.g. Steinhart) the sensor span is in ohm — there's no fixed °C↔Ω
+        # ratio, so each axis uses its own span.
         ref_pp    = smean_rtd.max() - smean_rtd.min()   # [°C]
         ref_half  = ref_pp / 2.0 + u_ref_i              # [°C]
+        ref_centre = (smean_rtd.max() + smean_rtd.min()) / 2.0
+        sen_pp    = smean_log.max() - smean_log.min()   # [LSB] or [Ω]
+        sen_centre = (smean_log.max() + smean_log.min()) / 2.0
 
-        sen_pp_lsb  = smean_log.max() - smean_log.min() # [LSB]
-        # Convert to °C using local sensitivity (LSB/°C → °C = LSB / sens_i)
-        sen_half_y = sen_pp_lsb / (2.0 * sens_i) + u_sensor_lsb_i / sens_i  # [°C]
-
-        # Winning window: same physical width on both axes, 20 % margin
-        half_y = max(ref_half, sen_half_y, 1e-9) * 1.2   # [°C]
-        half_lsb  = half_y * sens_i                      # [LSB] for sensor axis
-
-        ref_centre     = (smean_rtd.max() + smean_rtd.min()) / 2.0   # [°C]
-        sen_centre_lsb = (smean_log.max() + smean_log.min()) / 2.0   # [LSB]
-        # Reference °C value at the sensor centre (for tick label offset)
-        ref_at_sen_centre = bundle.ref_means[bi]  # [°C]
+        if bundle.x_unit == "LSB":
+            sen_half_y = sen_pp / (2.0 * bundle.lsb_per_y) + u_sensor_lsb_i / bundle.lsb_per_y  # [°C]
+            half_y     = max(ref_half, sen_half_y, 1e-9) * 1.2   # [°C]
+            half_x     = half_y * bundle.lsb_per_y               # [LSB] for sensor axis
+        else:
+            half_y     = ref_half * 1.2
+            half_x     = (sen_pp / 2.0 + u_sensor_lsb_i) * 1.2
 
         # ── Left axis — reference [°C] ─────────────────────────────────────
         ax.plot(x, smean_rtd, "b-o", linewidth=0.8, markersize=2,
@@ -256,36 +218,21 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
         ax.set_ylabel(f"Ref [{bundle.unit_symbol}]", fontsize=8, color="tab:blue")
         ax.tick_params(axis="y", labelcolor="tab:blue", labelsize=7)
 
-        # ── Right axis — sensor [LSB] with °C labels ───────────────────────
+        # ── Right axis — sensor [X_unit] ───────────────────────────────────
         ax2 = ax.twinx()
         ax2.plot(x, smean_log, "r-o", linewidth=0.8, markersize=2,
-                 label=f"{bundle.sensor_label} [LSB]")
+                 label=f"{bundle.sensor_label} [{_x_unit}]")
         ax2.fill_between(x, smean_log - u_sensor_lsb_i, smean_log + u_sensor_lsb_i,
                          alpha=0.12, color="tab:red")
-        ax2.set_ylim(sen_centre_lsb - half_lsb, sen_centre_lsb + half_lsb)
- 
- 
-        # Tick labels: "NNNNN LSB  /  XX.XX °C"
-        # °C approximated as: ref_at_sen_centre + (v - sen_centre_lsb) / sens_i
-        _ref0  = ref_at_sen_centre
-        _sen0  = sen_centre_lsb
-        _sens  = sens_i
-        _unit  = bundle.unit_symbol
-        ax2.yaxis.set_major_formatter(FuncFormatter(
-            lambda v, _, r0=_ref0, s0=_sen0, si=_sens, u=_unit:
-                f"{v:.0f} LSB\n{r0 + (v - s0) / si:.3f} {u}"
-        ))
-        ax2.set_ylabel(f"Sensor [LSB  |  {bundle.unit_symbol}]", fontsize=8, color="tab:red")
+        ax2.set_ylim(sen_centre - half_x, sen_centre + half_x)
+        ax2.set_ylabel(f"Sensor [{_x_unit}]", fontsize=8, color="tab:red")
         ax2.tick_params(axis="y", labelcolor="tab:red", labelsize=7)
 
-        winner = "ref" if ref_half >= sen_half_y else "sensor"
-        u_sen_y_i = u_sensor_lsb_i / sens_i
         ax.set_title(
             f"Step {t:.1f} {bundle.unit_symbol}  —  "
-            f"local sens = {sens_i:.1f} LSB/{bundle.unit_symbol}\n"
             f"u_ref={u_ref_i:.4f} {bundle.unit_symbol}   "
-            f"u_sen={u_sensor_lsb_i:.2f} LSB = {u_sen_y_i:.4f} {bundle.unit_symbol}\n"
-            f"window ±{half_y:.4f} {bundle.unit_symbol}  (driven by {winner})",
+            f"u_sen={u_sensor_lsb_i:.2f} {_x_unit}\n"
+            f"window ±{half_y:.4f} {bundle.unit_symbol}",
             fontsize=7,
         )
         ax.set_xlabel("Block index", fontsize=8)
@@ -308,9 +255,10 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
 
 def _fig2_raw_scatter(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
+    _x_unit = bundle.x_unit_symbol
     fig.suptitle(
         f"Raw scatter — pre-calibration\n"
-        f"X: {bundle.sensor_label} [LSB / {bundle.unit_symbol}]"
+        f"X: {bundle.sensor_label} [{_x_unit} / {bundle.unit_symbol}]"
         f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]\n"
         f"Error bars = combined std unc u_c per point (type-A + type-B)",
         fontsize=10,
@@ -330,10 +278,11 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
         ax.annotate(f"{t:.0f}", (xi, yi),
                     textcoords="offset points", xytext=(5, 3), fontsize=7, alpha=0.8)
 
-    ax.set_xlabel(f"{bundle.sensor_label} mean [LSB]", fontsize=10)
+    ax.set_xlabel(f"{bundle.sensor_label} mean [{_x_unit}]", fontsize=10)
     ax.set_ylabel(f"{bundle.ref_label} mean [{bundle.unit_symbol}]", fontsize=10)
     ax.grid(True, alpha=0.25)
-    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
+    if bundle.x_unit == "LSB":
+        _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     if bundle.is_node is not None:
         from matplotlib.patches import Patch
@@ -354,9 +303,10 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
 
 def _fig3_calibration_curve(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
+    _x_unit = bundle.x_unit_symbol
     fig.suptitle(
         f"Calibration curve — {bundle.model_label}\n"
-        f"X: {bundle.sensor_label} [LSB / {bundle.unit_symbol}]"
+        f"X: {bundle.sensor_label} [{_x_unit} / {bundle.unit_symbol}]"
         f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]\n"
         f"Reference error bars = u_c per point (type-A + type-B)",
         fontsize=10,
@@ -368,7 +318,7 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
 
     x_lsb = np.array(bundle.sensor_means)
     y_ref  = np.array(bundle.ref_means)
-    u_x    = np.array(bundle.u_sensor_lsb)  # [LSB]
+    u_x    = np.array(bundle.u_sensor_lsb)  # [LSB] (or preprocessed unit)
     u_y    = np.array(bundle.u_ref_y)       # [°C]
 
     # Reference points with per-point error bars
@@ -394,11 +344,12 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
 
     _annotate(ax, x_lsb, y_ref, bundle.steps)
 
-    ax.set_xlabel(f"{bundle.sensor_label} reading [LSB]", fontsize=10)
+    ax.set_xlabel(f"{bundle.sensor_label} reading [{_x_unit}]", fontsize=10)
     ax.set_ylabel(_phys_label(bundle.measurand_label, bundle.unit_symbol), fontsize=10)
     ax.grid(True, alpha=0.25)
     ax.legend(fontsize=8)
-    _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
+    if bundle.x_unit == "LSB":
+        _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     fig.tight_layout()
     return fig
@@ -941,9 +892,11 @@ def bundle_from_steinhart(
     steps     = calib_result["temp_nominali"]
     risultati = calib_result["risultati_elaborati"]
     ref_means = calib_result["ref_temp_means"]
+    # pmean_sensor is already in the preprocessed domain (e.g. ohm for
+    # Steinhart) — the orchestrator runs the sensor's preprocessingFormula
+    # on the raw LSB samples before invoking the fit, so the engine never
+    # sees LSB.
     sensor_means = [risultati[t]["pmean_sensor"] for t in steps]
-
-    R_arr = calib_result.get("R_arr", sensor_means)
 
     if "ub_ref_y" in calib_result:
         ub_ref_y = float(calib_result["ub_ref_y"])
@@ -960,19 +913,19 @@ def bundle_from_steinhart(
     if calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
+    # As-found (pre) error: raw LSB mapped to °C via the standard
+    # lsb16→phys conversion, the same way the other bundles do it.
     t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
-    t_sensor_post = [
-        steinhart_predict_sh(float(R_arr[i]), theta_arr)
-        for i in range(len(R_arr))
-    ]
+    t_sensor_post = [steinhart_predict_sh(float(xi), theta_arr) for xi in sensor_means]
     me_pre  = [p - r for p, r in zip(t_sensor_pre,  ref_means)]
     me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
 
-    x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
-    y_dense = [
-        steinhart_predict_sh(float(xi), theta_arr)
-        for xi in x_dense
-    ]
+    # Dense model curve in the sensor's native X domain.
+    if len(sensor_means) >= 2:
+        x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
+    else:
+        x_dense = np.array(sensor_means, dtype=float)
+    y_dense = [steinhart_predict_sh(float(xi), theta_arr) for xi in x_dense]
 
     return PlotBundle(
         steps=steps, ref_means=ref_means, sensor_means=sensor_means,
@@ -986,4 +939,5 @@ def bundle_from_steinhart(
         model_label="Steinhart-Hart  1/T = a + b\u00b7ln(R) + c\u00b7(ln R)\u00b3",
         is_node=None, sample_data=risultati, sample_size=20,
         accuracy_limit=accuracy_limit,
+        x_unit="PREPROCESSED", x_unit_symbol="\u03a9",
     )
