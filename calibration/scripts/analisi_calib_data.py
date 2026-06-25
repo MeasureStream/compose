@@ -1275,7 +1275,7 @@ def main() -> None:
         sH, rH = _checks.check_H(
             measurements, mae_y=args.mae_y,
             pfa_threshold_pct=args.pfa_threshold_pct,
-            verbose=False, u_std_mode=args.pfa_u_std_mode,
+            verbose=args.verbose, u_std_mode=args.pfa_u_std_mode,
             u_budget_per_step=u_budget_conf,
             adc_bits=adc_bits, adc_max=adc_max,
             coverage_factor=_get_coverage_factor(sensor_json),

@@ -188,6 +188,10 @@ def check_H(
     pfa_threshold = pfa_threshold_pct / 100.0
     results: List[Dict] = []
     all_pass = True
+    # Carullo et al. Step 3: guard-band factor k_w = Φ⁻¹(1 − PFA_acc),
+    # constant across the run.
+    k_w = float(_scipy_stats.norm.ppf(1.0 - pfa_threshold))
+    any_unstatable = False
 
     _warned_lsb = False
     for idx, row in enumerate(measurements):
@@ -228,6 +232,17 @@ def check_H(
         if not ok:
             all_pass = False
 
+        # Carullo et al. reporting fields
+        g_n  = k_w * u_ein                          # normalised guard band
+        al_y = -mae_y + k_w * u_std                # reduced acceptance limit
+        au_y =  mae_y - k_w * u_std                # reduced acceptance limit
+        pfa_at_zero = (2.0 * _scipy_stats.norm.cdf(-1.0 / u_ein)
+                       if u_ein > 0.0 else 0.0)    # eq.4 of the paper at E_in=0
+        pfa_at_zero = max(0.0, min(1.0, pfa_at_zero))
+        statable = pfa_at_zero <= pfa_threshold
+        if not statable:
+            any_unstatable = True
+
         results.append({
             "punto": punto, "T_ref_y": t_ref,
             "M_e_pre_y": me_pre, "Ein": ein,
@@ -236,6 +251,10 @@ def check_H(
             "MAE_y": mae_y,
             "PFA_pct": pfa_i * 100.0, "PFA_threshold_pct": pfa_threshold_pct,
             "pass": ok,
+            "k_w": k_w, "g_n": g_n,
+            "AL_y": al_y, "AU_y": au_y,
+            "PFA_at_zero_pct": pfa_at_zero * 100.0,
+            "statable": statable,
         })
 
         if verbose:
@@ -244,7 +263,54 @@ def check_H(
                 f"u(E)={u_std:.4f} [{effective_mode}]  PFA={pfa_i*100.0:.2f}%  => {'PASS' if ok else 'FAIL'}"
             )
 
+    if verbose:
+        # Carullo et al. Table 6/7/8-style report. Mirrors the columns
+        # AL, AU, PFA used in the reference paper. The "statable" column
+        # is the diagnostic that flags the structural impossibility case
+        # of Table 8 (PFA at the centre of the interval already exceeds
+        # the threshold).
+        _print_h_carullo_table(results, pfa_threshold_pct, effective_mode, any_unstatable)
+
     return (PASS if all_pass else FAIL), results
+
+
+def _print_h_carullo_table(results: List[Dict], pfa_threshold_pct: float,
+                            u_std_mode: str, any_unstatable: bool) -> None:
+    """Carullo et al. Table 6/7/8-style summary. Diagnostic only — does
+    not alter the verdict produced by check_H.
+    """
+    if not results:
+        return
+    k_w = float(results[0]["k_w"])
+    mae = float(results[0]["MAE_y"])
+    print()
+    print(_hr("="))
+    print(f"Check H — Carullo et al. table  (PFA_acc = {pfa_threshold_pct:.1f}%  "
+          f"k_w = {k_w:.3f}  u_std_mode = {u_std_mode})")
+    print(_hr("="))
+    hdr = (f" {'Pt':>3}  {'T_ref':>9}  {'M_e_pre':>10}  {'U(E)':>8}  "
+           f"{'Ein':>7}  {'AL':>10}  {'AU':>10}  {'PFA%':>7}  {'Stat':>5}  {'V':>4}")
+    print(hdr)
+    print(_hr("-"))
+    for r in results:
+        verdict = "PASS" if r["pass"] else "FAIL"
+        stat_lbl = "  Y  " if r["statable"] else "  N  "
+        print(
+            f" {r['punto']:>3d}  {r['T_ref_y']:>9.3f}  {r['M_e_pre_y']:>+10.4f}  "
+            f"{r['U_exp_y']:>8.4f}  {r['Ein']:>+7.3f}  {r['AL_y']:>+10.4f}  "
+            f"{r['AU_y']:>+10.4f}  {r['PFA_pct']:>6.2f}%  {stat_lbl}  {verdict:>4}"
+        )
+    print(_hr("="))
+    if any_unstatable:
+        # Paper Table 8, grey cells: PFA at the centre of the interval
+        # already exceeds the threshold, so the conformity statement at
+        # the declared MAE is structurally impossible.
+        print(
+            f"*** [H] NOTE: at MAE = {mae:.4f}, PFA(E_in=0) exceeds "
+            f"{pfa_threshold_pct:.1f}% for at least one point — conformity "
+            f"cannot be stated at the declared MAE regardless of the "
+            f"measured error. See Carullo et al. Table 8 (last row).\n"
+        )
 
 
 
