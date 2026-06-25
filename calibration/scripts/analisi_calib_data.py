@@ -33,6 +33,7 @@ LAST_CALIB_DIR    = CALIB_ROOT / "last_calibration"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from model_calibration import apply_preprocessing_to_payload  # noqa: E402
 from model_calibration.unit_checks import dsi_to_symbol, dsi_to_xml_unit  # noqa: E402
 from calib_utils import _lookup, SensorAccuracyChecker, lsb_to_y, round_to_significant_figures  # noqa: E402
 
@@ -653,15 +654,11 @@ def _run_calibration(procedure: str, payload: Dict, lsb_scale: Dict, sample_size
         )
     elif procedure == "steinhart":
         from model_calibration.steinhart_calibration import calibrate
-        pp_formula = sensor_json.get("metrology", {}).get("preprocessingFormula") if sensor_json else None
-        pp_consts = sensor_json.get("metrology", {}).get("preprocessingFormulaConstants", {}) if sensor_json else {}
         return calibrate(
             payload=payload, lsb_scale_sensor_info=lsb_scale, sample_size=sample_size,
             adc_max=adc_max, ub_ref_y=ub_ref_y, ub_sensor_lsb=ub_sensor_lsb,
             verbose=verbose, risol=risol,
             old_a=old_A, old_b=old_B, old_c=old_C, **unit_kwargs, **formula_kwargs, **ufit_kwargs,
-            preprocessing_formula=pp_formula,
-            preprocessing_vars=dict(pp_consts) if pp_consts else None,
             coverage_factor=coverage_factor,
         )
     else:
@@ -886,6 +883,10 @@ def main() -> None:
     lsb_scale   = {"minPhysVal": lsb_min, "maxPhysVal": lsb_max}
 
     payload = json.loads(args.input.read_text(encoding="utf-8"))
+
+    _pp_info = apply_preprocessing_to_payload(
+        payload, sensor_json=sensor_json, verbose=args.verbose,
+    )
 
     if args.verbose:
         print(f"Input JSON (LSB16): {args.input}")

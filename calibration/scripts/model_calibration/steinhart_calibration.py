@@ -123,15 +123,6 @@ def steinhart_uncertainty(R: float, D: float, u_D_lsb: float,
     return float(np.sqrt(max(0.0, u2_coeff + u2_sensor)))
 
 
-def _apply_preprocessing(x_lsb: np.ndarray, preprocessing_formula: str,
-                          preprocessing_vars: Dict[str, float]) -> np.ndarray:
-    R_arr = np.zeros(len(x_lsb))
-    for i, D_i in enumerate(x_lsb):
-        vars_i = {**preprocessing_vars, "d_in": qs(D_i)}
-        R_arr[i] = float(evaluate_formula(preprocessing_formula, vars_i).magnitude)
-    return R_arr
-
-
 def run_prechecks(
     payload: Dict[str, Any],
     sensor_json: Dict[str, Any] | None = None,
@@ -192,8 +183,6 @@ def calibrate(
     ufit: float | None = None,
     ufitfromJson: bool = False,
     coverage_factor: float = 2.0,
-    preprocessing_formula: str | None = None,
-    preprocessing_vars: Dict[str, float] | None = None,
 ) -> Dict[str, Any]:
     if ub_pt_lsb is not None and ub_ref_y is None:
         min_v, max_v = get_scale_from_sensor(lsb_scale_sensor_info)
@@ -233,14 +222,17 @@ def calibrate(
 
     u_res = risol / np.sqrt(12.0)
 
-    r_divider = float(preprocessing_vars.get("rDivider", 100000.0)) if preprocessing_vars else 100000.0
+    # The orchestrator (analisi_calib_data.main) applies the sensor's
+    # preprocessingFormula to the raw LSB samples *before* invoking the
+    # fit, so x_lsb is already in the model's native X-domain (e.g.
+    # resistance in ohm for Steinhart). We just work on x_lsb.
+    R_arr = x_lsb.copy()
 
-    if preprocessing_formula and preprocessing_vars:
-        R_arr = _apply_preprocessing(x_lsb, preprocessing_formula, preprocessing_vars)
-        if verbose:
-            print(f"\nPreprocessed LSB → R: {R_arr}")
-    else:
-        R_arr = x_lsb.copy()
+    # Hardware constants are read from the sensor JSON when present, so
+    # the steinhart_uncertainty helper can still propagate the sensor
+    # uncertainty through the LSB→R chain (it takes u_D_lsb as input).
+    _pp_consts = (sensor_json or {}).get("metrology", {}).get("preprocessingFormulaConstants", {}) or {}
+    r_divider = float(_pp_consts.get("rDivider", 100000.0))
 
     ln_r_arr = np.log(R_arr)
     T_K_arr  = y_phys + 273.15
@@ -340,9 +332,6 @@ def calibrate(
     if formula:
         result["formula"] = formula
         result["formula_vars"] = dict(formula_vars) if formula_vars else {}
-    if preprocessing_formula:
-        result["preprocessing_formula"] = preprocessing_formula
-        result["preprocessing_vars"] = dict(preprocessing_vars) if preprocessing_vars else {}
     if unit_check_result is not None:
         result["unit_check"] = unit_check_result
     if convert_units and sensor_json is not None and ref_json is not None:
