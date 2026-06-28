@@ -1394,6 +1394,7 @@ def main() -> None:
         except Exception as ex:
             print(f"XML generation error: {ex}", file=sys.stderr)
 
+    saved = []  # init here so conformity block can reference it even when --charts is off
     if args.charts:
         try:
             model = calib_result.get("model", procedure)

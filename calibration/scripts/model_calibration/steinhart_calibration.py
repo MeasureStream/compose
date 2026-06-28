@@ -222,17 +222,14 @@ def calibrate(
 
     u_res = risol / np.sqrt(12.0)
 
-    # The orchestrator (analisi_calib_data.main) applies the sensor's
-    # preprocessingFormula to the raw LSB samples *before* invoking the
-    # fit, so x_lsb is already in the model's native X-domain (e.g.
-    # resistance in ohm for Steinhart). We just work on x_lsb.
+    # payload is pre-processed: x_lsb holds R [Ω] not raw LSB
     R_arr = x_lsb.copy()
 
-    # Hardware constants are read from the sensor JSON when present, so
-    # the steinhart_uncertainty helper can still propagate the sensor
-    # uncertainty through the LSB→R chain (it takes u_D_lsb as input).
     _pp_consts = (sensor_json or {}).get("metrology", {}).get("preprocessingFormulaConstants", {}) or {}
     r_divider = float(_pp_consts.get("rDivider", 100000.0))
+
+    # back-compute original D [LSB] from R: D = R·adc_max / (R + r_divider)
+    D_arr_lsb = R_arr * adc_max / (R_arr + r_divider)
 
     ln_r_arr = np.log(R_arr)
     T_K_arr  = y_phys + 273.15
@@ -245,7 +242,7 @@ def calibrate(
         print("\n\n --- Fine acquisizione dati (steinhart) ---")
 
     theta, u_theta, cov_theta = _gum_propagation_steinhart(
-        ln_r_arr, R_arr, x_lsb, y_inv, T_K_arr, uc_tmp, uc_pt,
+        ln_r_arr, R_arr, D_arr_lsb, y_inv, T_K_arr, uc_tmp, uc_pt,
         r_divider=r_divider, adc_max=adc_max,
     )
     a, b, c              = theta
@@ -271,35 +268,32 @@ def calibrate(
 
     # Resolution contributions (type B, uniform)
     u_res_ref = 0.001 / np.sqrt(12.0)   # [°C] ref instrument display resolution
-    # Steinhart sensitivity dT/dD: approximate via central difference or local jacobian.
-    # Computed per-step below using finite difference on steinhart_predict_sh.
+    # sensitivity per step — analytical chain rule through Steinhart + voltage divider
+    # (old comment removed — see dT/dD = dT/dR * dR/dD in the try block below)
 
     expanded_uncertainties: List[float] = []
     per_step_budget: List[dict] = []
 
     for i, t in enumerate(temp_nominali):
-        D_i = float(x_lsb[i])
         R_i = float(R_arr[i])
+        D_i = float(D_arr_lsb[i])   # D in LSB (back-computed from R)
 
-        # Local sensitivity |dT/dD| via finite difference on R(D) → T(R)
-        # Clamp D±dD strictly inside (0, adc_max) to avoid log(negative) in steinhart
-        dD = max(1.0, abs(D_i) * 1e-4)
-        D_hi = min(D_i + dD, adc_max - 1.0)
-        D_lo = max(D_i - dD, 1.0)
-        actual_dD = (D_hi - D_lo) / 2.0
-        R_hi = D_hi / (adc_max - D_hi) * r_divider
-        R_lo = D_lo / (adc_max - D_lo) * r_divider
+        # dT/dD via chain rule: dT/dR * dR/dD
+        # dR/dD = r_div*adc_max/(adc_max-D)^2   dT/dR = -T_K^2*(b/R + 3c*(lnR)^2/R)
+
         try:
-            T_hi = steinhart_predict_sh(R_hi, theta)
-            T_lo = steinhart_predict_sh(R_lo, theta)
-            sens_i = abs((T_hi - T_lo) / (2.0 * actual_dD)) if actual_dD > 0 else 0.0
+            inv_T_i = float(np.dot(_regressor_row(log(R_i)), theta))
+            T_K_i   = 1.0 / inv_T_i if abs(inv_T_i) > 1e-20 else 0.0
+            dT_dR   = -T_K_i**2 * (b / R_i + 3.0 * c * log(R_i)**2 / R_i)
+            dR_dD   = r_divider * adc_max / max((adc_max - D_i)**2, 1e-12)
+            sens_i  = abs(dT_dR * dR_dD)
         except Exception:
             sens_i = 0.0
 
-        uA_ref        = risultati_elaborati[t]["pstd_ref"]              # type-A ref [°C]
-        uA_sensor     = risultati_elaborati[t]["pstd_sensor"] * sens_i  # type-A sensor [°C]
-        # u_B_sensor: only resolution × |dT/dn|_i (uB from JSON excluded)
-        uB_sensor_res = (1.0 / np.sqrt(12.0)) * sens_i                 # 1 LSB resolution [°C]
+        uA_ref    = risultati_elaborati[t]["pstd_ref"]
+        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens_i
+        # 1 LSB resolution contribution converted to degC
+        uB_sensor_res = (1.0 / np.sqrt(12.0)) * sens_i
 
         # Combined standard uncertainty — u_fitting NOT included in u_c, uB_json excluded
         u_c   = np.sqrt(

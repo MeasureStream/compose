@@ -913,10 +913,18 @@ def bundle_from_steinhart(
     if calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
-    # As-found (pre) error: raw LSB mapped to °C via the standard
-    # lsb16→phys conversion, the same way the other bundles do it.
-    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
-    t_sensor_post = [steinhart_predict_sh(float(xi), theta_arr) for xi in sensor_means]
+    # As-found (pre) error: use old Steinhart coefficients applied to R[Ohm].
+    # sensor_means already contains R[Ohm] after preprocessing.
+    # If old coefficients exist, predict with them; else fall back to new theta
+    # (pre = post, meaning no drift since last calibration or first calibration).
+    _old_a = calib_result.get("old_a")
+    _old_b = calib_result.get("old_b")
+    _old_c = calib_result.get("old_c")
+    _has_old = all(v is not None for v in [_old_a, _old_b, _old_c])
+    _old_theta = np.array([_old_a, _old_b, _old_c], dtype=float) if _has_old else theta_arr
+
+    t_sensor_pre  = [steinhart_predict_sh(float(xi), _old_theta) for xi in sensor_means]
+    t_sensor_post = [steinhart_predict_sh(float(xi), theta_arr)  for xi in sensor_means]
     me_pre  = [p - r for p, r in zip(t_sensor_pre,  ref_means)]
     me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
 
