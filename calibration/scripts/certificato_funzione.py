@@ -312,19 +312,25 @@ def build_story(styles):
     )
     story.append(Spacer(1, mmv(8)))
 
-    left_values = [
-        CERT["issue_date"],
-        CERT["customer"],
-        CERT["receiver"],
-        CERT["request_number"],
-        CERT["request_date"],
-        CERT["measurement_dates"],
-        CERT["item"],
-        CERT["manufacturer"],
-        CERT["model"],
-        CERT["serial_number"],
+    # Mappa etichetta → valore: adattiva rispetto a qualunque sottoinsieme di
+    # general_data_labels nel template (10 voci legacy o 11 con receipt_date).
+    _label_to_value = {
+        "Date of issue":           CERT.get("issue_date", ""),
+        "Customer":                CERT.get("customer", ""),
+        "Receiver":                CERT.get("receiver", ""),
+        "Request number":          CERT.get("request_number", ""),
+        "Request date":            CERT.get("request_date", ""),
+        "Date of receipt of item": CERT.get("receipt_date", "---"),
+        "Date of measurements":    CERT.get("measurement_dates", ""),
+        "Item":                    CERT.get("item") or CERTIFICATE_PARAMS.get("device_type", ""),
+        "Manufacturer":            CERT.get("manufacturer", ""),
+        "Model":                   CERT.get("model", ""),
+        "Serial number":           CERT.get("serial_number", ""),
+    }
+    left = [
+        (label, _label_to_value.get(label, ""))
+        for label in text_cfg["general_data_labels"]
     ]
-    left = list(zip(text_cfg["general_data_labels"], left_values))
     data_rows = [
         [
             p(f"<font size='8.2'>{label}</font>", styles["body"]),
@@ -454,60 +460,106 @@ def build_story(styles):
     story.append(meta_tbl)
     story.append(Spacer(1, mmv(6)))
 
-    # Tabella risultati: 5 colonne [Point, T_ref/°C, T_c/°C, M_e/°C, U(E)/°C]
-    # MEASUREMENTS formato: [point, T_ref_degC, T_sensor_degC, error_degC, U_exp_degC]
-    # Temperatura con risoluzione 0.01°C -> max 2 decimali in tabella
-    # Incertezza con 2 cifre significative, mai superata; usa 10^ solo se |exp| >= 4
-    u = PHYS_UNIT_SYMBOL   # short alias for header strings
-    default_headers = [
-        "Point",
-        f"T_ref / {u}\nReference temperature",
-        f"T_c / {u}\nMeasured value",
-        f"M_e / {u}\nM_e (As found)",
-        f"U(E) / {u}\nMeasurement Uncertainty",
+    # Tabella risultati — adattiva: 5 o 6 colonne in base ai dati.
+    # Formato riga: [point, T_ref, T_sensor, as_found, residual, U_exp]
+    # La colonna "residuals" viene mostrata solo se almeno una riga ha
+    # as_found != residual (altrimenti sono la stessa cosa e si omette).
+    u = PHYS_UNIT_SYMBOL   # short alias
+
+    # Rileva se la colonna residui è necessaria
+    def _has_residuals(meas):
+        for row in meas:
+            if len(row) >= 6:
+                as_found = row[3]
+                residual = row[4]
+                if abs(float(as_found) - float(residual)) > 1e-12:
+                    return True
+        return False
+
+    show_residuals = _has_residuals(MEASUREMENTS)
+
+    # Intestazioni dal template (5 voci: Point, T_ref, T_c, M_e, U(E))
+    # oppure 6 voci se il template include già la colonna residui.
+    # Il layout logico del dato è sempre:
+    #   col 0 = Point
+    #   col 1 = T_ref
+    #   col 2 = T_sensor
+    #   col 3 = as_found  (M_e pre-adjustment)
+    #   col 4 = residual  (M_e post-adjustment) — solo se show_residuals
+    #   col 5 = U(E)
+
+    def _strip_unit(h: str) -> str:
+        for suffix in [f" / {u}", " / \u00b0C", " / °C", " / K", f"/{u}", "/\u00b0C", "/°C", "/K"]:
+            h = h.replace(suffix, "")
+        return h
+
+    cfg_headers = [_strip_unit(h) for h in text_cfg.get("results_headers", [])]
+
+    # Default a 6 posizioni — tutti nel formato "titolo\ndescrizione" per
+    # altezza uniforme della riga header.
+    _h_defaults = [
+        "Point\n ",
+        f"T_ref\nReference temperature",
+        f"T_c\nMeasured value (as-found)",
+        f"M_e\nMeasurement error (as-found)",
+        f"M_e residuals\nMeasurement error (as-left)",
+        f"U(E)\nMeasurement Uncertainty",
     ]
 
-    headers = text_cfg.get("results_headers", default_headers)
+    # Costruisce h6 a 6 posizioni dal template:
+    # 5 voci → [Point, T_ref, T_c, M_e, U(E)]: sposta U(E) in pos 5, inserisce default residui in pos 4
+    # 6 voci → usa direttamente
+    # < 5    → riempi con default
+    def _normalise(h: str) -> str:
+        """Assicura che ogni header abbia esattamente un \n (titolo\ndescrizione)."""
+        if "\n" not in h:
+            h = h + "\n "
+        return h
 
-    cleaned_headers = []
-    for h in headers:
-        h_clean = h
-        for suffix in [f" / {u}", " / \u00b0C", " / °C", " / K", f"/{u}", "/\u00b0C", "/°C", "/K"]:
-            h_clean = h_clean.replace(suffix, "")
-        cleaned_headers.append(h_clean)
-    headers = cleaned_headers
+    if len(cfg_headers) >= 6:
+        h6 = [_normalise(cfg_headers[i] if i < len(cfg_headers) else _h_defaults[i]) for i in range(6)]
+    elif len(cfg_headers) == 5:
+        h6 = [_normalise(h) for h in cfg_headers[:4]] + [_h_defaults[4], _normalise(cfg_headers[4])]
+    else:
+        h6 = [_normalise(cfg_headers[i] if i < len(cfg_headers) else _h_defaults[i]) for i in range(6)]
+
+    if show_residuals:
+        col_indices = [0, 1, 2, 3, 4, 5]
+        col_widths  = [mmv(14), mmv(30), mmv(28), mmv(26), mmv(26), mmv(26)]
+    else:
+        col_indices = [0, 1, 2, 3, 5]
+        col_widths  = [mmv(18), mmv(36), mmv(34), mmv(34), mmv(28)]
+
+    selected_headers = [h6[i] for i in col_indices]
 
     def _header_para(text: str) -> Paragraph:
-        if "\n" in text:
-            title, desc = text.split("\n", 1)
-            html = f"<font size='7.5'><b>{title}</b></font><br/><font size='6.2'>{desc}</font>"
-        else:
-            html = f"<font size='7.5'><b>{text}</b></font>"
+        # Formato sempre "titolo\ndescrizione"
+        title, desc = text.split("\n", 1)
+        html = f"<font size='7.5'><b>{title}</b></font><br/><font size='6.2'>{desc.strip()}</font>"
         return p(html, styles["table"])
 
-    header_row = [_header_para(h) for h in headers]
-
+    header_row = [_header_para(h) for h in selected_headers]
     rows = [header_row]
-    for row in MEASUREMENTS:
-        point  = row[0]
-        t_ref  = row[1]
-        t_sensor = row[2]
-        # row may be 5-col (legacy) or 6-col (pre/post). Take error index 3 by default;
-        # if a 6-col row is supplied, use the as-found (= pre) value at index 3.
-        error = row[3]
-        u_exp = row[4] if len(row) <= 6 else row[5]
 
-        data_row = [
+    for row in MEASUREMENTS:
+        point    = row[0]
+        t_ref    = row[1]
+        t_sensor = row[2]
+        as_found = row[3] if len(row) > 3 else 0.0
+        residual = row[4] if len(row) > 4 else as_found
+        u_exp    = row[5] if len(row) > 5 else (row[4] if len(row) > 4 else 0.0)
+
+        all_vals = [
             p(f"<font size='8'>{int(point)}</font>", styles["table"]),
             p(f"<font size='8'>{fmt_dec(t_ref, 2)}</font>", styles["table"]),
             p(f"<font size='8'>{fmt_dec(t_sensor, 2)}</font>", styles["table"]),
-            p(f"<font size='8'>{fmt_dec(error, 2)}</font>", styles["table"]),
+            p(f"<font size='8'>{fmt_dec(as_found, 2)}</font>", styles["table"]),
+            p(f"<font size='8'>{fmt_dec(residual, 4)}</font>", styles["table"]),
             p(f"<font size='8'>{fmt_sci_sig(u_exp)}</font>", styles["table"]),
         ]
+        data_row = [all_vals[i] for i in col_indices if i < len(all_vals)]
         rows.append(data_row)
 
-    # 5 columns — larghezze per stare nella pagina A4
-    col_widths = [mmv(18), mmv(36), mmv(36), mmv(36), mmv(30)]
     results_tbl = Table(rows, colWidths=col_widths, hAlign="LEFT")
     results_tbl.setStyle(
         TableStyle(
@@ -549,9 +601,19 @@ def build_story(styles):
         )
     )
     story.append(Spacer(1, mmv(6)))
+    _calib_model_early = CALIBRATION_RESULT.get("_calib_model", SENSOR_MODEL.get("_calib_model", "linear"))
+    _page4_title_default = {
+        "steinhart": f"Calibration function T/{PHYS_UNIT_SYMBOL} = f(R/\u03a9) — Steinhart-Hart",
+        "cubic":     f"Calibration function T/{PHYS_UNIT_SYMBOL} = f(D/LSB) — cubic",
+        "linear":    f"Calibration function T/{PHYS_UNIT_SYMBOL} = f(D/LSB) — linear",
+    }.get(_calib_model_early, f"T/{PHYS_UNIT_SYMBOL} = f(D/LSB)")
+    # Sovrascrivi il titolo italiano dal template se ancora presente
+    _page4_title_raw = text_cfg.get("page4_title", _page4_title_default)
+    if "Tabulazione" in _page4_title_raw or "taratura" in _page4_title_raw:
+        _page4_title_raw = _page4_title_default
     story.append(
         p(
-            f"<para align='center'><b>{text_cfg.get('page4_title', f'Tabulazione T/{PHYS_UNIT_SYMBOL} = f(D/LSB)')}</b></para>",
+            f"<para align='center'><b>{_page4_title_raw}</b></para>",
             styles["subtitle"],
         )
     )
@@ -559,10 +621,13 @@ def build_story(styles):
 
     # Identificazione della F. taratura e sua espressione
     _calib_model = CALIBRATION_RESULT.get("_calib_model", SENSOR_MODEL.get("_calib_model", "linear"))
-    if _calib_model == "cubic":
-        model_desc = "cubic polynomial"
-    else:
-        model_desc = "linear"
+
+    _model_desc_map = {
+        "linear":    "linear",
+        "cubic":     "cubic polynomial",
+        "steinhart": "Steinhart-Hart",
+    }
+    model_desc = _model_desc_map.get(_calib_model, _calib_model)
 
     story.append(p(
         f"<font size='8.6'>After having identified the calibration function, the {model_desc} calibration function is:</font>",
@@ -571,24 +636,35 @@ def build_story(styles):
     story.append(Spacer(1, mmv(3)))
 
     # Testo introduttivo funzione di taratura
-    intro_p4 = text_cfg.get(
-        "page4_intro_text",
-        "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:",
-    )
-    if _calib_model == "cubic" and intro_p4 == "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:":
-        intro_p4 = "Nella seguente tabella sono riportati i coefficienti dell'equazione cubica di taratura:"
+    _default_intro_map = {
+        "linear":    "The following table lists the coefficients of the linear calibration equation:",
+        "cubic":     "The following table lists the coefficients of the cubic calibration equation:",
+        "steinhart": "The following table lists the Steinhart-Hart coefficients of the calibration equation:",
+    }
+    _default_intro = _default_intro_map.get(_calib_model, "The following table lists the calibration coefficients:")
+    intro_p4 = text_cfg.get("page4_intro_text", _default_intro)
+    # Traduci automaticamente le frasi italiane rimaste nel template
+    _italian_fallbacks = {
+        "Nella seguente tabella sono riportati i coefficienti dell'equazione lineare di taratura:":
+            _default_intro_map.get(_calib_model, _default_intro),
+        "Nella seguente tabella sono riportati i coefficienti dell'equazione cubica di taratura:":
+            _default_intro_map.get(_calib_model, _default_intro),
+    }
+    intro_p4 = _italian_fallbacks.get(intro_p4, intro_p4)
     story.append(p(f"<font size='8.6'>{intro_p4}</font>", styles["body"]))
     story.append(Spacer(1, mmv(2)))
 
-    # Equazione — lineare o cubica
+    # Equazione — lineare, cubica o Steinhart-Hart
     if _calib_model == "cubic":
-        cal_formula = "T = A + B \u00b7 D + C \u00b7 D\u00b2 + D \u00b7 D\u00b3"
+        cal_formula = "T = A + B \u00b7 D + C \u00b7 D\u00b2 + E \u00b7 D\u00b3"
+    elif _calib_model == "steinhart":
+        cal_formula = "1/T<sub rise='3' size='7'>K</sub> = a + b\u00b7ln(R) + c\u00b7[ln(R)]<sup>3</sup>"
     else:
         cal_formula = SENSOR_MODEL.get("calibration_formula", "T = A \u00b7 D + B")
     story.append(p(f"<para align='center'><font size='10'><b>{cal_formula}</b></font></para>", styles["body"]))
     story.append(Spacer(1, mmv(4)))
 
-    # Helper: same 10^ convention as fmt_sci_sig (use 10^ only when |exp| >= 4)
+    # Helper: notazione 10^ solo quando |exp| >= 4
     def _fmt_sci(val: float, sig: int = 4) -> str:
         if val == 0.0:
             return "0"
@@ -612,34 +688,84 @@ def build_story(styles):
     coeff_headers = text_cfg.get("coeff_table_headers", ["Parameter", "Value"])
     coeff_labels = text_cfg.get("coeff_labels", {})
 
-    # Regression uncertainty = 2 * RMSE, 2 significant digits
-    rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
-    reg_unc_val = 2.0 * rmse_val
+    # Regression uncertainty:
+    #   linear  → max_i(u_fit_i) × k   (GUM covariance propagation per punto)
+    #   others  → 2 × RMSE
+    if _calib_model == "linear":
+        _u_budget = CALIBRATION_RESULT.get("_u_budget_per_step", [])
+        _u_fit_values = [b.get("u_fit_i", 0.0) for b in _u_budget]
+        _k_val = float(_u_budget[0].get("k", 2.0)) if _u_budget else 2.0
+        reg_unc_val = max(_u_fit_values) * _k_val if _u_fit_values else 0.0
+        _reg_label = "Regression uncertainty (max u_fit × k)"
+    else:
+        rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
+        reg_unc_val = 2.0 * rmse_val
+        _reg_label = "Regression uncertainty (2·RMSE)"
     reg_unc_text = f"{fmt_sci_sig(reg_unc_val)} {PHYS_UNIT_SYMBOL}"
-    print(f"Debug: RMSE={rmse_val}, Regression uncertainty (2*RMSE)={reg_unc_val}, formatted='{reg_unc_text}'")
 
-    if _calib_model == "cubic":
-        _a0 = SENSOR_MODEL.get("_a0", 0)
-        _a1 = SENSOR_MODEL.get("_a1", 0)
-        _a2 = SENSOR_MODEL.get("_a2", 0)
-        _a3 = SENSOR_MODEL.get("_a3", 0)
+    if _calib_model == "steinhart":
+        # Coefficienti da SENSOR_MODEL (scritti dall'orchestratore come _a, _b, _c)
+        # fallback a CALIBRATION_RESULT se non presenti nel modello sensore
+        _a = SENSOR_MODEL.get("_a", CALIBRATION_RESULT.get("_a", 0.0))
+        _b = SENSOR_MODEL.get("_b", CALIBRATION_RESULT.get("_b", 0.0))
+        _c = SENSOR_MODEL.get("_c", CALIBRATION_RESULT.get("_c", 0.0))
+        _u_a = SENSOR_MODEL.get("_u_a", CALIBRATION_RESULT.get("_u_a", 0.0))
+        _u_b = SENSOR_MODEL.get("_u_b", CALIBRATION_RESULT.get("_u_b", 0.0))
+        _u_c = SENSOR_MODEL.get("_u_c", CALIBRATION_RESULT.get("_u_c", 0.0))
+
+        def _pc(txt, val=""):
+            """Riga tabella coefficienti come coppia di Paragraph."""
+            return [
+                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
+                p(f"<font size='8.2'>{val}</font>", styles["body"]),
+            ]
 
         cal_coeff_data = [
-            [coeff_headers[0], coeff_headers[1]],
-            [coeff_labels.get("interp", "Regression uncertainty"), reg_unc_text],
-            [f"A / {PHYS_UNIT_SYMBOL}", _fmt_sci(_a0, 3)],
-            [f"B / ({PHYS_UNIT_SYMBOL}/LSB)", _fmt_sci(_a1, 3)],
-            [f"C / ({PHYS_UNIT_SYMBOL}/LSB\u00b2)", _fmt_sci(_a2, 3)],
-            [f"D / ({PHYS_UNIT_SYMBOL}/LSB\u00b3)", _fmt_sci(_a3, 3)],
+            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
+            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+            _pc("a  [1/K]",    _fmt_sci(_a, 4)),
+            _pc("b  [1/K]",    _fmt_sci(_b, 4)),
+            _pc("c  [1/K]",    _fmt_sci(_c, 4)),
+            _pc("u(a)  [1/K]", _fmt_sci(_u_a, 2)),
+            _pc("u(b)  [1/K]", _fmt_sci(_u_b, 2)),
+            _pc("u(c)  [1/K]", _fmt_sci(_u_c, 2)),
+        ]
+    elif _calib_model == "cubic":
+        _a0 = SENSOR_MODEL.get("_a0", CALIBRATION_RESULT.get("_a0", 0.0))
+        _a1 = SENSOR_MODEL.get("_a1", CALIBRATION_RESULT.get("_a1", 0.0))
+        _a2 = SENSOR_MODEL.get("_a2", CALIBRATION_RESULT.get("_a2", 0.0))
+        _a3 = SENSOR_MODEL.get("_a3", CALIBRATION_RESULT.get("_a3", 0.0))
+
+        def _pc(txt, val=""):
+            return [
+                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
+                p(f"<font size='8.2'>{val}</font>", styles["body"]),
+            ]
+
+        cal_coeff_data = [
+            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
+            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+            _pc(f"A  [{PHYS_UNIT_SYMBOL}]",                _fmt_sci(_a0, 4)),
+            _pc(f"B  [{PHYS_UNIT_SYMBOL}/LSB]",            _fmt_sci(_a1, 4)),
+            _pc(f"C  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_a2, 4)),
+            _pc(f"E  [{PHYS_UNIT_SYMBOL}/LSB<super>3</super>]", _fmt_sci(_a3, 4)),
         ]
     else:
-        _B_cal_display = SENSOR_MODEL.get("_B_cal", 0)
+        # linear
+        _A_cal = SENSOR_MODEL.get("_A_cal", CALIBRATION_RESULT.get("_A_cal", 0.0))
+        _B_cal = SENSOR_MODEL.get("_B_cal", CALIBRATION_RESULT.get("_B_cal", 0.0))
+
+        def _pc(txt, val=""):
+            return [
+                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
+                p(f"<font size='8.2'>{val}</font>", styles["body"]),
+            ]
 
         cal_coeff_data = [
-            [coeff_headers[0], coeff_headers[1]],
-            [coeff_labels.get("interp", "Regression uncertainty"), reg_unc_text],
-            [f"A / ({PHYS_UNIT_SYMBOL}/LSB)", _fmt_sci(SENSOR_MODEL.get('_A_cal', 0), 3)],
-            [f"B / {PHYS_UNIT_SYMBOL}", _fmt_sci(_B_cal_display, 3)],
+            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
+            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+            _pc(f"A  [{PHYS_UNIT_SYMBOL}/LSB]", _fmt_sci(_A_cal, 4)),
+            _pc(f"B  [{PHYS_UNIT_SYMBOL}]",      _fmt_sci(_B_cal, 4)),
         ]
 
     cal_coeff_tbl = Table(cal_coeff_data, colWidths=[mmv(55), mmv(90)], hAlign="LEFT")

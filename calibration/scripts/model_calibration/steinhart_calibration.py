@@ -269,34 +269,65 @@ def calibrate(
 
     u_fitting_val = ufit if (ufit is not None and ufit > 0 and ufitfromJson) else rmse
 
+    # Resolution contributions (type B, uniform)
+    u_res_ref = 0.001 / np.sqrt(12.0)   # [°C] ref instrument display resolution
+    # Steinhart sensitivity dT/dD: approximate via central difference or local jacobian.
+    # Computed per-step below using finite difference on steinhart_predict_sh.
+
     expanded_uncertainties: List[float] = []
     per_step_budget: List[dict] = []
 
     for i, t in enumerate(temp_nominali):
-        D_i   = float(x_lsb[i])
-        R_i   = float(R_arr[i])
+        D_i = float(x_lsb[i])
+        R_i = float(R_arr[i])
 
-        uA_ref    = risultati_elaborati[t]["pstd_ref"]
-        uA_sensor = risultati_elaborati[t]["pstd_sensor"]
-        uB_sensor = _ub_arr[i]
+        # Local sensitivity |dT/dD| via finite difference on R(D) → T(R)
+        # Clamp D±dD strictly inside (0, adc_max) to avoid log(negative) in steinhart
+        dD = max(1.0, abs(D_i) * 1e-4)
+        D_hi = min(D_i + dD, adc_max - 1.0)
+        D_lo = max(D_i - dD, 1.0)
+        actual_dD = (D_hi - D_lo) / 2.0
+        R_hi = D_hi / (adc_max - D_hi) * r_divider
+        R_lo = D_lo / (adc_max - D_lo) * r_divider
+        try:
+            T_hi = steinhart_predict_sh(R_hi, theta)
+            T_lo = steinhart_predict_sh(R_lo, theta)
+            sens_i = abs((T_hi - T_lo) / (2.0 * actual_dD)) if actual_dD > 0 else 0.0
+        except Exception:
+            sens_i = 0.0
 
-        u_ref    = np.sqrt(uA_ref**2 + ub_ref_y**2)
-        u_meas   = np.sqrt(uA_sensor**2 + uB_sensor**2 + u_res**2)
-        u_sensor = np.sqrt(u_meas**2 + u_fitting_val**2)
-        u_c      = np.sqrt(u_ref**2 + u_sensor**2)
-        U_exp    = coverage_factor * u_c
-        u_cal    = steinhart_uncertainty(R_i, D_i, uc_tmp[i], theta, cov_theta,
-                                          r_divider=r_divider, adc_max=adc_max)
+        uA_ref        = risultati_elaborati[t]["pstd_ref"]              # type-A ref [°C]
+        uA_sensor     = risultati_elaborati[t]["pstd_sensor"] * sens_i  # type-A sensor [°C]
+        # u_B_sensor: only resolution × |dT/dn|_i (uB from JSON excluded)
+        uB_sensor_res = (1.0 / np.sqrt(12.0)) * sens_i                 # 1 LSB resolution [°C]
+
+        # Combined standard uncertainty — u_fitting NOT included in u_c, uB_json excluded
+        u_c   = np.sqrt(
+            uA_ref**2 + ub_ref_y**2 + u_res_ref**2
+            + uA_sensor**2 + uB_sensor_res**2
+        )
+        U_exp = coverage_factor * u_c
+        u_cal = steinhart_uncertainty(R_i, D_i, uc_tmp[i], theta, cov_theta,
+                                      r_divider=r_divider, adc_max=adc_max)
 
         expanded_uncertainties.append(float(U_exp))
         per_step_budget.append({
-            "t_nominal": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
-            "uB_ref": ub_ref_y, "uB_sensor": uB_sensor, "u_res": u_res,
-            "R_i": R_i, "D_i": D_i,
-            "u_meas": u_meas, "u_fitting": u_fitting_val,
-            "mu_T_ref": u_ref, "mu_T_i": u_sensor, "mu_E": u_c, "U_E": U_exp,
+            "t_nominal": t,
+            "uA_ref": uA_ref, "uB_ref": ub_ref_y, "u_res_ref": u_res_ref,
+            "uA_sensor": uA_sensor, "uB_sensor_res": uB_sensor_res,
+            "sens_i": sens_i, "R_i": R_i, "D_i": D_i,
+            "u_fitting": u_fitting_val,   # RMSE — log/JSON only, not in u_c
+            "mu_E": u_c, "U_E": U_exp,
             "u_cal_poly": u_cal, "U_cal_poly": coverage_factor * u_cal,
         })
+
+        if verbose:
+            print(
+                f"  [steinhart budget] pt={i+1} T={t:.1f}  |dT/dn|={sens_i:.5f}"
+                f"  uA_ref={uA_ref:.5f}  uB_ref={ub_ref_y:.5f}  u_res_ref={u_res_ref:.6f}"
+                f"  uA_sensor={uA_sensor:.5f}  uB_sensor(res)={uB_sensor_res:.6f}"
+                f"  u_fit(RMSE)={u_fitting_val:.5f}  u_c={u_c:.5f}  U_exp={U_exp:.5f}"
+            )
 
     ref_temp_means: List[float] = [
         float(risultati_elaborati[t]["pmean_ref"])

@@ -71,8 +71,8 @@
     "Uncertainty": [
       { 
         "referenceValue": 0,
-        "absUncertainty": 0.2,
-        "ub": 0.15,
+        "absUncertainty": 0.06,
+        "ub": 0.03,
         "k": 2.0
       }
     ],

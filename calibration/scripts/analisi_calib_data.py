@@ -506,7 +506,7 @@ def _build_cert_filled(
         )
 
         measurements.append([
-            float(i + 1), ref_t, t_sensor_post, error_pre, error_post, expanded_uncertainties[i],
+            float(i + 1), ref_t, t_sensor_pre, error_pre, error_post, expanded_uncertainties[i],
         ])
 
     rmse_pre = float(math.sqrt(sum(e[3]**2 for e in measurements) / max(1, len(measurements))))

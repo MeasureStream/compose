@@ -338,26 +338,56 @@ def calibrate(
     # GUM budget per step
     sens = abs(a)   # sensitivity dY/dX [{unit_symbol}/LSB]
 
-    u_ris = risol * lsb_per_y / np.sqrt(12.0)  # ADC resolution std uncertainty [LSB]
-    u_fitting_val = ufit if ufit is not None else rmse
+    # Resolution contributions (type B, uniform distribution → divide by sqrt(12))
+    # ref resolution: assumed 0.001 °C (PT100/Fluke 1502A display resolution)
+    # sensor resolution: 1 LSB converted to physical via sensitivity
+    u_res_ref    = 0.001 / np.sqrt(12.0)          # [°C] — ref instrument display resolution
+    u_res_sensor = (1.0 / np.sqrt(12.0)) * sens   # [°C] — 1 LSB × |dT/dD|
+
+    # u_fit per point via GUM covariance of OLS coefficients:
+    #   u_fit(D_i) = sqrt([1, D_i] @ cov_AB_matrix @ [1, D_i]^T)
+    # where cov_AB_matrix = [[u_B², cov_AB], [cov_AB, u_A²]]
+    cov_AB_matrix = np.array([[u_b**2, cov_ab], [cov_ab, u_a**2]])
+
+    u_fitting_val = ufit if ufit is not None else rmse  # kept for log/JSON only
 
     expanded_uncertainties: List[float] = []
     per_step_u_budget_raw: List[Tuple] = []
 
     for i, t in enumerate(temp_nominali):
-        R_avg     = risultati_elaborati[t]["pmean_sensor"]        # mean sensor reading [LSB]
-        uA_ref    = risultati_elaborati[t]["pstd_ref"]            # u_y type-A
-        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens  # u_x type-A × sens
-        u_ref     = np.sqrt(uA_ref**2 + ub_ref_y**2)
+        D_i       = float(risultati_elaborati[t]["pmean_sensor"])  # mean sensor reading [LSB]
+        uA_ref    = risultati_elaborati[t]["pstd_ref"]             # type-A ref [°C]
+        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens   # type-A sensor → [°C]
+        # u_B_sensor: only resolution × sensitivity (|dT/dn| = |A| for linear, constant)
+        # uB from sensor JSON is excluded — A,B declared in certificate cover it
+        uB_sensor_res = u_res_sensor   # = (1/√12) × |A|, constant for linear
 
-        # ub_uso²(T) = (R·u_A)² + u_B² + 2R·cov(A,B) + (A·u_ris)²
-        ub_uso = np.sqrt((R_avg * u_a)**2 + u_b**2 + 2.0 * R_avg * cov_ab + (a * u_ris)**2)
+        # u_fit_i from GUM covariance propagation
+        v = np.array([1.0, D_i])
+        u_fit_i = float(np.sqrt(max(0.0, float(v @ cov_AB_matrix @ v))))
 
-        uc_sensor = np.sqrt(uA_sensor**2 + ub_uso**2)  # u_x total
-        u_c       = np.sqrt(u_ref**2 + uc_sensor**2)
-        U_exp     = coverage_factor * u_c
+        # Combined standard uncertainty:
+        # u_c = sqrt(uA_ref² + uB_ref² + u_res_ref² + uA_sensor² + uB_sensor_res²)
+        # NO uB_json sensor, NO u_fitting inside u_c
+        u_c = np.sqrt(
+            uA_ref**2 + ub_ref_y**2 + u_res_ref**2
+            + uA_sensor**2 + uB_sensor_res**2
+        )
+        U_exp = coverage_factor * u_c
         expanded_uncertainties.append(float(U_exp))
-        per_step_u_budget_raw.append((t, uA_ref, uA_sensor, ub_uso, u_fitting_val, u_ref, uc_sensor, u_c, U_exp))
+        per_step_u_budget_raw.append((
+            t, uA_ref, uA_sensor, uB_sensor_res, ub_ref_y,
+            u_res_ref, u_res_sensor, u_fit_i, u_fitting_val,
+            u_c, U_exp
+        ))
+
+        if verbose:
+            print(
+                f"  [linear budget] pt={i+1} T={t:.1f}  |dT/dn|={sens:.5f}"
+                f"  uA_ref={uA_ref:.5f}  uB_ref={ub_ref_y:.5f}  u_res_ref={u_res_ref:.6f}"
+                f"  uA_sensor={uA_sensor:.5f}  uB_sensor(res)={uB_sensor_res:.6f}"
+                f"  u_fit_i={u_fit_i:.5f}  u_c={u_c:.5f}  U_exp={U_exp:.5f}"
+            )
 
     # ref means
     ref_temp_means: List[float] = [
@@ -366,11 +396,16 @@ def calibrate(
     ]
 
     u_budget_per_step: List[Dict[str, float]] = [
-        {"t_nom": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
-         "ub_uso": ub_uso_, "u_fitting": u_fitting_,
-         "u_ref": u_ref_, "u_sensor": u_sensor_,
-         "u_c": u_c_, "U_exp": U_exp_, "k": coverage_factor}
-        for t, uA_ref, uA_sensor, ub_uso_, u_fitting_, u_ref_, u_sensor_, u_c_, U_exp_ in per_step_u_budget_raw
+        {
+            "t_nom": t,
+            "uA_ref": uA_ref, "uB_ref": uB_ref, "u_res_ref": u_res_ref_,
+            "uA_sensor": uA_sensor, "uB_sensor": uB_sensor, "u_res_sensor": u_res_sensor_,
+            "u_fit_i": u_fit_i_,
+            "u_fitting_global": u_fitting_,   # RMSE or declared ufit — for log/JSON only
+            "u_c": u_c_, "U_exp": U_exp_, "k": coverage_factor,
+        }
+        for t, uA_ref, uA_sensor, uB_sensor, uB_ref, u_res_ref_, u_res_sensor_, u_fit_i_, u_fitting_, u_c_, U_exp_
+        in per_step_u_budget_raw
     ]
 
     result: Dict[str, Any] = {

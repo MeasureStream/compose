@@ -216,34 +216,46 @@ def calibrate(
 
     u_fitting_val = ufit if (ufit is not None and ufit > 0 and ufitfromJson) else rmse
 
+    # Resolution contributions (type B, uniform)
+    u_res_ref = 0.001 / np.sqrt(12.0)   # [°C] ref instrument display resolution
+
     expanded_uncertainties: List[float] = []
     per_step_budget: List[dict] = []
 
     for i, t in enumerate(temp_nominali):
-        D_i   = float(x_lsb[i])
-        sens_i = abs(a1 + 2.0 * a2 * D_i)
+        D_i    = float(x_lsb[i])
+        sens_i = abs(a1 + 2.0 * a2 * D_i)  # |dT/dD| [°C/LSB]
 
-        uA_ref    = risultati_elaborati[t]["pstd_ref"]
-        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens_i
-        uB_sensor = _ub_arr[i] * sens_i
+        uA_ref        = risultati_elaborati[t]["pstd_ref"]              # type-A ref [°C]
+        uA_sensor     = risultati_elaborati[t]["pstd_sensor"] * sens_i  # type-A sensor [°C]
+        # u_B_sensor: only resolution × |dT/dn|_i (uB from JSON excluded)
+        uB_sensor_res = (1.0 / np.sqrt(12.0)) * sens_i                 # 1 LSB resolution [°C]
 
-        u_ref    = np.sqrt(uA_ref**2 + ub_ref_y**2)
-        u_meas   = np.sqrt(uA_sensor**2 + uB_sensor**2 + u_res**2)
-        ub_uso   = np.sqrt(u_fitting_val**2 + u_res**2)
-        u_sensor = np.sqrt(u_meas**2 + u_fitting_val**2)
-        u_c      = np.sqrt(u_ref**2 + u_sensor**2)
-        U_exp    = coverage_factor * u_c
-        u_cal    = quadratic_uncertainty(D_i, uc_tmp[i], theta, cov_theta)
+        # Combined standard uncertainty — u_fitting NOT included in u_c, uB_json excluded
+        u_c   = np.sqrt(
+            uA_ref**2 + ub_ref_y**2 + u_res_ref**2
+            + uA_sensor**2 + uB_sensor_res**2
+        )
+        U_exp = coverage_factor * u_c
+        u_cal = quadratic_uncertainty(D_i, uc_tmp[i], theta, cov_theta)
 
         expanded_uncertainties.append(float(U_exp))
         per_step_budget.append({
-            "t_nominal": t, "uA_ref": uA_ref, "uA_sensor": uA_sensor,
-            "uB_ref": ub_ref_y, "uB_sensor": uB_sensor, "u_res": u_res,
-            "sens_i": sens_i,
-            "u_meas": u_meas, "ub_uso": ub_uso, "u_fitting": u_fitting_val,
-            "mu_T_ref": u_ref, "mu_T_i": u_sensor, "mu_E": u_c, "U_E": U_exp,
+            "t_nominal": t,
+            "uA_ref": uA_ref, "uB_ref": ub_ref_y, "u_res_ref": u_res_ref,
+            "uA_sensor": uA_sensor, "uB_sensor_res": uB_sensor_res, "sens_i": sens_i,
+            "u_fitting": u_fitting_val,   # RMSE — log/JSON only, not in u_c
+            "mu_E": u_c, "U_E": U_exp,
             "u_cal_poly": u_cal, "U_cal_poly": coverage_factor * u_cal,
         })
+
+        if verbose:
+            print(
+                f"  [quadratic budget] pt={i+1} T={t:.1f}  |dT/dn|={sens_i:.5f}"
+                f"  uA_ref={uA_ref:.5f}  uB_ref={ub_ref_y:.5f}  u_res_ref={u_res_ref:.6f}"
+                f"  uA_sensor={uA_sensor:.5f}  uB_sensor(res)={uB_sensor_res:.6f}"
+                f"  u_fit(RMSE)={u_fitting_val:.5f}  u_c={u_c:.5f}  U_exp={U_exp:.5f}"
+            )
 
     ref_temp_means: List[float] = [
         float(risultati_elaborati[t]["pmean_ref"])
