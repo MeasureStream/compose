@@ -123,8 +123,8 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
   --cert-output                        certificato_out/certificato_funzione_filled.json `
   --pdf                                certificato_out/ntc_cert_funzione.pdf `
   --xml                                certificato_out/ntc_calibration_certificate.xml `
-  --last-calibration                   last_calibration/simulated_cubic.json `
-  --result-calibration                 last_calibration/last_calibration.json `
+  --last-calibration                   last_calibration/last_calibration.json `
+  --result-calibration                 last_calibration/last_calibration2.json `
   --conformity-output                  certificato_out/conformity_results.json `
   --images-dir                         images `
   --procedure                          cubic `
@@ -135,6 +135,24 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
 
 
 ```
+
+
+uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_data.py `
+  --input                              data_in/simulated_8p.json `
+  --sensor                             models_in/sensors/ntc_temperature_steinhart.json `
+  --ref                                models_in/references/fluke_9142.json `
+  --cert-input                         template_in/certificato_funzione_input.json `
+  --cert-output                        certificato_out/certificato_funzione_filled.json `
+  --pdf                                certificato_out/ntc_cert_funzione.pdf `
+  --xml                                certificato_out/ntc_calibration_certificate.xml `
+  --result-calibration                 last_calibration/last_calibration.json `
+  --conformity-output                  certificato_out/conformity_results.json `
+  --images-dir                         images `
+  --procedure                          steinhart `
+  --update-parameters                  always `
+  --convert-units `
+  --charts `
+  --verbose
 
 
 
