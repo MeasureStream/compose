@@ -36,15 +36,18 @@ DISPERSION_STD_LSB = 5.0                      # within-group dispersion std [LSB
                                               #   ≈ 5 LSB is a realistic noise floor
 
 # NTC thermistor parameters  (Beta model)
+# These MUST match the sensor JSON in models_in/sensors/ntc_temperature_steinhart.json
+# (rDivider = 100 000, adcMax = 65535), otherwise the calibration script will
+# decode the LSB values into wrong resistance values and the Steinhart fit
+# will be wrong.
 R25 = 100000.0                                 # NTC resistance at 25 °C [Ω]
 BETA = 4190.0                                 # Beta coefficient [K]
 T25_K = 298.15                                # 25 °C in Kelvin
-R_FIXED = 50000.0                             # fixed resistor in voltage divider [Ω]
+R_FIXED = 100000.0                            # rDivider from sensor JSON (Ω)
 
-# ADC parameters  (ratiometric:  V_ref cancels, scale = 2^16 not 2^16-1)
-V_REF = 3.3                                   # reference voltage [V]  (informational)
-ADC_SCALE = 2**16                             # 65536  (quantization scale, NOT ADC_MAX)
-ADC_MAX = 2**16 - 1                           # 65535  (last representable code, for clipping)
+# ADC parameters  (must match sensor JSON adcMax)
+V_REF = 3.3                                   # reference voltage [V]  (informational, ratiometric)
+ADC_MAX = 65535                               # last representable code (matches adcMax)
 
 # Reference data — real lab measurements (Temp_RTD column, centered around 0)
 # These are the relative variations extracted from confronto.csv.
@@ -299,9 +302,13 @@ def encode_sensor_b64(values: list[int]) -> str:
 
 
 
-# NTC → LSB conversion  (encoding direction, ratiometric)
-#   V_out/V_ref = R_FIXED / (R_FIXED + R_ntc)  →  V_ref cancels
-#   LSB = (2^16) · R_FIXED / (R_FIXED + R(T))  →  use ADC_SCALE not ADC_MAX
+# NTC → LSB conversion  (encoding direction)
+#   The sensor-JSON preprocessing formula is:
+#       R_ntc = LSB / (adcMax - LSB) * rDivider
+#   so the inverse (encoding) is:
+#       LSB = R_ntc * adcMax / (R_ntc + rDivider)
+#   This must match exactly — otherwise the calibration script decodes the
+#   LSB values into wrong resistance values.
 
 
 def temp_to_ntc_resistance(temp_c: float | np.ndarray) -> float | np.ndarray:
@@ -315,8 +322,8 @@ def ntc_to_voltage(r_ntc: float | np.ndarray) -> float | np.ndarray:
 
 
 def resistance_to_lsb(r_ntc: float | np.ndarray) -> int | np.ndarray:
-    """Ratiometric:  LSB = (2^16) · R_FIXED / (R_FIXED + R_ntc)."""
-    lsb = ADC_SCALE * R_FIXED / (R_FIXED + r_ntc)
+    """LSB = R_ntc * adcMax / (R_ntc + rDivider)."""
+    lsb = r_ntc * ADC_MAX / (r_ntc + R_FIXED)
     if isinstance(lsb, np.ndarray):
         return np.rint(lsb).astype(int).clip(0, ADC_MAX)
     return int(round(max(0, min(lsb, ADC_MAX))))
@@ -333,31 +340,29 @@ def temp_c_to_lsb(temp_c: float | np.ndarray) -> int | np.ndarray:
 
 def lsb_to_voltage(lsb: int | np.ndarray) -> float | np.ndarray:
     if isinstance(lsb, np.ndarray):
-        return (lsb.astype(float) / ADC_SCALE) * V_REF
-    return (float(lsb) / ADC_SCALE) * V_REF
+        return (lsb.astype(float) / ADC_MAX) * V_REF
+    return (float(lsb) / ADC_MAX) * V_REF
 
 
 def lsb_to_temp_c(lsb: int | np.ndarray) -> float | np.ndarray:
     """Inverse: LSB → °C via Beta model + voltage divider.
 
-    LSB = (2^16) · R_FIXED / (R_FIXED + R_ntc)
-    →  R_ntc = R_FIXED · (ADC_SCALE/LSB − 1)
-    →  R_ntc/R25 = (R_FIXED/R25) · (ADC_SCALE/LSB − 1)
-    →  1/T = 1/T25 + (1/B)·ln(R_ntc/R25)
+    Sensor-JSON preprocessing:  R = LSB / (adcMax - LSB) * rDivider
+    →  R_ntc = LSB * rDivider / (adcMax - LSB)
+    →  R_ntc / R25 = (rDivider / R25) · LSB / (adcMax - LSB)
+    →  1 / T = 1 / T25 + (1 / B) · ln(R_ntc / R25)
     """
     if isinstance(lsb, np.ndarray):
-        denom = np.where(lsb > 0, ADC_SCALE / lsb.astype(float) - 1.0, 1e-12)
-        ratio = np.maximum(denom, 1e-12)
-        r_ratio = (R_FIXED / R25) * ratio
+        denom = np.where(lsb < ADC_MAX, (ADC_MAX - lsb.astype(float)), 1e-12)
+        r = np.maximum(R_FIXED * lsb.astype(float) / np.maximum(denom, 1e-12), 1e-12)
+        r_ratio = r / R25
         l = np.log(r_ratio)
         t_k = 1.0 / (1.0 / T25_K + l / BETA)
         return t_k - 273.15
-    if lsb <= 0:
+    if lsb <= 0 or lsb >= ADC_MAX:
         return -273.15
-    ratio = ADC_SCALE / float(lsb) - 1.0
-    if ratio <= 0:
-        return -273.15
-    r_ratio = (R_FIXED / R25) * ratio
+    r = R_FIXED * float(lsb) / (ADC_MAX - float(lsb))
+    r_ratio = r / R25
     t_k = 1.0 / (1.0 / T25_K + math.log(r_ratio) / BETA)
     return t_k - 273.15
 
