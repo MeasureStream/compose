@@ -14,19 +14,26 @@ import numpy as np
 # CONFIGURABLE PARAMETERS — change these to tune the simulation
 
 
-SENSOR_ID = 3
-MU_ID = 2
+SENSOR_ID = 4
+MU_ID = 65537
 
 STEPS_C = [-20.0, -10.0, 0.0, 25.0, 50.0, 75.0, 100.0, 110.0]   # 8 steps, NO 125 °C
 
 NUM_SENSOR_PER_REF = 10                     # sensor readings per reference point
 SENSOR_SAMPLING_FREQ_HZ = 1
 
-# Noise model  (single term, matches handwritten formula N(mean, u_B))
-#   sensor = ref + N(BIAS_MEAN_C, U_B_STD_C)
+# Noise model
+#   Systematic offset (calibration bias):  added in °C, sensor = ref + N(0.1, 0.5)
+#   Within-group dispersion:  added in LSB after the °C→LSB conversion, so the
+#     noise is constant in the LSB domain (realistic for ADC + reference noise).
+#     If we added it in °C, the LSB-domain std would scale with |dLSB/dT| and
+#     blow up at high temperatures where the LSB-vs-°C curve is steep.
 NOISE_BIAS_MEAN_C = 0.1                       # mean of sensor noise [°C]
 U_B_STD_C = 0.5                               # Type-B std uncertainty [°C]
-DISPERSION_STD_C = 0.05                       # within-group dispersion std [°C]
+DISPERSION_STD_LSB = 5.0                      # within-group dispersion std [LSB]
+                                              #   16-bit ADC: quantization ±1 LSB
+                                              #   + ref noise  ±2 LSB + thermal
+                                              #   ≈ 5 LSB is a realistic noise floor
 
 # NTC thermistor parameters  (Beta model)
 R25 = 100000.0                                 # NTC resistance at 25 °C [Ω]
@@ -416,13 +423,17 @@ def simulate():
         # sensor_temp = ref + N(mean=NOISE_BIAS_MEAN, std=U_B)   [single term, ratiometric model]
         sensor_means = ref_temps + rng.normal(NOISE_BIAS_MEAN_C, U_B_STD_C, size=n_ref)
 
-        # 100 sensor values per reference, with within-group dispersion
+        # NUM_SENSOR_PER_REF sensor values per reference, with within-group dispersion
+        #   Apply noise in LSB domain (additive), not in °C domain (multiplicative).
+        #   The mean sensor reading is computed from °C, then Gaussian noise
+        #   with std = DISPERSION_STD_LSB is added in LSB and the result is
+        #   quantised to integer LSB and clipped to [0, ADC_MAX].
         sensor_values = []
         for sm in sensor_means:
-            frame = rng.normal(sm, DISPERSION_STD_C, size=NUM_SENSOR_PER_REF)
-            # Convert each sensor temperature to LSB
-            frame_lsb = temp_c_to_lsb(frame)
-            sensor_values.extend(frame_lsb.tolist())
+            lsb_mean = float(temp_c_to_lsb(sm))
+            frame_lsb_f = lsb_mean + rng.normal(0.0, DISPERSION_STD_LSB, size=NUM_SENSOR_PER_REF)
+            frame_lsb = np.clip(np.rint(frame_lsb_f), 0, ADC_MAX).astype(np.uint16)
+            sensor_values.extend(int(v) for v in frame_lsb)
 
         sensor_b64 = encode_sensor_b64(sensor_values)
 

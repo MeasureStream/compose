@@ -134,7 +134,25 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
   --verbose
 
 
+
 ```
+
+### Regenerating the simulated payload
+
+`data_in/simulated_8p.json` is the canonical test payload used by the
+commands above.  To regenerate it from scratch (matching the sensor
+JSON in `models_in/sensors/ntc_temperature_steinhart.json`):
+
+```bash
+python simulate/simulate_payload.py
+```
+
+The generator uses an additive-LSB noise model: per-sample Gaussian
+dispersion (default 5 LSB std) and a small per-frame bias, both added
+directly in the LSB domain so the std is constant across the full
+temperature range.  See `simulate/simulate_payload.py` for tunable
+parameters (`DISPERSION_STD_LSB`, `BIAS_MEAN_LSB`, `BIAS_STD_LSB`,
+`N_SAMPLES_PER_STEP`).
 
 
 uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_data.py `
@@ -153,7 +171,6 @@ uv run --python 3.12 --with-requirements requirements.txt scripts/analisi_calib_
   --convert-units `
   --charts `
   --verbose
-
 
 
 > `--charts` and `--verbose` default to **`True`**; pass `--no-charts` or `--no-verbose` to suppress them.

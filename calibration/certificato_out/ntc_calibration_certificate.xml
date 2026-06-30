@@ -2,28 +2,125 @@
 <dcc:digitalCalibrationCertificate xmlns:dcc="https://ptb.de/dcc" xmlns:si="https://ptb.de/si" schemaVersion="3.3.0" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
     <dcc:administrativeData>
         <dcc:dccSoftware>
-            <dcc:software>
+            <dcc:software id="dcc-gen">
                 <dcc:name>
                     <dcc:content lang="en">generate_dcc_xml.py</dcc:content>
                 </dcc:name>
                 <dcc:release>1.0</dcc:release>
+                <dcc:type>application</dcc:type>
+                <dcc:description>
+                    <dcc:content lang="en">Generates the DCC XML body from the calibration result JSON.</dcc:content>
+                </dcc:description>
             </dcc:software>
-            <dcc:software>
+            <dcc:software id="sensor-schema">
                 <dcc:name>
                     <dcc:content lang="en">Sensor model schema</dcc:content>
                 </dcc:name>
                 <dcc:release>1.0.2</dcc:release>
+                <dcc:type>library</dcc:type>
             </dcc:software>
-            <dcc:software>
+            <dcc:software id="ref-schema">
                 <dcc:name>
                     <dcc:content lang="en">Reference model schema</dcc:content>
                 </dcc:name>
                 <dcc:release>1.0.0</dcc:release>
+                <dcc:type>library</dcc:type>
             </dcc:software>
         </dcc:dccSoftware>
+        <dcc:refTypeDefinitions>
+            <dcc:refTypeDefinition refType="gp_temperatureSensor">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — temperature sensor</dcc:content>
+                </dcc:name>
+                <dcc:description>
+                    <dcc:content lang="en">Comparison method with Pt100/Fluke 1502A reference in a controlled bath/oven.</dcc:content>
+                </dcc:description>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_temperatureSensor</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_temperatureSensor</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_measuringResult1">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — calibration result #1 (table)</dcc:content>
+                </dcc:name>
+                <dcc:description>
+                    <dcc:content lang="en">Per-point T_ref, T_c, M_e_pre, M_e_post, U_exp table.</dcc:content>
+                </dcc:description>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_measuringResult1</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_measuringResult1</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_table1">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — table 1</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_table1</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_table1</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_measurementErrorPreCalibration">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — measurement error before calibration</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_measurementErrorPreCalibration</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_measurementErrorPreCalibration</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_uncertaintyTypeA_reference">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — Type A standard uncertainty (reference)</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_uncertaintyTypeA_reference</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_uncertaintyTypeA_reference</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_uncertaintyTypeA_sensor">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — Type A standard uncertainty (sensor)</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_uncertaintyTypeA_sensor</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_uncertaintyTypeA_sensor</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_combinedStandardUncertainty">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — combined standard uncertainty u_c(E)</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_combinedStandardUncertainty</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_combinedStandardUncertainty</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_coverageFactor">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — coverage factor k</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_coverageFactor</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_coverageFactor</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_regressionUncertainty">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — regression fit uncertainty (RMSE)</dcc:content>
+                </dcc:name>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_regressionUncertainty</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_regressionUncertainty</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+            <dcc:refTypeDefinition refType="gp_conformityDecisionRule">
+                <dcc:name>
+                    <dcc:content lang="en">Generic Profile — conformity decision rule (ILAC-G8)</dcc:content>
+                </dcc:name>
+                <dcc:description>
+                    <dcc:content lang="en">Acceptance when |M_e| &lt;= M_AE; guard band MAE - g * U_exp; PFA per point &lt;= threshold.</dcc:content>
+                </dcc:description>
+                <dcc:namespace>https://measurestream.it/refTypes/gp_conformityDecisionRule</dcc:namespace>
+                <dcc:link>https://measurestream.it/refTypes/gp_conformityDecisionRule</dcc:link>
+                <dcc:release>1.0.0</dcc:release>
+            </dcc:refTypeDefinition>
+        </dcc:refTypeDefinitions>
         <dcc:coreData>
             <dcc:countryCodeISO3166_1>IT</dcc:countryCodeISO3166_1>
-            <dcc:usedLangCodeISO639_1>de</dcc:usedLangCodeISO639_1>
+            <dcc:usedLangCodeISO639_1>it</dcc:usedLangCodeISO639_1>
             <dcc:usedLangCodeISO639_1>en</dcc:usedLangCodeISO639_1>
             <dcc:mandatoryLangCodeISO639_1>en</dcc:mandatoryLangCodeISO639_1>
             <dcc:uniqueIdentifier>2026/CAL/00419</dcc:uniqueIdentifier>
@@ -35,17 +132,35 @@
                         <dcc:content lang="en">Order no.</dcc:content>
                     </dcc:name>
                 </dcc:identification>
+                <dcc:identification>
+                    <dcc:issuer>manufacturer</dcc:issuer>
+                    <dcc:value>00010001-3</dcc:value>
+                    <dcc:name>
+                        <dcc:content lang="en">Serial number</dcc:content>
+                    </dcc:name>
+                </dcc:identification>
+                <dcc:identification>
+                    <dcc:issuer>customer</dcc:issuer>
+                    <dcc:value>RQ-2026-0081</dcc:value>
+                    <dcc:name>
+                        <dcc:content lang="en">Request number</dcc:content>
+                    </dcc:name>
+                </dcc:identification>
             </dcc:identifications>
             <dcc:receiptDate>2026-03-31Z</dcc:receiptDate>
-            <dcc:beginPerformanceDate>2026-04-07Z</dcc:beginPerformanceDate>
-            <dcc:endPerformanceDate>2026-04-07Z</dcc:endPerformanceDate>
+            <dcc:beginPerformanceDate>2026-04-07</dcc:beginPerformanceDate>
+            <dcc:endPerformanceDate>2026-04-07</dcc:endPerformanceDate>
             <dcc:performanceLocation>laboratory</dcc:performanceLocation>
+            <dcc:issueDate>2026-04-09Z</dcc:issueDate>
         </dcc:coreData>
         <dcc:items>
-            <dcc:item>
+            <dcc:item id="item-1" refType="gp_temperatureSensor">
                 <dcc:name>
                     <dcc:content lang="en">DIGITAL thermometer</dcc:content>
                 </dcc:name>
+                <dcc:description>
+                    <dcc:content lang="en">Results refer to the instrument under calibration under the declared conditions.</dcc:content>
+                </dcc:description>
                 <dcc:manufacturer>
                     <dcc:name>
                         <dcc:content lang="en">Measurestream electronics</dcc:content>
@@ -75,6 +190,35 @@
                         </dcc:name>
                     </dcc:identification>
                 </dcc:identifications>
+                <dcc:itemQuantities>
+                    <dcc:itemQuantity refType="gp_itemQuantity">
+                        <dcc:name>
+                            <dcc:content lang="en">Nominal resistance R25</dcc:content>
+                        </dcc:name>
+                        <si:real>
+                            <si:value>1.000000e+04</si:value>
+                            <si:unit>\ohm</si:unit>
+                        </si:real>
+                    </dcc:itemQuantity>
+                    <dcc:itemQuantity refType="gp_itemQuantity">
+                        <dcc:name>
+                            <dcc:content lang="en">Beta value B25/85</dcc:content>
+                        </dcc:name>
+                        <si:real>
+                            <si:value>3.950000e+03</si:value>
+                            <si:unit>\kelvin</si:unit>
+                        </si:real>
+                    </dcc:itemQuantity>
+                    <dcc:itemQuantity refType="gp_itemQuantity">
+                        <dcc:name>
+                            <dcc:content lang="en">Temperature coefficient alpha_25</dcc:content>
+                        </dcc:name>
+                        <si:real>
+                            <si:value>-4.443000e-02</si:value>
+                            <si:unit>\per\kelvin</si:unit>
+                        </si:real>
+                    </dcc:itemQuantity>
+                </dcc:itemQuantities>
             </dcc:item>
             <dcc:item>
                 <dcc:name>
@@ -104,41 +248,52 @@
                 </dcc:name>
                 <dcc:eMail>calibration@measurestream.it</dcc:eMail>
                 <dcc:phone>+39 02 3456 7890</dcc:phone>
+                <dcc:link>https://www.measurestream.it</dcc:link>
                 <dcc:location>
+                    <dcc:street>Corso Duca degli Abruzzi, 24</dcc:street>
+                    <dcc:postCode>10129</dcc:postCode>
                     <dcc:countryCode>IT</dcc:countryCode>
-                    <dcc:city>N/A</dcc:city>
-                    <dcc:further>
-                        <dcc:content lang="en">Corso Duca degli Abruzzi, 24 | 10129 Torino, Italy</dcc:content>
-                        <dcc:content lang="en">www.measurestream.it</dcc:content>
-                    </dcc:further>
+                    <dcc:city>Torino</dcc:city>
                 </dcc:location>
             </dcc:contact>
+            <dcc:cryptElectronicSeal>true</dcc:cryptElectronicSeal>
+            <dcc:cryptElectronicSignature>false</dcc:cryptElectronicSignature>
+            <dcc:cryptElectronicTimeStamp>true</dcc:cryptElectronicTimeStamp>
         </dcc:calibrationLaboratory>
         <dcc:respPersons>
-            <dcc:respPerson>
+            <dcc:respPerson id="signer-1">
+                <dcc:person>
+                    <dcc:name>
+                        <dcc:content lang="en">Ing. Giovanni Ferrari</dcc:content>
+                    </dcc:name>
+                </dcc:person>
+                <dcc:mainSigner>true</dcc:mainSigner>
+                <dcc:cryptElectronicSignature>false</dcc:cryptElectronicSignature>
+                <dcc:cryptElectronicTimeStamp>true</dcc:cryptElectronicTimeStamp>
+            </dcc:respPerson>
+            <dcc:respPerson id="signer-2">
                 <dcc:person>
                     <dcc:name>
                         <dcc:content lang="en">Dott. Marco Esposito</dcc:content>
                     </dcc:name>
                 </dcc:person>
-                <dcc:mainSigner>true</dcc:mainSigner>
             </dcc:respPerson>
-            <dcc:respPerson>
+            <dcc:respPerson id="signer-3">
                 <dcc:person>
                     <dcc:name>
-                        <dcc:content lang="en">Ing. Giovanni Ferrari</dcc:content>
+                        <dcc:content lang="en">Marco Esposito</dcc:content>
                     </dcc:name>
                 </dcc:person>
             </dcc:respPerson>
         </dcc:respPersons>
         <dcc:customer>
             <dcc:name>
-                <dcc:content lang="en">ThermoTech Industries S.p.A. | Via Industriale 88, 25030 Brescia (BS), Italy</dcc:content>
+                <dcc:content lang="en">ThermoTech Industries S.p.A.</dcc:content>
             </dcc:name>
-            <dcc:eMail>not-provided@example.com</dcc:eMail>
             <dcc:location>
                 <dcc:countryCode>IT</dcc:countryCode>
                 <dcc:city>N/A</dcc:city>
+                <dcc:street>Via Industriale 88, 25030 Brescia (BS), Italy</dcc:street>
             </dcc:location>
         </dcc:customer>
         <dcc:statements>
@@ -154,17 +309,27 @@
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Reference PT100/Fluke 1502A: U=0.065 °C, k=2. NTC ADC: half-width d=0.30 °C (uniform). Coverage factor k=2, confidence level ~95%.</dcc:content>
+                    <dcc:content lang="en">Calibration function (linear): Y = A*D + B. Coefficients: A=0.000000e+00, B=0.000000e+00.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + D*D^3. Coefficients: A=-2.933521e+01, B=4.350349e-03, C=-1.094277e-07, D=1.249147e-12.</dcc:content>
+                    <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 2.61e-01. RMSE = 1.30e-01.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 3.69e+00. RMSE = 1.84e+00.</dcc:content>
+                    <dcc:content lang="en">Decision rule: acceptance when G=FAIL A=FAIL B=FAIL H=FAIL. Verdict: NON-COMPLIANT.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Guard band (maxTollerance): 0.6.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">PFA (Probability of False Acceptance) per point: P1=100.0% P2=100.0% P3=100.0% P4=100.0% P5=100.0% P6=100.0% P7=100.0% P8=100.0%. MAE=0.3, threshold=20.0%, mode=combined.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
         </dcc:statements>
@@ -291,7 +456,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-18.72 -11.1 -0.91 26.57 48.28 76.06 101.21 108.61</si:valueXMLList>
+                                        <si:valueXMLList>112.55 91.46 73.93 40.56 16.84 -0.81 -14.3 -18.79</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -302,7 +467,7 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>1.38 -1 -0.81 1.67 -1.62 1.16 1.31 -1.29</si:valueXMLList>
+                                        <si:valueXMLList>132.55 101.46 73.93 15.56 -33.16 -75.81 -114.3 -128.79</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
@@ -313,58 +478,14 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>1.28 -1.1 -0.91 1.57 -1.72 1.06 1.21 -1.39</si:valueXMLList>
+                                        <si:valueXMLList>0.02 0.01 -0.03 -0.09 0.03 0.19 0.06 -0.19</si:valueXMLList>
                                         <si:unitXMLList>\degreeCelsius</si:unitXMLList>
                                         <si:expandedUncXMLList>
-                                            <si:uncertaintyXMLList>0.3 0.3 0.31 0.31 0.3 0.31 0.31 0.3</si:uncertaintyXMLList>
+                                            <si:uncertaintyXMLList>0.26 0.08 0.06 0.06 0.06 0.06 0.06 0.06</si:uncertaintyXMLList>
                                             <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
                                             <si:coverageProbabilityXMLList>0.95 0.95 0.95 0.95 0.95 0.95 0.95 0.95</si:coverageProbabilityXMLList>
                                             <si:distributionXMLList>normal</si:distributionXMLList>
                                         </si:expandedUncXMLList>
-                                    </si:realListXMLList>
-                                </si:hybrid>
-                            </dcc:quantity>
-                            <dcc:quantity refType="gp_uncertaintyTypeA_reference">
-                                <dcc:name>
-                                    <dcc:content lang="en">Type A standard uncertainty – reference (u_A,ref)</dcc:content>
-                                </dcc:name>
-                                <si:hybrid>
-                                    <si:realListXMLList>
-                                        <si:valueXMLList>0.0028 0.0012 0.0019 0.0046 0.0025 0.0022 0.0049 0.0047</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
-                                    </si:realListXMLList>
-                                </si:hybrid>
-                            </dcc:quantity>
-                            <dcc:quantity refType="gp_uncertaintyTypeA_sensor">
-                                <dcc:name>
-                                    <dcc:content lang="en">Type A standard uncertainty – sensor (u_A,sensor)</dcc:content>
-                                </dcc:name>
-                                <si:hybrid>
-                                    <si:realListXMLList>
-                                        <si:valueXMLList>0.013 0.02 0.033 0.03 0.02 0.038 0.031 0.022</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
-                                    </si:realListXMLList>
-                                </si:hybrid>
-                            </dcc:quantity>
-                            <dcc:quantity refType="gp_combinedStandardUncertainty">
-                                <dcc:name>
-                                    <dcc:content lang="en">Combined standard uncertainty u_c(E)</dcc:content>
-                                </dcc:name>
-                                <si:hybrid>
-                                    <si:realListXMLList>
-                                        <si:valueXMLList>0.07530511 0.07567596 0.0767714 0.07654765 0.07566245 0.0773832 0.07664369 0.07580398</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
-                                    </si:realListXMLList>
-                                </si:hybrid>
-                            </dcc:quantity>
-                            <dcc:quantity refType="gp_coverageFactor">
-                                <dcc:name>
-                                    <dcc:content lang="en">Coverage factor k (k=2, p≈95%)</dcc:content>
-                                </dcc:name>
-                                <si:hybrid>
-                                    <si:realListXMLList>
-                                        <si:valueXMLList>2 2 2 2 2 2 2 2</si:valueXMLList>
-                                        <si:unitXMLList>\one</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -374,10 +495,10 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:real>
-                                        <si:value>1.844428e+00</si:value>
+                                        <si:value>1.303400e-01</si:value>
                                         <si:unit>\degreeCelsius</si:unit>
                                         <si:expandedUnc>
-                                            <si:uncertainty>3.688855e+00</si:uncertainty>
+                                            <si:uncertainty>2.606799e-01</si:uncertainty>
                                             <si:coverageFactor>2.0</si:coverageFactor>
                                             <si:coverageProbability>0.95</si:coverageProbability>
                                         </si:expandedUnc>

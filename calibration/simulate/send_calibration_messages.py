@@ -16,7 +16,9 @@ import os
 import argparse
 from kafka import KafkaProducer
 
-BOOTSTRAP = "100.78.181.75:9092"
+# BOOTSTRAP = "100.78.181.75:9092"
+BOOTSTRAP = "100.87.231.127:9092"
+
 TOPIC = "calibrations"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MSG_FILE = os.path.join(SCRIPT_DIR, "one_measure.json")
