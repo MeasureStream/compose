@@ -285,7 +285,7 @@ def _print_h_carullo_table(results: List[Dict], pfa_threshold_pct: float,
     mae = float(results[0]["MAE_y"])
     print()
     print(_hr("="))
-    print(f"Check H — Carullo et al. table  (PFA_acc = {pfa_threshold_pct:.1f}%  "
+    print(f"Check H — Carullo et al. table  (MAE = {mae:.4f}  PFA_acc = {pfa_threshold_pct:.1f}%  "
           f"k_w = {k_w:.3f}  u_std_mode = {u_std_mode})")
     print(_hr("="))
     hdr = (f" {'Pt':>3}  {'T_ref':>9}  {'M_e_pre':>10}  {'U(E)':>8}  "
