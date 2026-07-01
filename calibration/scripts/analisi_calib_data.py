@@ -591,6 +591,41 @@ def _build_cert_filled(
             "_cov_theta": calib_result["cov_theta"],
             "_u_budget_per_step": u_budget_rounded,
         })
+    elif calib_model == "quadratic":
+        u_budget_raw = calib_result.get("per_step_budget", [])
+        u_budget_rounded = [
+            {**b,
+             "u_c": b.get("mu_E", 0.0) / _k, "k": _k,
+             "uA_ref": round_to_significant_figures(b["uA_ref"], 2),
+             "uA_sensor": round_to_significant_figures(b["uA_sensor"], 2)}
+            for b in u_budget_raw
+        ]
+        cal_result_entry.update({
+            "_theta": _c_theta,
+            "_a0": _c_a0, "_a1": _c_a1, "_a2": _c_a2,
+            "_u_a0": calib_result["u_a0"], "_u_a1": calib_result["u_a1"],
+            "_u_a2": calib_result["u_a2"],
+            "_cov_theta": calib_result.get("cov_theta"),
+            "_u_budget_per_step": u_budget_rounded,
+        })
+    elif calib_model == "steinhart":
+        u_budget_raw = calib_result.get("per_step_budget", [])
+        u_budget_rounded = [
+            {**b,
+             "u_c": b.get("mu_E", 0.0) / _k, "k": _k,
+             "uA_ref": round_to_significant_figures(b["uA_ref"], 2),
+             "uA_sensor": round_to_significant_figures(b["uA_sensor"], 2)}
+            for b in u_budget_raw
+        ]
+        cal_result_entry.update({
+            "_theta": _c_theta,
+            "_a": _c_a, "_b": _c_b, "_c": _c_c,
+            "_u_a": calib_result["u_a"], "_u_b": calib_result["u_b"],
+            "_u_c": calib_result["u_c"],
+            "_cov_theta": calib_result.get("cov_theta"),
+            "_R_arr": calib_result.get("R_arr"),
+            "_u_budget_per_step": u_budget_rounded,
+        })
 
 
     if ref_json is not None:

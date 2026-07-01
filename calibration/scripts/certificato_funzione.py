@@ -625,6 +625,7 @@ def build_story(styles):
     _model_desc_map = {
         "linear":    "linear",
         "cubic":     "cubic polynomial",
+        "quadratic": "quadratic polynomial",
         "steinhart": "Steinhart-Hart",
     }
     model_desc = _model_desc_map.get(_calib_model, _calib_model)
@@ -639,6 +640,7 @@ def build_story(styles):
     _default_intro_map = {
         "linear":    "The following table lists the coefficients of the linear calibration equation:",
         "cubic":     "The following table lists the coefficients of the cubic calibration equation:",
+        "quadratic": "The following table lists the coefficients of the quadratic calibration equation:",
         "steinhart": "The following table lists the Steinhart-Hart coefficients of the calibration equation:",
     }
     _default_intro = _default_intro_map.get(_calib_model, "The following table lists the calibration coefficients:")
@@ -735,6 +737,10 @@ def build_story(styles):
         _a1 = SENSOR_MODEL.get("_a1", CALIBRATION_RESULT.get("_a1", 0.0))
         _a2 = SENSOR_MODEL.get("_a2", CALIBRATION_RESULT.get("_a2", 0.0))
         _a3 = SENSOR_MODEL.get("_a3", CALIBRATION_RESULT.get("_a3", 0.0))
+        _u_a0 = SENSOR_MODEL.get("_u_a0", CALIBRATION_RESULT.get("_u_a0", 0.0))
+        _u_a1 = SENSOR_MODEL.get("_u_a1", CALIBRATION_RESULT.get("_u_a1", 0.0))
+        _u_a2 = SENSOR_MODEL.get("_u_a2", CALIBRATION_RESULT.get("_u_a2", 0.0))
+        _u_a3 = SENSOR_MODEL.get("_u_a3", CALIBRATION_RESULT.get("_u_a3", 0.0))
 
         def _pc(txt, val=""):
             return [
@@ -749,6 +755,34 @@ def build_story(styles):
             _pc(f"B  [{PHYS_UNIT_SYMBOL}/LSB]",            _fmt_sci(_a1, 4)),
             _pc(f"C  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_a2, 4)),
             _pc(f"E  [{PHYS_UNIT_SYMBOL}/LSB<super>3</super>]", _fmt_sci(_a3, 4)),
+            _pc(f"u(A)  [{PHYS_UNIT_SYMBOL}]",              _fmt_sci(_u_a0, 2)),
+            _pc(f"u(B)  [{PHYS_UNIT_SYMBOL}/LSB]",          _fmt_sci(_u_a1, 2)),
+            _pc(f"u(C)  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_u_a2, 2)),
+            _pc(f"u(E)  [{PHYS_UNIT_SYMBOL}/LSB<super>3</super>]", _fmt_sci(_u_a3, 2)),
+        ]
+    elif _calib_model == "quadratic":
+        _a0 = SENSOR_MODEL.get("_a0", CALIBRATION_RESULT.get("_a0", 0.0))
+        _a1 = SENSOR_MODEL.get("_a1", CALIBRATION_RESULT.get("_a1", 0.0))
+        _a2 = SENSOR_MODEL.get("_a2", CALIBRATION_RESULT.get("_a2", 0.0))
+        _u_a0 = SENSOR_MODEL.get("_u_a0", CALIBRATION_RESULT.get("_u_a0", 0.0))
+        _u_a1 = SENSOR_MODEL.get("_u_a1", CALIBRATION_RESULT.get("_u_a1", 0.0))
+        _u_a2 = SENSOR_MODEL.get("_u_a2", CALIBRATION_RESULT.get("_u_a2", 0.0))
+
+        def _pc(txt, val=""):
+            return [
+                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
+                p(f"<font size='8.2'>{val}</font>", styles["body"]),
+            ]
+
+        cal_coeff_data = [
+            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
+            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+            _pc(f"A  [{PHYS_UNIT_SYMBOL}]",                _fmt_sci(_a0, 4)),
+            _pc(f"B  [{PHYS_UNIT_SYMBOL}/LSB]",            _fmt_sci(_a1, 4)),
+            _pc(f"C  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_a2, 4)),
+            _pc(f"u(A)  [{PHYS_UNIT_SYMBOL}]",              _fmt_sci(_u_a0, 2)),
+            _pc(f"u(B)  [{PHYS_UNIT_SYMBOL}/LSB]",          _fmt_sci(_u_a1, 2)),
+            _pc(f"u(C)  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_u_a2, 2)),
         ]
     else:
         # linear
