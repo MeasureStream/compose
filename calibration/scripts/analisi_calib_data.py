@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import datetime
 import json
 import math
 import sys
@@ -783,7 +784,7 @@ def main() -> None:
     parser.add_argument("--cert-output", type=Path, default=default_cert_output)
     parser.add_argument("--pdf",  type=str, default=default_pdf_output)
     parser.add_argument("--xml",  type=Path, default=default_xml_output)
-    parser.add_argument("--last-calibration", type=Path, default=default_last_calib,
+    parser.add_argument("--last-calibration", type=Path, default="mariotto.json",
         help="Read previous calibration result JSON (input: old coefficients, rmse_pre for ufit). "
              "If the file exists it is loaded and used as the as-found baseline for the current run.")
     parser.add_argument("--result-calibration", type=Path, default=default_last_calib,
@@ -838,6 +839,10 @@ def main() -> None:
     parser.add_argument("--old-c", type=float, default=None, help="Previous calibration coefficient C / a2 / C3 (overrides sensor JSON coeffC if provided)")
     parser.add_argument("--old-d", type=float, default=None, help="Previous calibration coefficient D / a3 (overrides sensor JSON coeffD if provided)")
     args = parser.parse_args()
+
+    # Run-unique seed stamped on every generated image and in the logs.
+    _run_seed = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    print(f"Run seed: {_run_seed}")
 
     try:
         OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1104,6 +1109,7 @@ def main() -> None:
             ufit=ufit,
             coverage_factor=_k_cov,
         )
+        calib_result["run_seed"] = _run_seed
     except ValueError as err:
         print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
@@ -1152,38 +1158,58 @@ def main() -> None:
         accuracy_check = checker.check_all_points(ref_means_cr, as_found_errors)
         calib_result["_sensor_accuracy_check"] = accuracy_check
 
-        if args.update_parameters != "none":
-            if args.update_parameters == "always":
+        if args.update_parameters == "none":
+            print(
+                "\n[INFO] --update-parameters=none: "
+                "Parameter adjustment disabled by user. Keeping the previous "
+                "(as-found) coefficients unchanged.\n"
+                "       Result flag: calibration_done = 'not_necessary'"
+            )
+            calib_result["calibration_done"] = "not_necessary"
+            calibration_skipped = True
+        elif args.update_parameters == "always":
+            print(
+                "\n[INFO] --update-parameters=always: "
+                "Forcing calibration parameter update regardless of as-found errors."
+            )
+            calib_result["calibration_done"] = "done"
+        elif accuracy_check["all_in_range"]:
+            print(
+                "\n[INFO] --update-parameters=if-out-of-tolerance: "
+                "ALL as-found errors are within the declared sensorAccuracy limits.\n"
+                "       Calibration parameter update is NOT necessary.\n"
+                "       Result flag: calibration_done = 'not_necessary'"
+            )
+            calib_result["calibration_done"] = "not_necessary"
+            calibration_skipped = True
+        else:
+            failed = [p for p in accuracy_check["per_point"] if not p["in_range"]]
+            print(
+                f"\n[INFO] --update-parameters=if-out-of-tolerance: "
+                f"{len(failed)} as-found error(s) exceed sensorAccuracy limits. "
+                "Calibration will proceed."
+            )
+            for p in failed:
                 print(
-                    "\n[INFO] --update-parameters=always: "
-                    "Forcing calibration parameter update regardless of as-found errors."
+                    f"       Point {p['point']}: ref={p['T_ref_y']:.4f} {_unit_sym}  "
+                    f"as-found={p['as_found_error_y']:+.6f} {_unit_sym}  "
+                    f"limit=±{p['max_allowed_error_y']:.4f} {_unit_sym}  => OUT OF RANGE"
                 )
-                calib_result["calibration_done"] = "done"
-            elif accuracy_check["all_in_range"]:
-                print(
-                    "\n[INFO] --update-parameters=if-out-of-tolerance: "
-                    "ALL as-found errors are within the declared sensorAccuracy limits.\n"
-                    "       Calibration parameter update is NOT necessary.\n"
-                    "       Result flag: calibration_done = 'not_necessary'"
-                )
-                calib_result["calibration_done"] = "not_necessary"
-                calibration_skipped = True
-            else:
-                failed = [p for p in accuracy_check["per_point"] if not p["in_range"]]
-                print(
-                    f"\n[INFO] --update-parameters=if-out-of-tolerance: "
-                    f"{len(failed)} as-found error(s) exceed sensorAccuracy limits. "
-                    "Calibration will proceed."
-                )
-                for p in failed:
-                    print(
-                        f"       Point {p['point']}: ref={p['T_ref_y']:.4f} {_unit_sym}  "
-                        f"as-found={p['as_found_error_y']:+.6f} {_unit_sym}  "
-                        f"limit=±{p['max_allowed_error_y']:.4f} {_unit_sym}  => OUT OF RANGE"
-                    )
-                calib_result["calibration_done"] = "done"
+            calib_result["calibration_done"] = "done"
     else:
         calib_result["_sensor_accuracy_check"] = None
+        # No checker available (sensor JSON lacks maxTollerance and no
+        # --tolerance override) — fall back to args.update_parameters alone.
+        if args.update_parameters == "none":
+            print(
+                "\n[INFO] --update-parameters=none: "
+                "Parameter adjustment disabled by user (no accuracy checker available).\n"
+                "       Result flag: calibration_done = 'not_necessary'"
+            )
+            calib_result["calibration_done"] = "not_necessary"
+            calibration_skipped = True
+        else:
+            calib_result["calibration_done"] = "done"
 
     if args.convert_units and args.verbose:
         conv = calib_result.get("converted", {})
@@ -1262,19 +1288,42 @@ def main() -> None:
     # ── R18: output boundary validation — verify measurements are in physical units, not LSB ──
     _validate_output_domain(cert_filled, sensor_json, _cert_unit_sym)
 
-    # ── R18: write full calibration result JSON for downstream consumers ──
-    if args.result_calibration is not None:
-        last_calib_json = _build_last_calib_json(calib_result, cert_filled)
-        args.result_calibration.parent.mkdir(parents=True, exist_ok=True)
-        args.result_calibration.write_text(
-            json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
-            encoding="utf-8",
-        )
-        if args.verbose:
-            print(f"Calibration result JSON written to: {args.result_calibration}")
-
     if calibration_skipped:
         _apply_calibration_skipped(cert_filled, calib_result, old_A, old_B, old_C, old_D, lsb_per_y)
+
+    # ── R18: write full calibration result JSON for downstream consumers ──
+    # Only written when a parameter adjustment was actually applied this
+    # run — the file's "coefficients" block is meant to seed the NEXT
+    # calibration's as-found baseline, and when no adjustment happened
+    # there are no new coefficients to hand down: the next run must keep
+    # falling back to the current baseline (last real adjustment, or the
+    # sensor JSON template coefficients if there never was one).
+    if args.result_calibration is not None:
+        if calibration_skipped:
+            if args.result_calibration.exists():
+                args.result_calibration.unlink()
+                print(
+                    f"[INFO] No parameter adjustment this run "
+                    f"(calibration_done={calib_result.get('calibration_done')}) — "
+                    f"removed stale {args.result_calibration} from a previous attempt."
+                )
+            elif args.verbose:
+                print(
+                    f"[INFO] No parameter adjustment this run — "
+                    f"{args.result_calibration} not written."
+                )
+        else:
+            last_calib_json = _build_last_calib_json(calib_result, cert_filled)
+            args.result_calibration.parent.mkdir(parents=True, exist_ok=True)
+            args.result_calibration.write_text(
+                json.dumps(last_calib_json, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+            if args.verbose:
+                print(
+                    f"Calibration result JSON written to: {args.result_calibration}  "
+                    f"(calibration_done={calib_result.get('calibration_done')})"
+                )
 
     if args.verbose:
         print("\n=== Measurements (full FP precision) ===")

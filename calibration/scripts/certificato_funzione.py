@@ -161,6 +161,12 @@ def load_input_data(json_path: Path) -> Dict[str, Any]:
     data = json.loads(json_path.read_text(encoding="utf-8"))
     if "template_parts" in data:
         calibration_result = data.get("_calibration_result", {})
+        # Top-level flag set by the orchestrator: "done" (new fit applied) or
+        # "not_necessary" (sensor in tolerance / --update-parameters none).
+        # Threaded into calibration_result so the PDF renderer can decide
+        # whether to show the regression uncertainty / new coefficients.
+        calibration_result = dict(calibration_result)
+        calibration_result["_calibration_done"] = data.get("_calibration_done", "done")
         data = _expand_template_parts(data["template_parts"], calibration_result)
     _require_keys(
         data,
@@ -690,20 +696,42 @@ def build_story(styles):
     coeff_headers = text_cfg.get("coeff_table_headers", ["Parameter", "Value"])
     coeff_labels = text_cfg.get("coeff_labels", {})
 
-    # Regression uncertainty:
-    #   linear  → max_i(u_fit_i) × k   (GUM covariance propagation per punto)
-    #   others  → 2 × RMSE
-    if _calib_model == "linear":
-        _u_budget = CALIBRATION_RESULT.get("_u_budget_per_step", [])
-        _u_fit_values = [b.get("u_fit_i", 0.0) for b in _u_budget]
-        _k_val = float(_u_budget[0].get("k", 2.0)) if _u_budget else 2.0
-        reg_unc_val = max(_u_fit_values) * _k_val if _u_fit_values else 0.0
-        _reg_label = "Regression uncertainty (max u_fit × k)"
-    else:
-        rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
-        reg_unc_val = 2.0 * rmse_val
-        _reg_label = "Regression uncertainty (2·RMSE)"
-    reg_unc_text = f"{fmt_sci_sig(reg_unc_val)} {PHYS_UNIT_SYMBOL}"
+    # Coefficient uncertainties u(a), u(b), u(c)... are intentionally NEVER
+    # shown in the PDF coefficient table (they are always present in the DCC
+    # XML for full metrological traceability — see generate_dcc_xml.py).
+    #
+    # The regression uncertainty row (2·RMSE, or max u_fit×k for linear) is
+    # only meaningful when a NEW fit was actually computed and applied this
+    # run. When no parameter adjustment happened (sensor found in tolerance,
+    # or --update-parameters none/first-run-without-checker), the "fit" that
+    # produced this RMSE was discarded and the certificate reports the OLD
+    # (as-found) coefficients instead — showing a regression uncertainty for
+    # a fit that was never applied would be misleading, so the row is omitted.
+    _adjustment_done = CALIBRATION_RESULT.get("_calibration_done", "done") != "not_necessary"
+
+    if _adjustment_done:
+        if _calib_model == "linear":
+            _u_budget = CALIBRATION_RESULT.get("_u_budget_per_step", [])
+            _u_fit_values = [b.get("u_fit_i", 0.0) for b in _u_budget]
+            _k_val = float(_u_budget[0].get("k", 2.0)) if _u_budget else 2.0
+            reg_unc_val = max(_u_fit_values) * _k_val if _u_fit_values else 0.0
+            _reg_label = "Regression uncertainty (max u_fit × k)"
+        else:
+            rmse_val = float(CALIBRATION_RESULT.get("_rmse", 0.0))
+            reg_unc_val = 2.0 * rmse_val
+            _reg_label = "Regression uncertainty (2·RMSE)"
+        reg_unc_text = f"{fmt_sci_sig(reg_unc_val)} {PHYS_UNIT_SYMBOL}"
+
+    def _pc(txt, val=""):
+        """Riga tabella coefficienti come coppia di Paragraph."""
+        return [
+            p(f"<font size='8.2'>{txt}</font>", styles["body"]),
+            p(f"<font size='8.2'>{val}</font>", styles["body"]),
+        ]
+
+    cal_coeff_data = [_pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>")]
+    if _adjustment_done:
+        cal_coeff_data.append(_pc(coeff_labels.get("interp", _reg_label), reg_unc_text))
 
     if _calib_model == "steinhart":
         # Coefficienti da SENSOR_MODEL (scritti dall'orchestratore come _a, _b, _c)
@@ -711,93 +739,36 @@ def build_story(styles):
         _a = SENSOR_MODEL.get("_a", CALIBRATION_RESULT.get("_a", 0.0))
         _b = SENSOR_MODEL.get("_b", CALIBRATION_RESULT.get("_b", 0.0))
         _c = SENSOR_MODEL.get("_c", CALIBRATION_RESULT.get("_c", 0.0))
-        _u_a = SENSOR_MODEL.get("_u_a", CALIBRATION_RESULT.get("_u_a", 0.0))
-        _u_b = SENSOR_MODEL.get("_u_b", CALIBRATION_RESULT.get("_u_b", 0.0))
-        _u_c = SENSOR_MODEL.get("_u_c", CALIBRATION_RESULT.get("_u_c", 0.0))
-
-        def _pc(txt, val=""):
-            """Riga tabella coefficienti come coppia di Paragraph."""
-            return [
-                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
-                p(f"<font size='8.2'>{val}</font>", styles["body"]),
-            ]
-
-        cal_coeff_data = [
-            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
-            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
-            _pc("a  [1/K]",    _fmt_sci(_a, 4)),
-            _pc("b  [1/K]",    _fmt_sci(_b, 4)),
-            _pc("c  [1/K]",    _fmt_sci(_c, 4)),
-            _pc("u(a)  [1/K]", _fmt_sci(_u_a, 2)),
-            _pc("u(b)  [1/K]", _fmt_sci(_u_b, 2)),
-            _pc("u(c)  [1/K]", _fmt_sci(_u_c, 2)),
+        cal_coeff_data += [
+            _pc("a  [1/K]", _fmt_sci(_a, 4)),
+            _pc("b  [1/K]", _fmt_sci(_b, 4)),
+            _pc("c  [1/K]", _fmt_sci(_c, 4)),
         ]
     elif _calib_model == "cubic":
         _a0 = SENSOR_MODEL.get("_a0", CALIBRATION_RESULT.get("_a0", 0.0))
         _a1 = SENSOR_MODEL.get("_a1", CALIBRATION_RESULT.get("_a1", 0.0))
         _a2 = SENSOR_MODEL.get("_a2", CALIBRATION_RESULT.get("_a2", 0.0))
         _a3 = SENSOR_MODEL.get("_a3", CALIBRATION_RESULT.get("_a3", 0.0))
-        _u_a0 = SENSOR_MODEL.get("_u_a0", CALIBRATION_RESULT.get("_u_a0", 0.0))
-        _u_a1 = SENSOR_MODEL.get("_u_a1", CALIBRATION_RESULT.get("_u_a1", 0.0))
-        _u_a2 = SENSOR_MODEL.get("_u_a2", CALIBRATION_RESULT.get("_u_a2", 0.0))
-        _u_a3 = SENSOR_MODEL.get("_u_a3", CALIBRATION_RESULT.get("_u_a3", 0.0))
-
-        def _pc(txt, val=""):
-            return [
-                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
-                p(f"<font size='8.2'>{val}</font>", styles["body"]),
-            ]
-
-        cal_coeff_data = [
-            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
-            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+        cal_coeff_data += [
             _pc(f"A  [{PHYS_UNIT_SYMBOL}]",                _fmt_sci(_a0, 4)),
             _pc(f"B  [{PHYS_UNIT_SYMBOL}/LSB]",            _fmt_sci(_a1, 4)),
             _pc(f"C  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_a2, 4)),
             _pc(f"E  [{PHYS_UNIT_SYMBOL}/LSB<super>3</super>]", _fmt_sci(_a3, 4)),
-            _pc(f"u(A)  [{PHYS_UNIT_SYMBOL}]",              _fmt_sci(_u_a0, 2)),
-            _pc(f"u(B)  [{PHYS_UNIT_SYMBOL}/LSB]",          _fmt_sci(_u_a1, 2)),
-            _pc(f"u(C)  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_u_a2, 2)),
-            _pc(f"u(E)  [{PHYS_UNIT_SYMBOL}/LSB<super>3</super>]", _fmt_sci(_u_a3, 2)),
         ]
     elif _calib_model == "quadratic":
         _a0 = SENSOR_MODEL.get("_a0", CALIBRATION_RESULT.get("_a0", 0.0))
         _a1 = SENSOR_MODEL.get("_a1", CALIBRATION_RESULT.get("_a1", 0.0))
         _a2 = SENSOR_MODEL.get("_a2", CALIBRATION_RESULT.get("_a2", 0.0))
-        _u_a0 = SENSOR_MODEL.get("_u_a0", CALIBRATION_RESULT.get("_u_a0", 0.0))
-        _u_a1 = SENSOR_MODEL.get("_u_a1", CALIBRATION_RESULT.get("_u_a1", 0.0))
-        _u_a2 = SENSOR_MODEL.get("_u_a2", CALIBRATION_RESULT.get("_u_a2", 0.0))
-
-        def _pc(txt, val=""):
-            return [
-                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
-                p(f"<font size='8.2'>{val}</font>", styles["body"]),
-            ]
-
-        cal_coeff_data = [
-            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
-            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+        cal_coeff_data += [
             _pc(f"A  [{PHYS_UNIT_SYMBOL}]",                _fmt_sci(_a0, 4)),
             _pc(f"B  [{PHYS_UNIT_SYMBOL}/LSB]",            _fmt_sci(_a1, 4)),
             _pc(f"C  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_a2, 4)),
-            _pc(f"u(A)  [{PHYS_UNIT_SYMBOL}]",              _fmt_sci(_u_a0, 2)),
-            _pc(f"u(B)  [{PHYS_UNIT_SYMBOL}/LSB]",          _fmt_sci(_u_a1, 2)),
-            _pc(f"u(C)  [{PHYS_UNIT_SYMBOL}/LSB<super>2</super>]", _fmt_sci(_u_a2, 2)),
         ]
     else:
         # linear
         _A_cal = SENSOR_MODEL.get("_A_cal", CALIBRATION_RESULT.get("_A_cal", 0.0))
         _B_cal = SENSOR_MODEL.get("_B_cal", CALIBRATION_RESULT.get("_B_cal", 0.0))
-
-        def _pc(txt, val=""):
-            return [
-                p(f"<font size='8.2'>{txt}</font>", styles["body"]),
-                p(f"<font size='8.2'>{val}</font>", styles["body"]),
-            ]
-
-        cal_coeff_data = [
-            _pc(f"<b>{coeff_headers[0]}</b>", f"<b>{coeff_headers[1]}</b>"),
-            _pc(coeff_labels.get("interp", _reg_label), reg_unc_text),
+        cal_coeff_data += [
             _pc(f"A  [{PHYS_UNIT_SYMBOL}/LSB]", _fmt_sci(_A_cal, 4)),
             _pc(f"B  [{PHYS_UNIT_SYMBOL}]",      _fmt_sci(_B_cal, 4)),
         ]

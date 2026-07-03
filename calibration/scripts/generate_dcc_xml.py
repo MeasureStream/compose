@@ -150,9 +150,19 @@ def load_input_data(path: Path) -> Dict[str, Any]:
         data["_conformity"] = calib_result.get("_conformity", {})
         data["_sensor_schema_version"] = calib_result.get("_sensor_schema_version", "")
         data["_ref_schema_version"] = calib_result.get("_ref_schema_version", "")
-        # Calibration coefficients for the method statement
+        # Calibration coefficients (+ their standard uncertainties) for the
+        # method statement. Covers all four procedures: linear (A,B),
+        # cubic/quadratic (a0..a3), Steinhart-Hart (a,b,c). Uncertainties are
+        # always included here even though the PDF hides them — the DCC XML
+        # is the authoritative, complete metrological record.
         data["_coeffs"] = {}
-        for k in ("_A", "_B", "_a0", "_a1", "_a2", "_a3"):
+        for k in (
+            "_A", "_B", "_u_A", "_u_B", "_cov_AB",
+            "_a0", "_a1", "_a2", "_a3",
+            "_u_a0", "_u_a1", "_u_a2", "_u_a3",
+            "_a", "_b", "_c",
+            "_u_a", "_u_b", "_u_c",
+        ):
             if k in calib_result:
                 data["_coeffs"][k] = calib_result[k]
         # Physical unit DSI for XML unit elements — read from sensor JSON via orchestrator.
@@ -804,7 +814,11 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
         declaration = ET.SubElement(statement, "{https://ptb.de/dcc}declaration")
         _lang_text(declaration, text, "en")
 
-    # Calibration function statement with coefficients and regression uncertainty
+    # Calibration function statement with coefficients, their standard
+    # uncertainties, and the regression uncertainty. Coefficient uncertainties
+    # are ALWAYS included here for all four procedures — this is the DCC's
+    # complete metrological record, independent of whether the PDF shows them
+    # (the PDF always hides them; see certificato_funzione.py).
     calib_model = data.get("_calib_model", "linear")
     rmse = data.get("_rmse", 0.0)
     coeffs = data.get("_coeffs", {})
@@ -814,21 +828,36 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     _k_coverage = float(u_budget_dcc[0].get("k", 2.0)) if u_budget_dcc else 2.0
 
     if calib_model == "cubic":
-        _a0 = coeffs.get("_a0", 0)
-        _a1 = coeffs.get("_a1", 0)
-        _a2 = coeffs.get("_a2", 0)
-        _a3 = coeffs.get("_a3", 0)
+        _a0, _a1, _a2, _a3 = coeffs.get("_a0", 0), coeffs.get("_a1", 0), coeffs.get("_a2", 0), coeffs.get("_a3", 0)
+        _u_a0, _u_a1 = coeffs.get("_u_a0", 0), coeffs.get("_u_a1", 0)
+        _u_a2, _u_a3 = coeffs.get("_u_a2", 0), coeffs.get("_u_a3", 0)
         func_text = (
-            f"Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + D*D^3. "
-            f"Coefficients: A={_a0:.6e}, B={_a1:.6e}, "
-            f"C={_a2:.6e}, D={_a3:.6e}."
+            f"Calibration function (cubic polynomial): Y = A + B*D + C*D^2 + E*D^3. "
+            f"Coefficients: A={_a0:.6e} (u={_u_a0:.2e}), B={_a1:.6e} (u={_u_a1:.2e}), "
+            f"C={_a2:.6e} (u={_u_a2:.2e}), E={_a3:.6e} (u={_u_a3:.2e})."
+        )
+    elif calib_model == "quadratic":
+        _a0, _a1, _a2 = coeffs.get("_a0", 0), coeffs.get("_a1", 0), coeffs.get("_a2", 0)
+        _u_a0, _u_a1, _u_a2 = coeffs.get("_u_a0", 0), coeffs.get("_u_a1", 0), coeffs.get("_u_a2", 0)
+        func_text = (
+            f"Calibration function (quadratic polynomial): Y = A + B*D + C*D^2. "
+            f"Coefficients: A={_a0:.6e} (u={_u_a0:.2e}), B={_a1:.6e} (u={_u_a1:.2e}), "
+            f"C={_a2:.6e} (u={_u_a2:.2e})."
+        )
+    elif calib_model == "steinhart":
+        _a, _b, _c = coeffs.get("_a", 0), coeffs.get("_b", 0), coeffs.get("_c", 0)
+        _u_a, _u_b, _u_c = coeffs.get("_u_a", 0), coeffs.get("_u_b", 0), coeffs.get("_u_c", 0)
+        func_text = (
+            f"Calibration function (Steinhart-Hart): 1/T[K] = a + b*ln(R) + c*ln(R)^3. "
+            f"Coefficients: a={_a:.6e} (u={_u_a:.2e}), b={_b:.6e} (u={_u_b:.2e}), "
+            f"c={_c:.6e} (u={_u_c:.2e})."
         )
     else:
-        _A = coeffs.get("_A", 0)
-        _B = coeffs.get("_B", 0)
+        _A, _B = coeffs.get("_A", 0), coeffs.get("_B", 0)
+        _u_A, _u_B = coeffs.get("_u_A", 0), coeffs.get("_u_B", 0)
         func_text = (
             f"Calibration function (linear): Y = A*D + B. "
-            f"Coefficients: A={_A:.6e}, B={_B:.6e}."
+            f"Coefficients: A={_A:.6e} (u={_u_A:.2e}), B={_B:.6e} (u={_u_B:.2e})."
         )
     reg_text = (
         f"Regression uncertainty (expanded, k={_k_coverage:.1f}): u_reg = {_k_coverage * rmse:.2e}. "

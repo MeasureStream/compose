@@ -98,6 +98,19 @@ class PlotBundle:
     # the secondary axis and uses x_unit_symbol as the X label.
     x_unit:         str = "LSB"
     x_unit_symbol:  str = "LSB"
+    # Run-unique seed string (e.g. "20260703T143022") stamped on every
+    # image as a bottom-right watermark so images and logs can be
+    # correlated to the same run.
+    run_seed:       str = ""
+    # As-found (old-coefficient) dense model curve, for fig3. Populated
+    # only when old coefficients are available; empty otherwise.
+    model_x_pre:    Optional[List[float]] = None
+    model_y_pre:    Optional[List[float]] = None
+    # True when a parameter adjustment was actually applied this run
+    # (i.e. the new coefficients differ from — and will replace — the
+    # old ones). False for a first-run without a prior calibration, or
+    # when the sensor was found in tolerance and no adjustment was made.
+    adjustment_done: bool = True
 
 
 
@@ -169,10 +182,10 @@ def _fig1_sample_timeseries(bundle: PlotBundle, plt):
                              figsize=(FIG_W_2x3, max(FIG_H_2x3 * nrows / 2, 8)),
                              dpi=DPI, squeeze=False)
     fig.suptitle(
-        f"Sample block-means per calibration step\n"
-        f"Left axis: {bundle.ref_label} [{bundle.unit_symbol}]  |  "
-        f"Right axis: {bundle.sensor_label} [{bundle.x_unit_symbol}]\n"
-        f"Shaded bands = combined standard uncertainty u_c (type-A + type-B, per point)",
+        f"How steady were the readings at each temperature step?\n"
+        f"Left: {bundle.ref_label} [{bundle.unit_symbol}]   |   "
+        f"Right: {bundle.sensor_label} [{bundle.x_unit_symbol}]\n"
+        f"Shaded band = measurement uncertainty at each point",
         fontsize=10, y=1.02,
     )
 
@@ -257,10 +270,10 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
     _x_unit = bundle.x_unit_symbol
     fig.suptitle(
-        f"Raw scatter — pre-calibration\n"
+        f"Sensor vs. reference, before calibration\n"
         f"X: {bundle.sensor_label} [{_x_unit} / {bundle.unit_symbol}]"
         f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]\n"
-        f"Error bars = combined std unc u_c per point (type-A + type-B)",
+        f"Error bars = measurement uncertainty at each point",
         fontsize=10,
     )
 
@@ -305,16 +318,31 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
     _x_unit = bundle.x_unit_symbol
     fig.suptitle(
-        f"Calibration curve — {bundle.model_label}\n"
+        f"How the sensor is translated into a real temperature\n"
+        f"Model: {bundle.model_label}\n"
         f"X: {bundle.sensor_label} [{_x_unit} / {bundle.unit_symbol}]"
-        f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]\n"
-        f"Reference error bars = u_c per point (type-A + type-B)",
+        f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]",
         fontsize=10,
     )
 
-    # Dense model curve
-    ax.plot(bundle.model_x_lsb, bundle.model_y,
-            "r-", linewidth=1.4, zorder=3, label=f"Model: {bundle.model_label}")
+    # Dense model curve(s). When a parameter adjustment was applied this run,
+    # show both the as-found curve (old coefficients, dashed grey) and the
+    # as-left curve (new coefficients, solid red). When no adjustment was
+    # made (sensor found in tolerance, or --update-parameters none), there
+    # is no "new" fit to report — show only the as-found curve, in red,
+    # since it IS the certified curve for this certificate.
+    if bundle.adjustment_done:
+        if bundle.model_x_pre and bundle.model_y_pre:
+            ax.plot(bundle.model_x_pre, bundle.model_y_pre,
+                    color="gray", linestyle="--", linewidth=1.2, zorder=2,
+                    label="As-found (previous coefficients)")
+        ax.plot(bundle.model_x_lsb, bundle.model_y,
+                "r-", linewidth=1.4, zorder=3, label=f"As-left: {bundle.model_label}")
+    else:
+        _x_curve = bundle.model_x_pre or bundle.model_x_lsb
+        _y_curve = bundle.model_y_pre or bundle.model_y
+        ax.plot(_x_curve, _y_curve,
+                "r-", linewidth=1.4, zorder=3, label=f"As-found: {bundle.model_label}")
 
     x_lsb = np.array(bundle.sensor_means)
     y_ref  = np.array(bundle.ref_means)
@@ -326,12 +354,17 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
                 fmt="b.", capsize=4, markersize=8, zorder=4,
                 label=f"Reference ± u_c")
 
-    # Calibrated predictions (colour by node/interior)
+    # Predicted points (colour by node/interior). When no adjustment was
+    # made this run, there is no "as-left" prediction to show — plot the
+    # as-found points (old coefficients) instead, matching the single
+    # curve drawn above.
+    _point_values = bundle.t_sensor_post if bundle.adjustment_done else bundle.t_sensor_pre
+    _point_label  = "Calibrated prediction (as-left)" if bundle.adjustment_done else "As-found prediction"
     for i in range(len(bundle.steps)):
         color  = _step_color(bundle.is_node, i)
         marker = _step_marker(bundle.is_node, i)
         x_i = x_lsb[i]
-        y_i = bundle.t_sensor_post[i]
+        y_i = _point_values[i]
         ax.plot(x_i, y_i,
                 marker=marker, color=color, markersize=7, zorder=5,
                 linestyle="none")
@@ -340,7 +373,7 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
                     fontsize=7, alpha=0.7, color="tab:red")
 
     ax.plot([], [], marker="o", color="tab:red", linestyle="none",
-            markersize=7, label="Calibrated prediction")
+            markersize=7, label=_point_label)
 
     _annotate(ax, x_lsb, y_ref, bundle.steps)
 
@@ -362,9 +395,9 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
 def _fig4_pre_error(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
     fig.suptitle(
-        f"Pre-calibration error (as-found)\n"
-        f"M_e_pre = {bundle.sensor_label} (raw) − {bundle.ref_label}  [{bundle.unit_symbol}]\n"
-        f"Error bars = expanded uncertainty U(E) = 2·u_c per point",
+        f"How far off was the sensor before this calibration?\n"
+        f"Error = {bundle.sensor_label} (as-found) − {bundle.ref_label}  [{bundle.unit_symbol}]\n"
+        f"Error bars show the expanded measurement uncertainty",
         fontsize=10,
     )
 
@@ -422,9 +455,9 @@ def _fig4_pre_error(bundle: PlotBundle, plt):
 def _fig5_post_residuals(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
     fig.suptitle(
-        f"Post-calibration residuals (as-left)\n"
-        f"M_e_post = {bundle.sensor_label} (calibrated) − {bundle.ref_label}  [{bundle.unit_symbol}]\n"
-        f"Error bars = expanded uncertainty U(E) = 2·u_c per point",
+        f"How far off is the sensor after this new calibration?\n"
+        f"Error = {bundle.sensor_label} (as-left) − {bundle.ref_label}  [{bundle.unit_symbol}]\n"
+        f"Error bars show the expanded measurement uncertainty",
         fontsize=10,
     )
 
@@ -499,6 +532,14 @@ def _fig5_post_residuals(bundle: PlotBundle, plt):
 # Public entry point
 
 
+def _add_seed_watermark(fig, seed: str) -> None:
+    """Stamp a small run-unique seed string in the bottom-right corner."""
+    if not seed:
+        return
+    fig.text(0.99, 0.01, seed, fontsize=5, color="gray",
+             alpha=0.35, ha="right", va="bottom", family="monospace")
+
+
 def save_five_charts(bundle: PlotBundle, output_dir: Path, prefix: str) -> List[Path]:
     """Generate and save all five standard calibration charts at 600 dpi."""
     import importlib
@@ -509,18 +550,27 @@ def save_five_charts(bundle: PlotBundle, output_dir: Path, prefix: str) -> List[
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    saved: List[Path] = []
-    for draw_fn, suffix in [
+    charts = [
         (_fig1_sample_timeseries, "fig1_sample_timeseries"),
         (_fig2_raw_scatter,       "fig2_raw_scatter"),
         (_fig3_calibration_curve, "fig3_calibration_curve"),
         (_fig4_pre_error,         "fig4_pre_error"),
-        (_fig5_post_residuals,    "fig5_post_residuals"),
-    ]:
+    ]
+    # fig5 (as-left residuals) only makes sense when a parameter adjustment
+    # was actually applied — with no adjustment there is no new fit to
+    # report a post-calibration residual for (as-left == as-found, and
+    # showing it again would be redundant / potentially confusing about
+    # what was actually "left" on the sensor).
+    if bundle.adjustment_done:
+        charts.append((_fig5_post_residuals, "fig5_post_residuals"))
+
+    saved: List[Path] = []
+    for draw_fn, suffix in charts:
         try:
             fig = draw_fn(bundle, plt)
             if fig is None:
                 continue
+            _add_seed_watermark(fig, bundle.run_seed)
             p = output_dir / f"{prefix}_{suffix}.png"
             fig.savefig(p, dpi=DPI, bbox_inches="tight")
             plt.close(fig)
@@ -656,13 +706,27 @@ def bundle_from_linear(
     if not budget and calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
-    t_sensor_pre  = [min_v + lsb / lsb_per_y for lsb in sensor_means]
+    # As-found (old coefficients) — fall back to the naive identity LSB→°C
+    # mapping only when no prior calibration exists (first-ever run).
+    _old_A = calib_result.get("old_A")
+    _old_B = calib_result.get("old_B")
+    _has_old = _old_A is not None and _old_B is not None
+    if _has_old:
+        t_sensor_pre = [_old_A * lsb + _old_B for lsb in sensor_means]
+    else:
+        t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
     t_sensor_post = [A * lsb + B for lsb in sensor_means]
     me_pre  = [p - r for p, r in zip(t_sensor_pre, ref_means)]
     me_post = [p - r for p, r in zip(t_sensor_post, ref_means)]
 
     x_dense = np.linspace(min(sensor_means) * 0.99, max(sensor_means) * 1.01, 500)
     y_dense = (A * x_dense + B).tolist()
+    if _has_old:
+        y_dense_pre = (_old_A * x_dense + _old_B).tolist()
+    else:
+        y_dense_pre = (min_v + x_dense / lsb_per_y).tolist()
+
+    _adjustment_done = calib_result.get("calibration_done", "done") != "not_necessary"
 
     return PlotBundle(
         steps=steps,
@@ -678,6 +742,8 @@ def bundle_from_linear(
         t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(),
         model_y=y_dense,
+        model_x_pre=x_dense.tolist(),
+        model_y_pre=y_dense_pre,
         lsb_per_y=lsb_per_y,
         lsb_min=min_v,
         lsb_max=max_v,
@@ -691,6 +757,8 @@ def bundle_from_linear(
         sample_data=risultati,
         sample_size=20,
         accuracy_limit=accuracy_limit,
+        run_seed=calib_result.get("run_seed", ""),
+        adjustment_done=_adjustment_done,
     )
 
 
@@ -753,8 +821,20 @@ def bundle_from_cubic(
     if calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
-    # Pre-calibration: raw sensor reading converted via identity LSB→°C
-    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
+    # As-found (old coefficients) — fall back to the naive identity LSB→°C
+    # mapping only when no prior calibration exists (first-ever run).
+    _old_a0, _old_a1 = calib_result.get("old_a0"), calib_result.get("old_a1")
+    _old_a2, _old_a3 = calib_result.get("old_a2"), calib_result.get("old_a3")
+    _has_old = all(v is not None for v in [_old_a0, _old_a1, _old_a2, _old_a3])
+    _old_theta = np.array([_old_a0, _old_a1, _old_a2, _old_a3], dtype=float) if _has_old else None
+
+    if _has_old:
+        t_sensor_pre = [
+            cubic_predict_y(float(lsb), _old_theta, lsb_scale_sensor_info, adc_max)
+            for lsb in sensor_means
+        ]
+    else:
+        t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
 
     # Post-calibration: evaluate cubic model at each step
     t_sensor_post = [
@@ -771,6 +851,15 @@ def bundle_from_cubic(
         cubic_predict_y(float(xi), theta_arr, lsb_scale_sensor_info, adc_max)
         for xi in x_dense
     ]
+    if _has_old:
+        y_dense_pre = [
+            cubic_predict_y(float(xi), _old_theta, lsb_scale_sensor_info, adc_max)
+            for xi in x_dense
+        ]
+    else:
+        y_dense_pre = (min_v + x_dense / lsb_per_y).tolist()
+
+    _adjustment_done = calib_result.get("calibration_done", "done") != "not_necessary"
 
     return PlotBundle(
         steps=steps,
@@ -786,6 +875,8 @@ def bundle_from_cubic(
         t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(),
         model_y=y_dense,
+        model_x_pre=x_dense.tolist(),
+        model_y_pre=y_dense_pre,
         lsb_per_y=lsb_per_y,
         lsb_min=min_v,
         lsb_max=max_v,
@@ -799,6 +890,8 @@ def bundle_from_cubic(
         sample_data=risultati,
         sample_size=20,
         accuracy_limit=accuracy_limit,
+        run_seed=calib_result.get("run_seed", ""),
+        adjustment_done=_adjustment_done,
     )
 
 
@@ -841,7 +934,17 @@ def bundle_from_quadratic(
     if calib_result.get("expanded_uncertainties"):
         u_E = list(calib_result["expanded_uncertainties"])
 
-    t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
+    _old_a0, _old_a1, _old_a2 = calib_result.get("old_a0"), calib_result.get("old_a1"), calib_result.get("old_a2")
+    _has_old = all(v is not None for v in [_old_a0, _old_a1, _old_a2])
+    _old_theta = np.array([_old_a0, _old_a1, _old_a2], dtype=float) if _has_old else None
+
+    if _has_old:
+        t_sensor_pre = [
+            quadratic_predict_y(float(lsb), _old_theta, lsb_scale_sensor_info, adc_max)
+            for lsb in sensor_means
+        ]
+    else:
+        t_sensor_pre = [min_v + lsb / lsb_per_y for lsb in sensor_means]
     t_sensor_post = [
         quadratic_predict_y(float(lsb), theta_arr, lsb_scale_sensor_info, adc_max)
         for lsb in sensor_means
@@ -854,6 +957,15 @@ def bundle_from_quadratic(
         quadratic_predict_y(float(xi), theta_arr, lsb_scale_sensor_info, adc_max)
         for xi in x_dense
     ]
+    if _has_old:
+        y_dense_pre = [
+            quadratic_predict_y(float(xi), _old_theta, lsb_scale_sensor_info, adc_max)
+            for xi in x_dense
+        ]
+    else:
+        y_dense_pre = (min_v + x_dense / lsb_per_y).tolist()
+
+    _adjustment_done = calib_result.get("calibration_done", "done") != "not_necessary"
 
     return PlotBundle(
         steps=steps, ref_means=ref_means, sensor_means=sensor_means,
@@ -861,12 +973,15 @@ def bundle_from_quadratic(
         me_pre=me_pre, me_post=me_post,
         t_sensor_pre=t_sensor_pre, t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(), model_y=y_dense,
+        model_x_pre=x_dense.tolist(), model_y_pre=y_dense_pre,
         lsb_per_y=lsb_per_y, lsb_min=min_v, lsb_max=max_v, adc_max=adc_max,
         unit_symbol=unit_symbol, measurand_label=measurand_label,
         sensor_label=sensor_label, ref_label=ref_label,
         model_label="Quadratic OLS  y = a₀ + a₁·x + a₂·x²",
         is_node=None, sample_data=risultati, sample_size=20,
         accuracy_limit=accuracy_limit,
+        run_seed=calib_result.get("run_seed", ""),
+        adjustment_done=_adjustment_done,
     )
 
 
@@ -934,6 +1049,9 @@ def bundle_from_steinhart(
     else:
         x_dense = np.array(sensor_means, dtype=float)
     y_dense = [steinhart_predict_sh(float(xi), theta_arr) for xi in x_dense]
+    y_dense_pre = [steinhart_predict_sh(float(xi), _old_theta) for xi in x_dense]
+
+    _adjustment_done = calib_result.get("calibration_done", "done") != "not_necessary"
 
     return PlotBundle(
         steps=steps, ref_means=ref_means, sensor_means=sensor_means,
@@ -941,6 +1059,7 @@ def bundle_from_steinhart(
         me_pre=me_pre, me_post=me_post,
         t_sensor_pre=t_sensor_pre, t_sensor_post=t_sensor_post,
         model_x_lsb=x_dense.tolist(), model_y=y_dense,
+        model_x_pre=x_dense.tolist(), model_y_pre=y_dense_pre,
         lsb_per_y=lsb_per_y, lsb_min=min_v, lsb_max=max_v, adc_max=adc_max,
         unit_symbol=unit_symbol, measurand_label=measurand_label,
         sensor_label=sensor_label, ref_label=ref_label,
@@ -948,4 +1067,6 @@ def bundle_from_steinhart(
         is_node=None, sample_data=risultati, sample_size=20,
         accuracy_limit=accuracy_limit,
         x_unit="PREPROCESSED", x_unit_symbol="\u03a9",
+        run_seed=calib_result.get("run_seed", ""),
+        adjustment_done=_adjustment_done,
     )
