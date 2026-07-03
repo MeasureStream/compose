@@ -40,7 +40,7 @@ def apply_preprocessing_to_payload(
     step was performed.
 
     The formula is evaluated pointwise via :func:`evaluation_formula.evaluate_formula`,
-    so it can reference hardware constants (rDivider, vRef, adcMax, …)
+    so it can reference hardware constants (R_fixed, vRef, adcMax, …)
     declared in ``preprocessingFormulaConstants`` and Pint-aware
     variables.
     """

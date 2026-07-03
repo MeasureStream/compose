@@ -22,8 +22,8 @@
     "Reference temperature T_ref measured by PT100/Fluke 1502A (mean per step).",
     "Sensor temperature T_sensor measured by NTC via TMP126 ADC (mean per step)."
   ],
-  "methodDescription": "GUM-compliant Ordinary Least Squares (OLS) Steinhart-Hart regression in the resistance domain. The raw NTC ADC reading D [LSB] is first converted to thermistor resistance R [Ω] using a voltage-divider chain declared in preprocessingFormula (R = D / (adcMax - D) * rDivider). The regression model is 1/T_K = a + b*ln(R) + c*(ln R)^3, where T_K is the absolute temperature. Sensor type-B uncertainty is computed per step via evaluationFormula (currently uB only). Hardware constants (rDivider, vRef, adcMax) are declared in preprocessingFormulaConstants and propagate as Type-B contributions. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
-  "calibrationFormula": "1/T_K = a + b*ln(R) + c*(ln R)^3,  R = D / (ADC_MAX - D) * rDivider",
+  "methodDescription": "GUM-compliant Ordinary Least Squares (OLS) Steinhart-Hart regression in the resistance domain. The raw NTC ADC reading D [LSB] is first converted to thermistor resistance R [Ω] using a voltage-divider chain declared in preprocessingFormula (R = R_fixed * (adcMax - D) / D). The regression model is 1/T_K = a + b*ln(R) + c*(ln R)^3, where T_K is the absolute temperature. Sensor type-B uncertainty is computed per step via evaluationFormula (currently uB only). Hardware constants (R_fixed, vRef, adcMax) are declared in preprocessingFormulaConstants and propagate as Type-B contributions. Uncertainty propagation follows ISO/IEC Guide 98-3 (GUM).",
+  "calibrationFormula": "1/T_K = a + b*ln(R) + c*(ln R)^3,  R = R_fixed * (ADC_MAX - D) / D",
 
   "ranges": {
 
@@ -87,16 +87,16 @@
 
     "type": "steinhart",
     "coefficients": [
-      0.0,
-      0.0,
-      0.0,
+      0.000467281231917421,
+      0.00025625983776254293,
+      -4.292018530650808e-08,
       0.0
     ],
     "calibrationCoefficients": {
-      "a": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
-      "b": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
-      "c": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
-      "d": { "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" }
+      "A": { "value": 0.0006098939965346051, "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "B": { "value": 0.00023822032643083801, "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "C": { "value": 1.5679724473113055e-09, "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" },
+      "D": { "value": 0.0, "siExp": 0, "si": [0, 0, 0, 0, -1, 1, 0, 0], "dsi": "\\per\\kelvin" }
     }
   },
   "metrology": {
@@ -104,16 +104,16 @@
     "evaluationFormula": "uB",
     "requiredInputs": ["uB"],
 
-    "preprocessingFormula": "(d_in / (adcMax - d_in)) * rDivider",
+    "preprocessingFormula": "R_fixed * (adcMax - d_in) / d_in",
     "preprocessingInputUnit": "\\one",
     "preprocessingOutputUnit": "\\ohm",
     "preprocessingOutputRange": { "min": 0.0, "max": 10000000.0, "dsi": "\\ohm" },
-    "requiredPreprocessingInputs": ["rDivider", "adcMax"],
+    "requiredPreprocessingInputs": ["R_fixed", "adcMax"],
 
     "preprocessingFormulaConstants": {
-      "rDivider": 100000.0,
-      "rDivider_tol": 100.0,
-      "rDivider_tol_pdf": "uniform",
+      "R_fixed": 50000.0,
+      "R_fixed_tol": 100.0,
+      "R_fixed_tol_pdf": "uniform",
       "vRef": 3.3,
       "vRef_tol": 0.033,
       "vRef_tol_pdf": "uniform",

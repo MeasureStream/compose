@@ -61,28 +61,29 @@ def _gum_propagation_steinhart(
     T_K_arr: np.ndarray,
     u_D: np.ndarray,
     u_y: np.ndarray,
-    r_divider: float = 100000.0,
+    r_divider: float = 50000.0,
     adc_max: float = 65535.0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     theta, XtX_inv, X = _fit_steinhart(ln_r_arr, y_inv)
     cov_theta = np.zeros((_N_COEFFS, _N_COEFFS))
 
+    # NOTE: R_arr / u_D are already in the resistance domain (Ω) — the sensor's
+    # preprocessingFormula converts raw LSB to Ω before this is ever called.
+    # So sensitivity here is plain dx/dR, no extra LSB->Ω (dR/dD) factor needed.
     for i in range(len(ln_r_arr)):
         x_i = X[i]
         R_i = R_arr[i]
-        D_i = D_arr[i]
 
-        dR_dD = r_divider * adc_max / max((adc_max - D_i)**2, 1e-12)
-        dx_dD = _d_regressor_row_dR(R_i) * dR_dD
+        dx_dR_i = _d_regressor_row_dR(R_i)
 
         dtheta_dy_i = XtX_inv @ x_i
 
-        dXty_dxi = dx_dD * y_inv[i]
-        dXtX_dxi = np.outer(x_i, dx_dD) + np.outer(dx_dD, x_i)
+        dXty_dxi = dx_dR_i * y_inv[i]
+        dXtX_dxi = np.outer(x_i, dx_dR_i) + np.outer(dx_dR_i, x_i)
         dtheta_dxi = XtX_inv @ (dXty_dxi - dXtX_dxi @ theta)
 
         cov_theta += np.outer(dtheta_dy_i, dtheta_dy_i) * u_y[i]**2
-        cov_theta += np.outer(dtheta_dxi,  dtheta_dxi)  * u_D[i]**2 * dR_dD**2
+        cov_theta += np.outer(dtheta_dxi,  dtheta_dxi)  * u_D[i]**2
 
     u_theta = np.sqrt(np.maximum(0.0, np.diag(cov_theta)))
     return theta, u_theta, cov_theta
@@ -94,10 +95,12 @@ def steinhart_predict_sh(R: float, theta: np.ndarray) -> float:
     return 1.0 / inv_T - 273.15 if inv_T != 0.0 else float("nan")
 
 
-def steinhart_uncertainty(R: float, D: float, u_D_lsb: float,
+def steinhart_uncertainty(R: float, D: float, u_R: float,
                           theta: np.ndarray, cov_theta: np.ndarray,
-                          r_divider: float = 100000.0,
+                          r_divider: float = 50000.0,
                           adc_max: float = 65535.0) -> float:
+    """u_R is the standard uncertainty of R [Ω] (already preprocessed from LSB).
+    D/r_divider/adc_max kept in the signature for call compatibility but unused."""
     ln_r = log(R)
     x = _regressor_row(ln_r)
     inv_T = float(np.dot(x, theta))
@@ -106,8 +109,6 @@ def steinhart_uncertainty(R: float, D: float, u_D_lsb: float,
     T_K = 1.0 / inv_T
 
     dx_dlnR = _d_regressor_row_dlnR(ln_r)
-    dx_dR = dx_dlnR / R
-    dR_dD = r_divider * adc_max / max((adc_max - D)**2, 1e-12)
 
     dg_dtheta = x
     dg_dR = float(np.dot(dx_dlnR, theta)) / R
@@ -115,10 +116,8 @@ def steinhart_uncertainty(R: float, D: float, u_D_lsb: float,
     df_dtheta = -T_K**2 * dg_dtheta
     df_dR = -T_K**2 * dg_dR
 
-    df_dD = df_dR * dR_dD
-
     u2_coeff = float(df_dtheta @ cov_theta @ df_dtheta)
-    u2_sensor = (df_dD * u_D_lsb)**2
+    u2_sensor = (df_dR * u_R)**2
 
     return float(np.sqrt(max(0.0, u2_coeff + u2_sensor)))
 
@@ -226,10 +225,10 @@ def calibrate(
     R_arr = x_lsb.copy()
 
     _pp_consts = (sensor_json or {}).get("metrology", {}).get("preprocessingFormulaConstants", {}) or {}
-    r_divider = float(_pp_consts.get("rDivider", 100000.0))
+    r_divider = float(_pp_consts.get("R_fixed", 50000.0))
 
-    # back-compute original D [LSB] from R: D = R·adc_max / (R + r_divider)
-    D_arr_lsb = R_arr * adc_max / (R_arr + r_divider)
+    # back-compute original D [LSB] from R: D = r_divider·adc_max / (R + r_divider)
+    D_arr_lsb = r_divider * adc_max / (R_arr + r_divider)
 
     ln_r_arr = np.log(R_arr)
     T_K_arr  = y_phys + 273.15
@@ -278,20 +277,22 @@ def calibrate(
         R_i = float(R_arr[i])
         D_i = float(D_arr_lsb[i])   # D in LSB (back-computed from R)
 
-        # dT/dD via chain rule: dT/dR * dR/dD
-        # dR/dD = r_div*adc_max/(adc_max-D)^2   dT/dR = -T_K^2*(b/R + 3c*(lnR)^2/R)
-
+        # dT/dR: pstd_sensor is already in Ω (preprocessed), use it directly.
+        # dT/dD = dT/dR * dR/dD: only the 1-LSB resolution term lives in the
+        # raw LSB domain, so it alone needs the extra dR/dD factor.
         try:
             inv_T_i = float(np.dot(_regressor_row(log(R_i)), theta))
             T_K_i   = 1.0 / inv_T_i if abs(inv_T_i) > 1e-20 else 0.0
             dT_dR   = -T_K_i**2 * (b / R_i + 3.0 * c * log(R_i)**2 / R_i)
-            dR_dD   = r_divider * adc_max / max((adc_max - D_i)**2, 1e-12)
-            sens_i  = abs(dT_dR * dR_dD)
+            dR_dD   = -r_divider * adc_max / max(D_i**2, 1e-12)
+            sens_R  = abs(dT_dR)            # °C per Ω — for pstd_sensor (already Ω)
+            sens_i  = abs(dT_dR * dR_dD)    # °C per LSB — for the 1-LSB resolution term
         except Exception:
+            sens_R = 0.0
             sens_i = 0.0
 
         uA_ref    = risultati_elaborati[t]["pstd_ref"]
-        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens_i
+        uA_sensor = risultati_elaborati[t]["pstd_sensor"] * sens_R
         # 1 LSB resolution contribution converted to degC
         uB_sensor_res = (1.0 / np.sqrt(12.0)) * sens_i
 
