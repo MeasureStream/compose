@@ -340,6 +340,12 @@ def save_charts(
     me_post  = np.array([r[4] for r in measurements])
     u_exp    = np.array([r[5] for r in measurements])
 
+    # Conformity fig2 (as-found scatter) generation was disabled — see
+    # test_runs/README.md "disable conformity fig2 (as-found); only fig1
+    # residuals is generated". This function is currently a no-op stub;
+    # keep the array setup above (harmless, used if charts are re-enabled)
+    # and return an empty list instead of crashing on an undefined name.
+    saved: List[Path] = []
     return saved
 
 

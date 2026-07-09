@@ -121,20 +121,6 @@ def _phys_label(measurand: str, unit: str) -> str:
     return f"{measurand} [{unit}]"
 
 
-def _add_sensor_secondary_axis(ax, lsb_min: float, lsb_per_y: float, unit: str,
-                                position: str = "top"):
-    ax2 = ax.secondary_xaxis(
-        position,
-        functions=(
-            lambda lsb: lsb_min + lsb / lsb_per_y,
-            lambda phys: (phys - lsb_min) * lsb_per_y,
-        ),
-    )
-    ax2.set_xlabel(f"Sensor reading [{unit}]", fontsize=9)
-    ax2.tick_params(labelsize=8)
-    return ax2
-
-
 def _step_color(is_node: Optional[List[bool]], idx: int) -> str:
     if is_node is None:
         return "tab:red"
@@ -294,8 +280,6 @@ def _fig2_raw_scatter(bundle: PlotBundle, plt):
     ax.set_xlabel(f"{bundle.sensor_label} mean [{_x_unit}]", fontsize=10)
     ax.set_ylabel(f"{bundle.ref_label} mean [{bundle.unit_symbol}]", fontsize=10)
     ax.grid(True, alpha=0.25)
-    if bundle.x_unit == "LSB":
-        _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     if bundle.is_node is not None:
         from matplotlib.patches import Patch
@@ -318,7 +302,6 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W_1x2 / 2, FIG_H_1x2), dpi=DPI)
     _x_unit = bundle.x_unit_symbol
     fig.suptitle(
-        f"How the sensor is translated into a real temperature\n"
         f"Model: {bundle.model_label}\n"
         f"X: {bundle.sensor_label} [{_x_unit} / {bundle.unit_symbol}]"
         f"   Y: {bundle.ref_label} [{bundle.unit_symbol}]",
@@ -368,21 +351,27 @@ def _fig3_calibration_curve(bundle: PlotBundle, plt):
         ax.plot(x_i, y_i,
                 marker=marker, color=color, markersize=7, zorder=5,
                 linestyle="none")
-        ax.annotate(f"{bundle.steps[i]:.0f}", (x_i, y_i),
+        # Annotate with the actual predicted value (not the nominal step
+        # target) so the reference and prediction labels are visibly
+        # different — their gap IS the as-left error at that point.
+        ax.annotate(f"{y_i:.2f}", (x_i, y_i),
                     textcoords="offset points", xytext=(4, -8),
                     fontsize=7, alpha=0.7, color="tab:red")
 
     ax.plot([], [], marker="o", color="tab:red", linestyle="none",
             markersize=7, label=_point_label)
 
-    _annotate(ax, x_lsb, y_ref, bundle.steps)
+    # Annotate the reference points with the actual measured reference
+    # value (not the nominal step target).
+    for xi, yi in zip(x_lsb, y_ref):
+        ax.annotate(f"{yi:.2f}", (xi, yi),
+                    textcoords="offset points", xytext=(4, 4),
+                    fontsize=7, alpha=0.75, color="tab:blue")
 
     ax.set_xlabel(f"{bundle.sensor_label} reading [{_x_unit}]", fontsize=10)
     ax.set_ylabel(_phys_label(bundle.measurand_label, bundle.unit_symbol), fontsize=10)
     ax.grid(True, alpha=0.25)
     ax.legend(fontsize=8)
-    if bundle.x_unit == "LSB":
-        _add_sensor_secondary_axis(ax, bundle.lsb_min, bundle.lsb_per_y, bundle.unit_symbol)
 
     fig.tight_layout()
     return fig
