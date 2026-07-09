@@ -22,37 +22,26 @@ STEPS_C = [-20.0, -10.0, 0.0, 25.0, 50.0, 75.0, 100.0, 110.0]   # 8 steps, NO 12
 NUM_SENSOR_PER_REF = 10                     # sensor readings per reference point
 SENSOR_SAMPLING_FREQ_HZ = 1
 
-# Noise model
-#   Systematic offset (calibration bias):  added in °C, sensor = ref + N(0.1, 0.5)
-#   Within-group dispersion:  added in LSB after the °C→LSB conversion, so the
-#     noise is constant in the LSB domain (realistic for ADC + reference noise).
-#     If we added it in °C, the LSB-domain std would scale with |dLSB/dT| and
-#     blow up at high temperatures where the LSB-vs-°C curve is steep.
-NOISE_BIAS_MEAN_C = 0.1                       # mean of sensor noise [°C]
+# Noise model: bias in °C, dispersion in LSB (so it stays constant across the ADC range)
+NOISE_BIAS_MEAN_C = 0.74                    # mean of sensor noise [°C] 0 0 60 72 74
 U_B_STD_C = 0.5                               # Type-B std uncertainty [°C]
-DISPERSION_STD_LSB = 5.0                      # within-group dispersion std [LSB]
-                                              #   16-bit ADC: quantization ±1 LSB
-                                              #   + ref noise  ±2 LSB + thermal
-                                              #   ≈ 5 LSB is a realistic noise floor
+DISPERSION_STD_LSB = 5.0                      # within-group noise floor [LSB], ~ADC quantization + ref noise
 
-# NTC thermistor parameters  (Beta model)
-# These MUST match the sensor JSON in models_in/sensors/ntc_temperature_steinhart.json
-# (rDivider = 100 000, adcMax = 65535), otherwise the calibration script will
-# decode the LSB values into wrong resistance values and the Steinhart fit
-# will be wrong.
+# NTC thermistor parameters (Beta model). Must match the sensor JSON's
+# preprocessingFormulaConstants (R_fixed = 50000, adcMax = 65535).
 R25 = 100000.0                                 # NTC resistance at 25 °C [Ω]
 BETA = 4190.0                                 # Beta coefficient [K]
 T25_K = 298.15                                # 25 °C in Kelvin
-R_FIXED = 100000.0                            # rDivider from sensor JSON (Ω)
+R_FIXED = 50000.0                             # fixed resistor on the board (Ω) — matches sensor JSON's R_fixed
 
-# ADC parameters  (must match sensor JSON adcMax)
-V_REF = 3.3                                   # reference voltage [V]  (informational, ratiometric)
-ADC_MAX = 65535                               # last representable code (matches adcMax)
+# ADC parameters (ratiometric: V_ref cancels, scale = 2^16 not 2^16-1)
+V_REF = 3.3                                   # reference voltage [V]  (informational)
+ADC_SCALE = 2**16                             # 65536  (ratio denominator: Reading = V_L/V_ref * 2^16)
+ADC_MAX = 2**16 - 1                           # 65535  (last representable code, for clipping)
 
-# Reference data — real lab measurements (Temp_RTD column, centered around 0)
-# These are the relative variations extracted from confronto.csv.
-# The absolute value comes from STEPS_C, the assignment is random.
-# Steps -20, -10, 110 use synthetic data (no lab data available) — see SYNTH_* below.
+# Reference data: real lab noise profiles from confronto.csv, centered around 0.
+# Absolute temperature comes from STEPS_C; assignment to a step is random.
+# -20, -10, 110 °C have no lab data, so they use synthetic noise (see below).
 REF_TEMP_CENTRED_0 = np.array([
     -0.0158, -0.0174, -0.0157, -0.0162, -0.0177, -0.0176, -0.0160, -0.0179, -0.0184, -0.0190,
     -0.0182, -0.0164, -0.0149, -0.0134, -0.0117, -0.0128, -0.0141, -0.0144, -0.0153, -0.0159,
@@ -289,9 +278,9 @@ def load_ref_temperatures() -> list[np.ndarray]:
     return [CENTRED_REF_DATA[label] for label in STEP_LABELS]
 
 
-def make_calib_id(sensor_id: int, mu_id: int) -> str:
+def make_calib_id(mu_id: int, sensor_id: int) -> str:
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    return f"calib-{sensor_id}-{mu_id}-{ts}"
+    return f"calib-{mu_id}-{sensor_id}-{ts}"
 
 
 def encode_sensor_b64(values: list[int]) -> str:
@@ -302,13 +291,9 @@ def encode_sensor_b64(values: list[int]) -> str:
 
 
 
-# NTC → LSB conversion  (encoding direction)
-#   The sensor-JSON preprocessing formula is:
-#       R_ntc = LSB / (adcMax - LSB) * rDivider
-#   so the inverse (encoding) is:
-#       LSB = R_ntc * adcMax / (R_ntc + rDivider)
-#   This must match exactly — otherwise the calibration script decodes the
-#   LSB values into wrong resistance values.
+# NTC -> LSB encoding (real ADC behavior, ratiometric voltage divider).
+# Matches the inverse of the sensor JSON's preprocessingFormula
+# (R = R_fixed * (adcMax - D) / D), modulo the 65536 vs 65535 scale rounding.
 
 
 def temp_to_ntc_resistance(temp_c: float | np.ndarray) -> float | np.ndarray:
@@ -322,8 +307,8 @@ def ntc_to_voltage(r_ntc: float | np.ndarray) -> float | np.ndarray:
 
 
 def resistance_to_lsb(r_ntc: float | np.ndarray) -> int | np.ndarray:
-    """LSB = R_ntc * adcMax / (R_ntc + rDivider)."""
-    lsb = r_ntc * ADC_MAX / (r_ntc + R_FIXED)
+    """Ratiometric: LSB = (2^16) * R_FIXED / (R_FIXED + R_ntc)."""
+    lsb = ADC_SCALE * R_FIXED / (R_FIXED + r_ntc)
     if isinstance(lsb, np.ndarray):
         return np.rint(lsb).astype(int).clip(0, ADC_MAX)
     return int(round(max(0, min(lsb, ADC_MAX))))
@@ -340,29 +325,25 @@ def temp_c_to_lsb(temp_c: float | np.ndarray) -> int | np.ndarray:
 
 def lsb_to_voltage(lsb: int | np.ndarray) -> float | np.ndarray:
     if isinstance(lsb, np.ndarray):
-        return (lsb.astype(float) / ADC_MAX) * V_REF
-    return (float(lsb) / ADC_MAX) * V_REF
+        return (lsb.astype(float) / ADC_SCALE) * V_REF
+    return (float(lsb) / ADC_SCALE) * V_REF
 
 
 def lsb_to_temp_c(lsb: int | np.ndarray) -> float | np.ndarray:
-    """Inverse: LSB → °C via Beta model + voltage divider.
-
-    Sensor-JSON preprocessing:  R = LSB / (adcMax - LSB) * rDivider
-    →  R_ntc = LSB * rDivider / (adcMax - LSB)
-    →  R_ntc / R25 = (rDivider / R25) · LSB / (adcMax - LSB)
-    →  1 / T = 1 / T25 + (1 / B) · ln(R_ntc / R25)
-    """
+    """Inverse: LSB -> R_ntc = R_FIXED*(2^16/LSB - 1) -> °C (Beta model)."""
     if isinstance(lsb, np.ndarray):
-        denom = np.where(lsb < ADC_MAX, (ADC_MAX - lsb.astype(float)), 1e-12)
-        r = np.maximum(R_FIXED * lsb.astype(float) / np.maximum(denom, 1e-12), 1e-12)
-        r_ratio = r / R25
+        ratio = np.where(lsb > 0, ADC_SCALE / lsb.astype(float) - 1.0, 1e-12)
+        ratio = np.maximum(ratio, 1e-12)
+        r_ratio = (R_FIXED / R25) * ratio
         l = np.log(r_ratio)
         t_k = 1.0 / (1.0 / T25_K + l / BETA)
         return t_k - 273.15
-    if lsb <= 0 or lsb >= ADC_MAX:
+    if lsb <= 0:
         return -273.15
-    r = R_FIXED * float(lsb) / (ADC_MAX - float(lsb))
-    r_ratio = r / R25
+    ratio = ADC_SCALE / float(lsb) - 1.0
+    if ratio <= 0:
+        return -273.15
+    r_ratio = (R_FIXED / R25) * ratio
     t_k = 1.0 / (1.0 / T25_K + math.log(r_ratio) / BETA)
     return t_k - 273.15
 
@@ -407,7 +388,7 @@ def simulate():
     #    + 100 readings per reference  (with within-group dispersion)
 
     now = datetime.now().replace(microsecond=0)
-    calib_id = make_calib_id(SENSOR_ID, MU_ID)
+    calib_id = make_calib_id(MU_ID, SENSOR_ID)
 
     step_summary = [
         {"target": t, "minutes": 1}
@@ -425,14 +406,10 @@ def simulate():
         n_ref = len(ref_temps)
         ref_readings = ref_temps.tolist()
 
-        # sensor_temp = ref + N(mean=NOISE_BIAS_MEAN, std=U_B)   [single term, ratiometric model]
+        # sensor = ref + bias noise (°C)
         sensor_means = ref_temps + rng.normal(NOISE_BIAS_MEAN_C, U_B_STD_C, size=n_ref)
 
-        # NUM_SENSOR_PER_REF sensor values per reference, with within-group dispersion
-        #   Apply noise in LSB domain (additive), not in °C domain (multiplicative).
-        #   The mean sensor reading is computed from °C, then Gaussian noise
-        #   with std = DISPERSION_STD_LSB is added in LSB and the result is
-        #   quantised to integer LSB and clipped to [0, ADC_MAX].
+        # per-reading dispersion is added in LSB, then quantized + clipped
         sensor_values = []
         for sm in sensor_means:
             lsb_mean = float(temp_c_to_lsb(sm))
@@ -538,7 +515,7 @@ def simulate():
 
     fig1.tight_layout()
     fig1.savefig(str(PLOT_FILE_1), dpi=150)
-    plt.show(block=False)
+    # plt.show(block=False)
     print(f"plot 1  : {PLOT_FILE_1}")
 
 
@@ -589,7 +566,7 @@ def simulate():
 
     fig2.tight_layout()
     fig2.savefig(str(PLOT_FILE_2), dpi=150)
-    plt.show()
+    # plt.show()
     print(f"plot 2  : {PLOT_FILE_2}")
 
 

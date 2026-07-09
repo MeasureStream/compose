@@ -309,12 +309,27 @@
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Calibration function (linear): Y = A*D + B. Coefficients: A=2.032711e-03 (u=0.00e+00), B=-2.152241e+01 (u=0.00e+00).</dcc:content>
+                    <dcc:content lang="en">Calibration function (linear): Y = A*D + B. Coefficients: A=2.032711e-03 (u=0.00e+00), B=2.516276e+02 (u=0.00e+00).</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
                     <dcc:content lang="en">Regression uncertainty (expanded, k=2.0): u_reg = 1.37e+01. RMSE = 6.86e+00.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Decision rule: acceptance when G=FAIL A=FAIL B=FAIL H=FAIL. Verdict: NON-COMPLIANT.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">Guard band (maxTollerance): 0.6.</dcc:content>
+                </dcc:declaration>
+            </dcc:statement>
+            <dcc:statement>
+                <dcc:declaration>
+                    <dcc:content lang="en">PFA (Probability of False Acceptance) per point: P1=100.0% P2=100.0% P3=100.0% P4=100.0% P5=100.0% P6=100.0% P7=100.0% P8=100.0%. MAE=0.3, threshold=20.0%, mode=combined.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
         </dcc:statements>
@@ -430,8 +445,8 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-20 -10 -0 25 50 75 100 110</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:valueXMLList>253.15 263.15 273.15 298.15 323.15 348.15 373.15 383.15</si:valueXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -441,8 +456,8 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-76420.12 -138717.98 -234794.13 -641876.79 -1149692.74 -1519965.75 -1719140.43 -1766629.56</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:valueXMLList>832.18 848.55 873.79 980.73 1114.14 1211.42 1263.75 1276.22</si:valueXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -452,8 +467,8 @@
                                 </dcc:name>
                                 <si:hybrid>
                                     <si:realListXMLList>
-                                        <si:valueXMLList>-76400.12 -138707.98 -234794.13 -641901.8 -1149742.74 -1520040.75 -1719240.43 -1766739.56</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:valueXMLList>579.03 585.4 600.64 682.58 791 863.27 890.6 893.07</si:valueXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -464,7 +479,7 @@
                                 <si:hybrid>
                                     <si:realListXMLList>
                                         <si:valueXMLList>3.77 -1.91 -5.25 -2.05 8.14 8.8 -2.4 -9.11</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                         <si:expandedUncXMLList>
                                             <si:uncertaintyXMLList>0.06 0.07 0.08 0.1 0.09 0.08 0.06 0.06</si:uncertaintyXMLList>
                                             <si:coverageFactorXMLList>2.0 2.0 2.0 2.0 2.0 2.0 2.0 2.0</si:coverageFactorXMLList>
@@ -481,7 +496,7 @@
                                 <si:hybrid>
                                     <si:realListXMLList>
                                         <si:valueXMLList>0.0028 0.0012 0.0019 0.0046 0.0025 0.0022 0.0049 0.0047</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -492,7 +507,7 @@
                                 <si:hybrid>
                                     <si:realListXMLList>
                                         <si:valueXMLList>0.0071 0.016 0.029 0.039 0.035 0.022 0.008 0.0093</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -503,7 +518,7 @@
                                 <si:hybrid>
                                     <si:realListXMLList>
                                         <si:valueXMLList>0.031 0.034 0.042 0.05 0.046 0.038 0.031 0.032</si:valueXMLList>
-                                        <si:unitXMLList>\degreeCelsius</si:unitXMLList>
+                                        <si:unitXMLList>\kelvin</si:unitXMLList>
                                     </si:realListXMLList>
                                 </si:hybrid>
                             </dcc:quantity>
@@ -525,7 +540,7 @@
                                 <si:hybrid>
                                     <si:real>
                                         <si:value>6.857142e+00</si:value>
-                                        <si:unit>\degreeCelsius</si:unit>
+                                        <si:unit>\kelvin</si:unit>
                                         <si:expandedUnc>
                                             <si:uncertainty>1.371428e+01</si:uncertainty>
                                             <si:coverageFactor>2.0</si:coverageFactor>
