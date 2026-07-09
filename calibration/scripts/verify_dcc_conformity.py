@@ -421,6 +421,12 @@ def main() -> None:
     parser.add_argument("--mae",           type=float, default=0.10)
     parser.add_argument("--pfa-threshold", type=float, default=20.0)
     parser.add_argument(
+        "--u-ref", type=float, default=None,
+        help="Deprecated, ignored. Kept for backward CLI compatibility with "
+             "callers that still pass --u-ref (the overlap check that used "
+             "it was removed; conformity now depends solely on Check H).",
+    )
+    parser.add_argument(
         "--images-dir", type=Path, default=None,
         help="Directory to save verification charts (PNG). If omitted, no charts are saved.",
     )
