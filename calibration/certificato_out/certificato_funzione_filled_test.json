@@ -495,164 +495,10 @@
     "_cov_AB": 0.0,
     "_conformity": {
       "summary": {
-        "G": "FAIL",
-        "A": "FAIL",
-        "B": "PASS",
         "H": "FAIL",
         "calibration_done": "not_necessary",
         "overall": "NON-COMPLIANT"
       },
-      "check_G": {
-        "status": "FAIL",
-        "calib_model": "linear",
-        "note": "Interpolation model: all calibration points are within the declared tolerance.",
-        "G1_all_in_range": false,
-        "G2_all_covered": true,
-        "per_point": [
-          {
-            "punto": 1,
-            "T_ref_y": 0.26,
-            "M_e_pre_y": -4.9,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 2,
-            "T_ref_y": 25.14,
-            "M_e_pre_y": -7.92,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 3,
-            "T_ref_y": 49.67,
-            "M_e_pre_y": -10.99,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 4,
-            "T_ref_y": 73.98,
-            "M_e_pre_y": -14.02,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 5,
-            "T_ref_y": 98.3,
-            "M_e_pre_y": -17.01,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          },
-          {
-            "punto": 6,
-            "T_ref_y": 122.12,
-            "M_e_pre_y": -19.93,
-            "max_allowed_error_y": 0.6,
-            "G1_in_range": false,
-            "G2_covered": true
-          }
-        ]
-      },
-      "check_A": [
-        {
-          "punto": 1,
-          "T_ref": 0.26,
-          "T_sensor": -4.640000000000001,
-          "M_e": -4.9,
-          "U_exp": 0.06,
-          "pass": false
-        },
-        {
-          "punto": 2,
-          "T_ref": 25.14,
-          "T_sensor": 17.22,
-          "M_e": -7.92,
-          "U_exp": 0.06,
-          "pass": false
-        },
-        {
-          "punto": 3,
-          "T_ref": 49.67,
-          "T_sensor": 38.68,
-          "M_e": -10.99,
-          "U_exp": 0.06,
-          "pass": false
-        },
-        {
-          "punto": 4,
-          "T_ref": 73.98,
-          "T_sensor": 59.96000000000001,
-          "M_e": -14.02,
-          "U_exp": 0.06,
-          "pass": false
-        },
-        {
-          "punto": 5,
-          "T_ref": 98.3,
-          "T_sensor": 81.28999999999999,
-          "M_e": -17.01,
-          "U_exp": 0.06,
-          "pass": false
-        },
-        {
-          "punto": 6,
-          "T_ref": 122.12,
-          "T_sensor": 102.19,
-          "M_e": -19.93,
-          "U_exp": 0.08,
-          "pass": false
-        }
-      ],
-      "check_B": [
-        {
-          "punto": 1,
-          "U_exp": 0.06,
-          "limit": 0.1,
-          "excess": -0.04000000000000001,
-          "pass": true
-        },
-        {
-          "punto": 2,
-          "U_exp": 0.06,
-          "limit": 0.1,
-          "excess": -0.04000000000000001,
-          "pass": true
-        },
-        {
-          "punto": 3,
-          "U_exp": 0.06,
-          "limit": 0.1,
-          "excess": -0.04000000000000001,
-          "pass": true
-        },
-        {
-          "punto": 4,
-          "U_exp": 0.06,
-          "limit": 0.1,
-          "excess": -0.04000000000000001,
-          "pass": true
-        },
-        {
-          "punto": 5,
-          "U_exp": 0.06,
-          "limit": 0.1,
-          "excess": -0.04000000000000001,
-          "pass": true
-        },
-        {
-          "punto": 6,
-          "U_exp": 0.08,
-          "limit": 0.1,
-          "excess": -0.020000000000000004,
-          "pass": true
-        }
-      ],
       "check_H": [
         {
           "punto": 1,
@@ -779,8 +625,7 @@
         "mae_y": 0.3,
         "pfa_threshold_pct": 20.0,
         "u_std_mode": "combined"
-      },
-      "guard_band": 0.6
+      }
     }
   },
   "_calibration_done": "not_necessary",

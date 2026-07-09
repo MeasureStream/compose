@@ -165,57 +165,25 @@ def load_sensor_coverage_factor(sensor_path: Path) -> float:
 
 def run_checks(
     t_ref: List[float],
-    t_sensor: List[float],
     me_pre: List[float],
     u_sensor: List[float],
-    max_tollerance: float | None,
     mae: float,
     pfa_threshold_pct: float,
-    u_ref: float,
     coverage_factor: float = 2.0,
 ) -> Dict[str, Any]:
+    """Conformity is decided solely by Check H (Probability of False
+    Acceptance) on the as-found errors, guard-banded against the declared
+    MAE. A point passes iff its as-found error falls within the reduced
+    acceptance limits [AL, AU]; the run is conforming iff every point
+    passes. No overlap check, no plain max-tolerance check.
+    """
     n = len(t_ref)
-    results: Dict[str, Any] = {
-        "check_g": {"status": NA, "details": [], "note": ""},
-        "check_h": {"status": FAIL, "details": []},
-        "check_overlap": {"status": FAIL, "details": []},
-    }
-
-    # Check G: maxTollerance as-found conformity
-    if max_tollerance is not None:
-        g1_all_pass    = True
-        g_details      = []
-
-        for i in range(n):
-            temp      = t_ref[i]
-            error_val = me_pre[i]
-            max_err   = max_tollerance
-
-            g1_pass = abs(error_val) <= max_err
-            if not g1_pass:
-                g1_all_pass = False
-
-            g_details.append({
-                "index": i + 1, "t_ref": temp, "me_pre": error_val,
-                "max_allowed_error": max_err,
-                "G1_pass": g1_pass, "G2_pass": True,
-            })
-
-        g_status = FAIL if not g1_all_pass else PASS
-        results["check_g"] = {
-            "status": g_status, "details": g_details,
-            "note": "Validated against declared maxTollerance specifications.",
-        }
-    else:
-        results["check_g"] = {
-            "status": NA, "details": [],
-            "note": "Skipped: No sensor model accuracy loaded.",
-        }
-
-    # Check H: Probability of False Acceptance (PFA)
-    h_all_pass    = True
-    h_details     = []
     pfa_threshold = pfa_threshold_pct / 100.0
+    # Guard-band factor k_w = Φ⁻¹(1 − PFA_acc), constant across the run.
+    k_w = inverse_normal_cdf(1.0 - pfa_threshold)
+
+    h_all_pass = True
+    h_details: List[Dict[str, Any]] = []
 
     for i in range(n):
         error_val = me_pre[i]
@@ -233,37 +201,25 @@ def run_checks(
         if not ok:
             h_all_pass = False
 
+        # Reduced acceptance limits (guard-banded), same units as me_pre.
+        al_y = -mae + k_w * u_std
+        au_y =  mae - k_w * u_std
+        within_guard_band = al_y <= error_val <= au_y
+
         h_details.append({
             "index": i + 1, "t_ref": t_ref[i], "me_pre": error_val,
-            "u_std": u_std, "pfa_pct": pfa * 100.0, "pass": ok,
+            "u_std": u_std, "pfa_pct": pfa * 100.0,
+            "AL": al_y, "AU": au_y, "within_guard_band": within_guard_band,
+            "pass": ok,
         })
 
-    results["check_h"] = {"status": PASS if h_all_pass else FAIL, "details": h_details}
-
-    # Uncertainties Overlap Check (simple interval and RSS)
-    overlap_all_pass = True
-    overlap_details  = []
-
-    for i in range(n):
-        diff    = abs(t_sensor[i] - t_ref[i])
-        u_sns   = u_sensor[i]
-        sum_unc = u_sns + u_ref
-        rss_unc = math.sqrt(u_sns**2 + u_ref**2)
-
-        simple_ok = diff <= sum_unc
-        rss_ok    = diff <= rss_unc
-        if not simple_ok or not rss_ok:
-            overlap_all_pass = False
-
-        overlap_details.append({
-            "index": i + 1, "t_ref": t_ref[i], "t_sns": t_sensor[i],
-            "diff": diff, "u_sns": u_sns, "u_ref": u_ref,
-            "simple_pass": simple_ok, "rss_pass": rss_ok,
-        })
-
-    results["check_overlap"] = {"status": PASS if overlap_all_pass else FAIL, "details": overlap_details}
-
-    return results
+    return {
+        "check_h": {
+            "status": PASS if h_all_pass else FAIL,
+            "details": h_details,
+            "k_w": k_w, "mae": mae, "pfa_threshold_pct": pfa_threshold_pct,
+        },
+    }
 
 
 def print_results_report(
@@ -276,7 +232,6 @@ def print_results_report(
     results: Dict[str, Any],
     mae: float,
     pfa_threshold: float,
-    u_ref: float,
 ) -> None:
     print()
     print(_hr("="))
@@ -297,85 +252,32 @@ def print_results_report(
             f"{me_pre[i]:>13.4e}  {me_post[i]:>14.4e}  {u_sensor[i]:>12.4f}"
         )
 
-    g_res = results["check_g"]
-    print("\n" + _hr("-"))
-    print(f"  [G] SENSOR ACCURACY AS-FOUND CONFORMITY")
-    print(_hr("-"))
-    if g_res["status"] == NA:
-        print(f"  Status: {NA} (No sensor model accuracy ranges loaded)")
-    else:
-        print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'Limit':>12}  {'G1 (In Limit)':>13}  {'G2 (Covered)':>12}")
-        print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*13}  {'-'*12}")
-        for pt in g_res["details"]:
-            lim_str = f"+/-{pt['max_allowed_error']:.4f}" if pt["max_allowed_error"] is not None else "N/A"
-            print(f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {lim_str:>12}  {PASS if pt['G1_pass'] else FAIL:>13}  {PASS if pt['G2_pass'] else WARN:>12}")
-        print(f"\n  Check G Verdict: [{g_res['status']}]  {g_res['note']}")
-
+    # Conformity is decided solely by Check H: as-found error vs guard-banded
+    # acceptance limits [AL, AU], driven by PFA <= threshold. No overlap
+    # check, no plain max-tolerance check.
     h_res = results["check_h"]
+    k_w   = h_res["k_w"]
     print("\n" + _hr("-"))
-    print(f"  [H] PROBABILITY OF FALSE ACCEPTANCE (PFA)")
-    print(f"      MAE = +/-{mae:.3f},  PFA Acceptance Threshold = {pfa_threshold:.1f} %")
-    print(_hr("-"))
-    print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'u_std':>12}  {'PFA [%]':>11}  {'Verdict':>10}")
-    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*11}  {'-'*10}")
-    for pt in h_res["details"]:
-        print(f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {pt['u_std']:>12.4f}  {pt['pfa_pct']:>10.1f}%  {PASS if pt['pass'] else FAIL:>10}")
-    print(f"\n  Check H Verdict: [{h_res['status']}]")
-
-    # Guard Band (ILAC-G8, consumer risk only — PFA threshold drives g)
-    alpha = pfa_threshold / 100.0
-    g = inverse_normal_cdf(1.0 - alpha)
-
-    print("\n" + _hr("-"))
-    print(f"  GUARD BAND ANALYSIS (ILAC-G8: consumer risk PFA <= {pfa_threshold:.1f}%)")
-    print(f"       MAE = +/-{mae:.3f},  g = invCDF(1-alpha) = {g:.4f},  GB_limit = MAE - g * U_exp")
-    print(_hr("-"))
-    print(f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'U_sensor':>12}  {'GB_Limit':>12}  {'Verdict':>12}")
-    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*12}  {'-'*12}  {'-'*12}")
-
-    n_gb_pass = n_gb_fail = n_gb_amb = 0
-    for i in range(len(t_ref)):
-        gb_limit = mae - g * u_sensor[i]
-        error_val = me_pre[i]
-        if gb_limit <= 0.0:
-            gb_verdict = "AMBIGUOUS"
-            n_gb_amb += 1
-        elif abs(error_val) <= gb_limit:
-            gb_verdict = "PASS"
-            n_gb_pass += 1
-        else:
-            gb_verdict = "FAIL"
-            n_gb_fail += 1
-        print(f"  {i+1:>3}  {t_ref[i]:>12.4f}  {error_val:>13.4e}  {u_sensor[i]:>12.4f}  {gb_limit:>12.4f}  {gb_verdict:>12}")
-
-    print(f"\n  Guard Band Recap: {n_gb_pass} PASS, {n_gb_fail} FAIL, {n_gb_amb} AMBIGUOUS (of {len(t_ref)} total)")
-
-    overlap_res = results["check_overlap"]
-    print("\n" + _hr("-"))
-    print(f"  UNCERTAINTIES OVERLAP & COMPATIBILITY CHECK")
-    print(f"  Reference Expanded Uncertainty (U_ref) = {u_ref:.4f} (k=2)")
+    print(f"  [H] PROBABILITY OF FALSE ACCEPTANCE (PFA) + GUARD BAND")
+    print(f"      MAE = +/-{mae:.3f},  PFA Acceptance Threshold = {pfa_threshold:.1f} %,  "
+          f"k_w = invCDF(1-alpha) = {k_w:.4f}")
     print(_hr("-"))
     print(
-        f"  {'Pt':>3}  {'T_ref':>12}  {'T_sensor':>14}  "
-        f"{'|Diff|':>12}  {'Simple Overlap':>15}  {'RSS Compat.':>12}"
+        f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'u_std':>10}  "
+        f"{'AL':>10}  {'AU':>10}  {'PFA [%]':>9}  {'Verdict':>10}"
     )
-    print(f"  {'-'*3}  {'-'*12}  {'-'*14}  {'-'*12}  {'-'*15}  {'-'*10}")
-    for pt in overlap_res["details"]:
+    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*10}  {'-'*10}  {'-'*10}  {'-'*9}  {'-'*10}")
+    for pt in h_res["details"]:
         print(
-            f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['t_sns']:>14.4f}  "
-            f"{pt['diff']:>12.4f}  {PASS if pt['simple_pass'] else FAIL:>15}  {PASS if pt['rss_pass'] else FAIL:>12}"
+            f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {pt['u_std']:>10.4f}  "
+            f"{pt['AL']:>+10.4f}  {pt['AU']:>+10.4f}  {pt['pfa_pct']:>8.1f}%  {PASS if pt['pass'] else FAIL:>10}"
         )
-    print(f"\n  Overlap Check Verdict: [{overlap_res['status']}]")
+    print(f"\n  Check H Verdict: [{h_res['status']}]")
 
     print("\n" + _hr("="))
-    g_ok      = g_res["status"] in (PASS, NA)
-    h_ok      = h_res["status"] == PASS
-    o_ok      = overlap_res["status"] == PASS
-    overall   = "CONFORMING" if (g_ok and h_ok and o_ok) else "NON-CONFORMING"
+    overall = "CONFORMING" if h_res["status"] == PASS else "NON-CONFORMING"
     print(f"  OVERALL VERDICT: {overall}")
-    print(f"  [G] SensorAccuracy: [{g_res['status']}]")
-    print(f"  [H] PFA Check     : [{h_res['status']}]")
-    print(f"  [*] Overlap Check : [{overlap_res['status']}]")
+    print(f"  [H] PFA / Guard band: [{h_res['status']}]")
     print(_hr("="))
     print()
 
@@ -392,7 +294,6 @@ def save_charts(
     results: Dict[str, Any],
     mae: float,
     pfa_threshold_pct: float,
-    u_ref: float,
     model_label: str = "Calibration model",
     variant: str = "funzione",
 ) -> List[str]:
@@ -464,40 +365,41 @@ def save_charts(
         saved.append(str(out))
         print(f"[INFO] Saved chart: {out}")
 
-    # ── Fig 2 (formerly fig4): Check G — As-Found Errors vs Sensor Accuracy Bands ──
-    g_res = results["check_g"]
-    if g_res["status"] != NA and g_res["details"]:
+    # ── Fig 2: as-found error vs guard-banded acceptance limits [AL, AU] ──
+    if h_res["details"]:
         fig, ax = plt.subplots(figsize=(10, 5))
-        g_details = g_res["details"]
+        h_details = h_res["details"]
+        t_arr = [d["t_ref"] for d in h_details]
 
-        for d in g_details:
-            color = COLOR_PASS if d["G1_pass"] else COLOR_FAIL
-            marker = "o" if d["G1_pass"] else "X"
+        for d in h_details:
+            color  = COLOR_PASS if d["pass"] else COLOR_FAIL
+            marker = "o" if d["pass"] else "X"
             ax.scatter(d["t_ref"], d["me_pre"], color=color, marker=marker,
                        s=80, zorder=5, linewidths=1.5, edgecolors="white")
 
-        # Horizontal MAE band: ±MAE across the whole temperature range.
-        # Legend shows the MAE value directly.
-        mae_label = f"MAE = ±{mae:.3f} {UNIT}"
-        ax.axhspan(-mae, mae, facecolor=COLOR_FAIL, alpha=0.10, zorder=1,
-                   label=mae_label)
-        ax.axhline( mae, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
-                    alpha=0.85, zorder=2, label=f"Max Admitted Error (+{mae:.3f} {UNIT})")
-        ax.axhline(-mae, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
-                    alpha=0.85, zorder=2)
-
+        al_vals = [d["AL"] for d in h_details]
+        au_vals = [d["AU"] for d in h_details]
+        ax.plot(t_arr, al_vals, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
+                alpha=0.85, zorder=2, label="Guard-band limit AL")
+        ax.plot(t_arr, au_vals, color=COLOR_FAIL, linewidth=1.2, linestyle="--",
+                alpha=0.85, zorder=2, label="Guard-band limit AU")
+        ax.axhspan(-mae, mae, facecolor=COLOR_WARN, alpha=0.06, zorder=1,
+                   label=f"MAE = ±{mae:.3f} {UNIT}")
         ax.axhline(0, color="black", linewidth=0.8, zorder=2)
+
         ax.set_xlabel(f"Reference Temperature [{UNIT}]", fontsize=11)
         ax.set_ylabel(f"As-Found Error M_e_pre [{UNIT}]", fontsize=11)
-        ax.set_title(f"[G] Sensor Accuracy As-Found Conformity — {model_label} ({variant})",
+        ax.set_title(f"[H] As-Found Error vs Guard Band [AL, AU] — {model_label} ({variant})",
                      fontsize=13, fontweight="bold")
 
-        pass_patch = mpatches.Patch(color=COLOR_PASS, label="In MAE limit (PASS)")
-        fail_patch = mpatches.Patch(color=COLOR_FAIL, label="Out of MAE (FAIL)")
-        ax.legend(handles=[pass_patch, fail_patch], fontsize=9, loc="best")
+        pass_patch = mpatches.Patch(color=COLOR_PASS, label="Within guard band (PASS)")
+        fail_patch = mpatches.Patch(color=COLOR_FAIL, label="Outside guard band (FAIL)")
+        ax.legend(handles=[pass_patch, fail_patch,
+                            mpatches.Patch(color=COLOR_FAIL, label="AL / AU limit")],
+                  fontsize=9, loc="best")
         ax.grid(alpha=0.4, zorder=0)
         fig.tight_layout()
-        out = images_dir / "fig2_check_g_accuracy.png"
+        out = images_dir / "fig2_guard_band.png"
         fig.savefig(out, dpi=DPI)
         plt.close(fig)
         saved.append(str(out))
@@ -518,7 +420,6 @@ def main() -> None:
     )
     parser.add_argument("--mae",           type=float, default=0.10)
     parser.add_argument("--pfa-threshold", type=float, default=20.0)
-    parser.add_argument("--u-ref",         type=float, default=0.065)
     parser.add_argument(
         "--images-dir", type=Path, default=None,
         help="Directory to save verification charts (PNG). If omitted, no charts are saved.",
@@ -532,20 +433,18 @@ def main() -> None:
     print(f"Loading and parsing DCC XML file: {args.xml}...")
     t_ref, t_sensor, me_pre, me_post, u_sensor = parse_dcc_xml(args.xml)
 
-    accuracy_ranges = load_sensor_max_tollerance(args.sensor)
     coverage_factor = load_sensor_coverage_factor(args.sensor)
 
     results = run_checks(
-        t_ref=t_ref, t_sensor=t_sensor, me_pre=me_pre, u_sensor=u_sensor,
-        max_tollerance=accuracy_ranges, mae=args.mae,
-        pfa_threshold_pct=args.pfa_threshold, u_ref=args.u_ref,
+        t_ref=t_ref, me_pre=me_pre, u_sensor=u_sensor,
+        mae=args.mae, pfa_threshold_pct=args.pfa_threshold,
         coverage_factor=coverage_factor,
     )
 
     print_results_report(
         xml_path=args.xml, t_ref=t_ref, t_sensor=t_sensor,
         me_pre=me_pre, me_post=me_post, u_sensor=u_sensor,
-        results=results, mae=args.mae, pfa_threshold=args.pfa_threshold, u_ref=args.u_ref,
+        results=results, mae=args.mae, pfa_threshold=args.pfa_threshold,
     )
 
     if args.images_dir is not None:
@@ -555,7 +454,7 @@ def main() -> None:
             t_ref=t_ref, t_sensor=t_sensor,
             me_pre=me_pre, me_post=me_post, u_sensor=u_sensor,
             results=results, mae=args.mae,
-            pfa_threshold_pct=args.pfa_threshold, u_ref=args.u_ref,
+            pfa_threshold_pct=args.pfa_threshold,
         )
         print(f"[INFO] {len(saved)} chart(s) saved.")
 

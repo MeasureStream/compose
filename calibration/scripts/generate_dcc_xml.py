@@ -876,26 +876,37 @@ def build_dcc_tree(data: Dict[str, Any]) -> ET.ElementTree:
     if conf:
         conf_summary = conf.get("summary", {})
         conf_overall = conf_summary.get("overall", "NON-COMPLIANT")
-        conf_guard = conf.get("guard_band")
+        rH_list = conf.get("check_H", [])
 
+        # Conformity is decided solely by Check H (Probability of False
+        # Acceptance) on the as-found errors, guard-banded against the
+        # declared MAE: acceptance requires PFA <= threshold (equivalently,
+        # the as-found error within the reduced acceptance limits [AL, AU])
+        # at every calibration point. No overlap check, no plain
+        # max-tolerance check.
         dr_text = (
-            f"Decision rule: acceptance when "
-            f"G={conf_summary.get('G','?')} A={conf_summary.get('A','?')} "
-            f"B={conf_summary.get('B','?')} H={conf_summary.get('H','?')}. "
-            f"Verdict: {conf_overall}."
+            f"Decision rule: acceptance when the Probability of False "
+            f"Acceptance (Check H) does not exceed the declared threshold, "
+            f"guard-banded against the declared MAE, for every calibration "
+            f"point. Verdict: {conf_overall}."
         )
         dr_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
         dr_decl = ET.SubElement(dr_statement, "{https://ptb.de/dcc}declaration")
         _lang_text(dr_decl, dr_text, "en")
 
-        if conf_guard is not None:
-            gb_text = f"Guard band (maxTollerance): {conf_guard}."
-            gb_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
-            gb_decl = ET.SubElement(gb_statement, "{https://ptb.de/dcc}declaration")
-            _lang_text(gb_decl, gb_text, "en")
-
-        rH_list = conf.get("check_H", [])
         if rH_list:
+            k_w_vals = [r.get("k_w") for r in rH_list if isinstance(r, dict) and r.get("k_w") is not None]
+            if k_w_vals:
+                h_params = conf.get("check_H_params", {})
+                gb_text = (
+                    f"Guard band: k_w = Φ⁻¹(1 − PFA_threshold) = {k_w_vals[0]:.4f}, "
+                    f"MAE = ±{h_params.get('mae_y','?')}. Acceptance limits per point "
+                    f"AL = -MAE + k_w·u_std, AU = MAE - k_w·u_std."
+                )
+                gb_statement = ET.SubElement(statements, "{https://ptb.de/dcc}statement")
+                gb_decl = ET.SubElement(gb_statement, "{https://ptb.de/dcc}declaration")
+                _lang_text(gb_decl, gb_text, "en")
+
             pfa_parts = []
             for r in rH_list:
                 if isinstance(r, dict):

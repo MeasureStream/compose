@@ -390,75 +390,44 @@ class TestVerifyDccConformity:
         assert u_exp[0] == pytest.approx(0.35)
 
     def test_check_h_in_run_checks(self):
+        # Conformity is decided solely by Check H (PFA / guard band) on the
+        # as-found errors — no overlap check, no plain max-tolerance check.
         import verify_dcc_conformity as vdc
         results = vdc.run_checks(
             t_ref=[25.0],
-            t_sensor=[25.05],
             me_pre=[0.05],
             u_sensor=[0.35],
-            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
-            u_ref=0.065,
         )
         assert "check_h" in results
         assert results["check_h"]["status"] in ("PASS", "FAIL")
+        assert "check_g" not in results
+        assert "check_overlap" not in results
 
-    def test_check_g_na_without_accuracy_ranges(self):
+    def test_check_h_reports_guard_band_limits(self):
         import verify_dcc_conformity as vdc
         results = vdc.run_checks(
             t_ref=[25.0],
-            t_sensor=[25.0],
             me_pre=[0.05],
             u_sensor=[0.35],
-            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
-            u_ref=0.065,
         )
-        assert results["check_g"]["status"] == "N/A"
+        detail = results["check_h"]["details"][0]
+        assert "AL" in detail and "AU" in detail
+        assert detail["AL"] < detail["AU"]
 
-    def test_check_g_pass_with_accuracy_ranges(self):
+    def test_check_h_fail_when_error_exceeds_guard_band(self):
         import verify_dcc_conformity as vdc
         results = vdc.run_checks(
             t_ref=[25.0],
-            t_sensor=[25.0],
-            me_pre=[0.1],
-            u_sensor=[0.35],
-            max_tollerance=0.5,
-            mae=0.30,
-            pfa_threshold_pct=20.0,
-            u_ref=0.065,
-        )
-        assert results["check_g"]["status"] == "PASS"
-
-    def test_check_overlap_pass_when_close(self):
-        import verify_dcc_conformity as vdc
-        results = vdc.run_checks(
-            t_ref=[25.0],
-            t_sensor=[25.1],
-            me_pre=[0.1],
-            u_sensor=[0.35],
-            max_tollerance=None,
-            mae=0.30,
-            pfa_threshold_pct=20.0,
-            u_ref=0.065,
-        )
-        assert results["check_overlap"]["status"] == "PASS"
-
-    def test_check_overlap_fail_when_far_apart(self):
-        import verify_dcc_conformity as vdc
-        results = vdc.run_checks(
-            t_ref=[25.0],
-            t_sensor=[30.0],
             me_pre=[5.0],
             u_sensor=[0.35],
-            max_tollerance=None,
             mae=0.30,
             pfa_threshold_pct=20.0,
-            u_ref=0.065,
         )
-        assert results["check_overlap"]["status"] == "FAIL"
+        assert results["check_h"]["status"] == "FAIL"
 
     def test_normal_cdf_standard_values(self):
         import verify_dcc_conformity as vdc

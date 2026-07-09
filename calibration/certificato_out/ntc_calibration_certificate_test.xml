@@ -319,12 +319,12 @@
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Decision rule: acceptance when G=FAIL A=FAIL B=PASS H=FAIL. Verdict: NON-COMPLIANT.</dcc:content>
+                    <dcc:content lang="en">Decision rule: acceptance when the Probability of False Acceptance (Check H) does not exceed the declared threshold, guard-banded against the declared MAE, for every calibration point. Verdict: NON-COMPLIANT.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>
                 <dcc:declaration>
-                    <dcc:content lang="en">Guard band (maxTollerance): 0.6.</dcc:content>
+                    <dcc:content lang="en">Guard band: k_w = Φ⁻¹(1 − PFA_threshold) = 0.8416, MAE = ±0.3. Acceptance limits per point AL = -MAE + k_w·u_std, AU = MAE - k_w·u_std.</dcc:content>
                 </dcc:declaration>
             </dcc:statement>
             <dcc:statement>

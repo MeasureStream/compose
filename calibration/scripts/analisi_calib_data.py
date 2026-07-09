@@ -1349,12 +1349,13 @@ def main() -> None:
         measurements  = _checks.extract_measurements(filled_data)
 
         limit_y    = _get_abs_uncertainty(sensor_json)
-        conf_model    = calib_cr.get("_calib_model", "linear")
 
-        sG, rG = _checks.check_G(measurements, max_tollerance, conf_model, verbose=False)
-        sA, rA = _checks.check_A(measurements, verbose=False)
-        sB, rB = _checks.check_B(measurements, limit_y, verbose=False)
-
+        # Conformity is decided solely by Check H (Probability of False
+        # Acceptance) on the as-found errors, guard-banded against the
+        # declared MAE: a point passes iff its as-found error falls within
+        # the reduced acceptance limits [AL, AU] (equivalently PFA <=
+        # threshold). No overlap check (Check A), no plain uncertainty
+        # limit (Check B), no plain max-tolerance check (Check G).
         u_budget_conf = calib_cr.get("_u_budget_per_step", [])
         sH, rH = _checks.check_H(
             measurements, mae_y=args.mae_y,
@@ -1366,21 +1367,14 @@ def main() -> None:
         )
 
         conformity_summary = {
-            "G": sG, "A": sA, "B": sB, "H": sH,
+            "H": sH,
             "calibration_done": calib_result.get("calibration_done", "done"),
-            "overall": (
-                "COMPLIANT"
-                if all(s == "PASS" for s in [sG, sA, sB, sH])
-                else "NON-COMPLIANT"
-            ),
+            "overall": "COMPLIANT" if sH == "PASS" else "NON-COMPLIANT",
         }
 
         if args.verbose:
             print("\n=== Conformity check ===")
-            for k, v in conformity_summary.items():
-                if k in ("calibration_done", "overall"):
-                    continue
-                print(f"  [{k}] {v}")
+            print(f"  [H] {sH}")
             pfa_vals = [r["PFA_pct"] for r in rH] if isinstance(rH, list) else []
             if pfa_vals:
                 print(
@@ -1396,7 +1390,7 @@ def main() -> None:
         if args.conformity_output is not None:
             conformity_data = {
                 "summary": conformity_summary,
-                "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
+                "check_H": rH,
                 "check_H_params": {
                     "mae_y": args.mae_y,
                     "pfa_threshold_pct": args.pfa_threshold_pct,
@@ -1427,13 +1421,12 @@ def main() -> None:
 
         _conformity_data = {
             "summary": conformity_summary,
-            "check_G": rG, "check_A": rA, "check_B": rB, "check_H": rH,
+            "check_H": rH,
             "check_H_params": {
                 "mae_y": args.mae_y,
                 "pfa_threshold_pct": args.pfa_threshold_pct,
                 "u_std_mode": args.pfa_u_std_mode,
             },
-            "guard_band": max_tollerance,
         }
         cert_filled["_calibration_result"]["_conformity"] = _conformity_data
         args.cert_output.write_text(

@@ -413,13 +413,12 @@ def print_report(
         detail_str = ""
         if label == "H":
             detail_str = f"MAE=\u00b1{mae_y:.3f}  threshold={pfa_threshold_pct:.0f}%"
-        elif label == "B":
-            detail_str = f"limite={limit_y:.4f}"
         print(_status_line(f"Check {label}", status, detail_str))
 
+    # Conformity is decided solely by Check H (PFA / guard band) on the
+    # as-found errors — no overlap check, no plain max-tolerance check.
     statuses = {lbl: res[0] for lbl, res in check_results.items()}
-    checks_for_overall = ["G", "A", "B", "H"]
-    overall = "PASS" if all(statuses.get(c, "FAIL") == "PASS" for c in checks_for_overall) else "FAIL"
+    overall = "PASS" if statuses.get("H", "FAIL") == "PASS" else "FAIL"
 
     print(_hr("\u2500"))
     print(f"  ESITO COMPLESSIVO: {overall}")
@@ -501,12 +500,10 @@ def main() -> None:
     min_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("min", -40.0))
     max_phys   = float(sensor_json.get("ranges", {}).get("threshold", {}).get("max", 105.0))
 
-    conf_model = calib.get("_calib_model", "linear")
-
-    sG, rG = check_G(measurements, max_tollerance, conf_model, verbose=args.verbose)
-    sA, rA = check_A(measurements, verbose=args.verbose)
-    sB, rB = check_B(measurements, limit_y, verbose=args.verbose)
-
+    # Conformity is decided solely by Check H (Probability of False
+    # Acceptance / guard band) on the as-found errors — Check A (overlap),
+    # Check B (uncertainty limit) and Check G (plain max-tolerance) are not
+    # part of the conformity decision.
     u_budget = calib.get("_u_budget_per_step", [])
     sH, rH = check_H(
         measurements, mae_y=args.mae_y,
@@ -517,7 +514,7 @@ def main() -> None:
         coverage_factor=coverage_factor,
     )
 
-    check_results = {"G": (sG, rG), "A": (sA, rA), "B": (sB, rB), "H": (sH, rH)}
+    check_results = {"H": (sH, rH)}
     print_report(
         variant="funzione", input_path=args.input,
         check_results=check_results, measurements=measurements,
