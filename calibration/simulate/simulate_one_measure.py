@@ -14,16 +14,16 @@ import numpy as np
 # CONFIGURABLE PARAMETERS — change these to tune the simulation
 
 
-SENSOR_ID = 4
-MU_ID = 65537
+SENSOR_ID = 55
+MU_ID = 65538
 
-STEPS_C = [-20.0, -10.0, 0.0, 25.0, 50.0, 75.0, 100.0, 110.0]   # 8 steps, NO 125 °C
+STEPS_C = [-20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]   # 13 steps, NO 125 °C
 
 NUM_SENSOR_PER_REF = 10                     # sensor readings per reference point
 SENSOR_SAMPLING_FREQ_HZ = 1
 
 # Noise model: bias in °C, dispersion in LSB (so it stays constant across the ADC range)
-NOISE_BIAS_MEAN_C = 0.74                    # mean of sensor noise [°C] 0 0 60 72 74
+NOISE_BIAS_MEAN_C = 0.0                  # mean of sensor noise [°C] 0 0 60 72 74
 U_B_STD_C = 0.5                               # Type-B std uncertainty [°C]
 DISPERSION_STD_LSB = 5.0                      # within-group noise floor [LSB], ~ADC quantization + ref noise
 
@@ -227,35 +227,63 @@ REF_TEMP_CENTRED_100 = np.array([
     0.0115,
 ])
 
-# Synthetic centred profiles for steps without lab data (-20, -10, 110)
-SYN_N_SAMPLES = 300
-SYN_AMP = 0.03
-SYN_PERIOD = 60
-SYN_NOISE_STD = 0.015
-_rng_static = np.random.default_rng(123)
-_ref_seed = {
-    "N20": _rng_static.standard_normal(SYN_N_SAMPLES),
-    "N10": _rng_static.standard_normal(SYN_N_SAMPLES),
-    "110": _rng_static.standard_normal(SYN_N_SAMPLES),
-}
-_REF_TEMP_CENTRED_SYN = {
-    key: SYN_AMP * np.sin(2.0 * np.pi * np.arange(SYN_N_SAMPLES) / SYN_PERIOD)
-    + SYN_NOISE_STD * _ref_seed[key]
-    for key in _ref_seed
-}
-
-# Lookup used during simulation: step label -> centred series
-CENTRED_REF_DATA: dict[str, np.ndarray] = {
-    "-20": _REF_TEMP_CENTRED_SYN["N20"],
-    "-10": _REF_TEMP_CENTRED_SYN["N10"],
+# Real lab-measured centred profiles (from confronto.csv), keyed by the
+# temperature they were recorded at. Only 5 campaigns exist (0/25/50/75/100).
+_REAL_LAB_PROFILES: dict[str, np.ndarray] = {
     "0":   REF_TEMP_CENTRED_0,
     "25":  REF_TEMP_CENTRED_25,
     "50":  REF_TEMP_CENTRED_50,
     "75":  REF_TEMP_CENTRED_75,
     "100": REF_TEMP_CENTRED_100,
-    "110": _REF_TEMP_CENTRED_SYN["110"],
 }
-STEP_LABELS = list(CENTRED_REF_DATA.keys())
+
+# Synthetic centred profiles for any step without real lab data. Generated
+# on demand so STEPS_C can have any length/number of steps that has no
+# corresponding lab campaign (e.g. -20, -10, 110, but also 10, 20, 30, ...
+# when STEPS_C is a finer grid) — each gets its own deterministic seed so
+# runs stay reproducible.
+SYN_N_SAMPLES = 300
+SYN_AMP = 0.03
+SYN_PERIOD = 60
+SYN_NOISE_STD = 0.015
+
+
+def _make_synthetic_profile(seed: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    noise = rng.standard_normal(SYN_N_SAMPLES)
+    return (SYN_AMP * np.sin(2.0 * np.pi * np.arange(SYN_N_SAMPLES) / SYN_PERIOD)
+            + SYN_NOISE_STD * noise)
+
+
+def _build_centred_ref_data(steps_c: list[float]) -> tuple[dict[str, np.ndarray], list[str]]:
+    """Build one centred profile per step in ``steps_c``.
+
+    Real lab data is reused when the step's temperature matches a real
+    campaign (0/25/50/75/100 °C); every other step gets a deterministic
+    synthetic profile. Unlike a fixed-size dict, this scales to any
+    number/value of steps, avoiding the 'expected N, got M' mismatch when
+    STEPS_C is edited.
+    """
+    data: dict[str, np.ndarray] = {}
+    labels: list[str] = []
+    syn_seed = 123
+    for t in steps_c:
+        label = f"{t:g}"
+        if label in _REAL_LAB_PROFILES and label not in data:
+            data[label] = _REAL_LAB_PROFILES[label]
+        else:
+            # Either no lab data for this temperature, or it was already
+            # used by an earlier step with the same value — synthesize a
+            # fresh (but reproducible) profile either way.
+            key = label if label not in data else f"{label}_syn{len(labels)}"
+            data[key] = _make_synthetic_profile(syn_seed)
+            syn_seed += 1
+            label = key
+        labels.append(label)
+    return data, labels
+
+
+CENTRED_REF_DATA, STEP_LABELS = _build_centred_ref_data(STEPS_C)
 
 RNG_SEED = 42
 
