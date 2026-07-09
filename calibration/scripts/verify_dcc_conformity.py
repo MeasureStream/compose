@@ -208,7 +208,7 @@ def run_checks(
 
         h_details.append({
             "index": i + 1, "t_ref": t_ref[i], "me_pre": error_val,
-            "u_std": u_std, "pfa_pct": pfa * 100.0,
+            "u_std": u_std, "Ein": ein, "pfa_pct": pfa * 100.0,
             "AL": al_y, "AU": au_y, "within_guard_band": within_guard_band,
             "pass": ok,
         })
@@ -263,13 +263,14 @@ def print_results_report(
           f"k_w = invCDF(1-alpha) = {k_w:.4f}")
     print(_hr("-"))
     print(
-        f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'u_std':>10}  "
+        f"  {'Pt':>3}  {'T_ref':>12}  {'M_e_pre':>13}  {'u_std':>10}  {'Ein':>8}  "
         f"{'AL':>10}  {'AU':>10}  {'PFA [%]':>9}  {'Verdict':>10}"
     )
-    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*10}  {'-'*10}  {'-'*10}  {'-'*9}  {'-'*10}")
+    print(f"  {'-'*3}  {'-'*12}  {'-'*13}  {'-'*10}  {'-'*8}  {'-'*10}  {'-'*10}  {'-'*9}  {'-'*10}")
     for pt in h_res["details"]:
         print(
             f"  {pt['index']:>3}  {pt['t_ref']:>12.4f}  {pt['me_pre']:>13.4f}  {pt['u_std']:>10.4f}  "
+            f"{pt['Ein']:>+8.3f}  "
             f"{pt['AL']:>+10.4f}  {pt['AU']:>+10.4f}  {pt['pfa_pct']:>8.1f}%  {PASS if pt['pass'] else FAIL:>10}"
         )
     print(f"\n  Check H Verdict: [{h_res['status']}]")
