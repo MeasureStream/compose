@@ -160,6 +160,7 @@ services:
 
     volumes:
       - /home/measurestream/certificates/keycloak:/etc/x509/https:ro
+      - /home/measurestream/login-theme/measurestream:/opt/keycloak/themes/measurestream:ro
     ports:
       - "8443:8443"
       - "9000:9000" # espone management port
