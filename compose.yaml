@@ -59,6 +59,24 @@ services:
       app_network:
         ipv4_address: 172.20.0.15
 
+  dcc-verifier:
+      image: "docker.io/christiand9699/dccverify:latest"
+      container_name: "dccverify"
+      restart: unless-stopped
+      expose:
+        - "8080"
+      environment:
+        OS: "raspberrypi"
+        JWT_ISSUER_URI: "https://auth.christiandellisanti.uk/realms/measurestream"
+        TRUST_ANCHORS_PATH: "/app/trust"
+        JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      volumes:
+        - /home/measurestream/certificates/dcc-ca:/app/trust:ro
+      networks:
+        app_network:
+          ipv4_address: 172.20.0.14
+      
+
   sensor-manager:
     image: "docker.io/christiand9699/sensor-manager:latest-nonodes"
     restart: unless-stopped
