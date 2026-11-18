@@ -79,6 +79,57 @@ services:
       app_network:
         ipv4_address: 172.20.0.10
 
+  # Il sistema qualita': esemplari, campioni, certificati, conformita'. Stessa istanza PostgreSQL
+  # di sensor-manager ma schema e utente propri, creati una volta sola con
+  # metrology-service/db/setup/01_schema_e_utente.sql (METROLOGY_DB_PASSWORD va nel .env).
+  metrology-service:
+    image: "docker.io/christiand9699/metrology-service:latest"
+    restart: unless-stopped
+    container_name: "metrology-service"
+    depends_on:
+      - postgres
+      - kafka
+    expose:
+      - "8080"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: metrology
+      SPRING_DATASOURCE_PASSWORD: ${METROLOGY_DB_PASSWORD}
+      OS: "raspberrypi"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+    mem_limit: 768m
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.16
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  # Il motore di taratura (pipeline Python). Nella fase 0 non consuma ancora job: il profilo
+  # «engine» lo tiene spento in `docker compose up` e lo si usa a comando, per esempio
+  #   docker compose run --rm calibration-engine calibration-engine memory-probe
+  #   docker compose run --rm calibration-engine calibration-engine whoami
+  # Se la prova di memoria lo sconsiglia, gira su un'altra macchina che veda Kafka e il gateway.
+  calibration-engine:
+    image: "docker.io/christiand9699/calibration-engine:latest"
+    profiles: ["engine"]
+    restart: unless-stopped
+    container_name: "calibration-engine"
+    depends_on:
+      - kafka
+    environment:
+      ENGINE_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ENGINE_METROLOGY_URL: http://172.20.0.200:8080
+    secrets:
+      - engine_client_secret
+    mem_limit: 1g
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.17
+
 
   keycloak-db:
     image: "postgres:17"
@@ -376,6 +427,12 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.70
+
+secrets:
+  # Il secret del client Keycloak del motore (Docs/Account_Motore_Taratura_Keycloak.md).
+  # Il file sta sulla macchina, con permessi 600; nel container compare in /run/secrets.
+  engine_client_secret:
+    file: /home/measurestream/secrets/engine_client_secret
 
 volumes:
   postgres-data:
