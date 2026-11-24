@@ -3,3 +3,5 @@ connect-plugins/*
 gateway/*
 mqtt-source.json
 mosquitto/*
+.env.old
+.kafka_rest_passwd

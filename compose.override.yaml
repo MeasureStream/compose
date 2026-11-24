@@ -1,7 +1,7 @@
 services:
   sensor-manager:
-    image: docker.io/christiand9699/sensor-manager:misure-perse
+    image: docker.io/christiand9699/sensor-manager:latest
   kafkastream:
-    image: docker.io/christiand9699/kafkastream:misure-perse
+    image: docker.io/christiand9699/kafkastream:latest
   frontend:
-    image: docker.io/christiand9699/frontend-react:misure-perse
+    image: docker.io/christiand9699/frontend-react:latest
