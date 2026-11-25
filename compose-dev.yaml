@@ -47,45 +47,6 @@ services:
       app_network:
         ipv4_address: 172.20.0.10
 
-  mongodb:
-    image: mongo:4.4.18
-    restart: unless-stopped
-    environment:
-      - "MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}"
-      - "MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}"
-      - "MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}"
-    ports:
-      - "27017:27017"
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.23
-    volumes:
-      - mongo_data:/data/db
-      - ./mongod.conf:/etc/mongod.conf
-    command: ["mongod", "--config", "/etc/mongod.conf"]
-    healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.runCommand({ ping: 1 }).ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  measure-manager:
-    image: "docker.io/christiand9699/measure:latest"
-    restart: unless-stopped
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    expose:
-      - "8080"
-    environment:
-      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE}?authSource=admin
-      OS: dev
-      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.11
-
   keycloak-db:
     image: "postgres:17"
     restart: unless-stopped
@@ -300,7 +261,6 @@ services:
 volumes:
   postgres-data:
   keycloak-db-data:
-  mongo_data:
   grafana_data:
   kafka_data:
 

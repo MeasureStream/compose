@@ -59,24 +59,6 @@ services:
       app_network:
         ipv4_address: 172.20.0.15
 
-  dcc-verifier:
-      image: "docker.io/christiand9699/dccverify:latest"
-      container_name: "dccverify"
-      restart: unless-stopped
-      expose:
-        - "8080"
-      environment:
-        OS: "raspberrypi"
-        JWT_ISSUER_URI: "https://auth.christiandellisanti.uk/realms/measurestream"
-        TRUST_ANCHORS_PATH: "/app/trust"
-        JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+UseG1GC -XX:ActiveProcessorCount=1
-      volumes:
-        - /home/measurestream/certificates/dcc-ca:/app/trust:ro
-      networks:
-        app_network:
-          ipv4_address: 172.20.0.14
-      
-
   sensor-manager:
     image: "docker.io/christiand9699/sensor-manager:latest"
     restart: unless-stopped
@@ -97,6 +79,77 @@ services:
       app_network:
         ipv4_address: 172.20.0.10
 
+  # Il sistema qualita': esemplari, campioni, certificati, conformita'. Stessa istanza PostgreSQL
+  # di sensor-manager ma schema e utente propri, creati una volta sola con
+  # metrology-service/db/setup/01_schema_e_utente.sql (METROLOGY_DB_PASSWORD va nel .env).
+  metrology-service:
+    image: "docker.io/christiand9699/metrology-service:latest"
+    restart: unless-stopped
+    container_name: "metrology-service"
+    depends_on:
+      - postgres
+      - kafka
+    expose:
+      - "8080"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres/${POSTGRES_DB}"
+      SPRING_DATASOURCE_USERNAME: metrology
+      SPRING_DATASOURCE_PASSWORD: ${METROLOGY_DB_PASSWORD}
+      OS: "raspberrypi"
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m -XX:+UseG1GC -XX:ActiveProcessorCount=1
+      # sensor-manager risponde a chi possiede una MU: il servizio gli inoltra il token di chi
+      # chiama (IP fisso di sensor-manager sulla rete del compose).
+      SENSOR_MANAGER_URL: http://172.20.0.10:8080
+      # La chiave di firma del laboratorio (PKCS#12) e la sua password, montate come secret.
+      # Senza keystore la firma dei certificati interni non e' disponibile; per una prova si
+      # puo' mettere SIGNING_DEV_SELF_SIGNED a "true" (chiave generata all'avvio, non valida
+      # fuori da quel processo). Procedura: Docs/Firma_Certificati_Metrology.md
+      SIGNING_KEYSTORE: /run/secrets/signing_keystore
+      SIGNING_PASSWORD_FILE: /run/secrets/signing_password
+      SIGNING_DEV_SELF_SIGNED: "false"
+      # Le CA di cui ci si fida nella verifica dei DCC: certificati .crt/.pem/.cer.
+      SIGNING_TRUST_ANCHORS: /app/trust
+    volumes:
+      - /home/measurestream/metrology/trust:/app/trust:ro
+    secrets:
+      - signing_keystore
+      - signing_password
+    mem_limit: 768m
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.16
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  # Il motore di taratura (pipeline Python): consuma `calibration-jobs` e pubblica su
+  # `calibration-results`. Resta nel profilo «engine», quindi `docker compose up` non lo avvia:
+  # prima si fa la prova di memoria, poi lo si accende con
+  #   docker compose --profile engine up -d calibration-engine
+  # Comandi di prova:
+  #   docker compose run --rm calibration-engine calibration-engine memory-probe
+  #   docker compose run --rm calibration-engine calibration-engine whoami
+  # Se la prova di memoria lo sconsiglia, gira su un'altra macchina che veda Kafka e il gateway.
+  # L'healthcheck e' nell'immagine: `calibration-engine health` controlla il battito del consumer.
+  calibration-engine:
+    image: "docker.io/christiand9699/calibration-engine:latest"
+    profiles: ["engine"]
+    restart: unless-stopped
+    container_name: "calibration-engine"
+    depends_on:
+      - kafka
+    environment:
+      ENGINE_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ENGINE_METROLOGY_URL: http://172.20.0.200:8080
+    secrets:
+      - engine_client_secret
+    mem_limit: 1g
+    networks:
+      app_network:
+        ipv4_address: 172.20.0.17
 
   keycloak-db:
     image: "postgres:17"
@@ -394,6 +447,18 @@ services:
     networks:
       app_network:
         ipv4_address: 172.20.0.70
+
+secrets:
+  # Il secret del client Keycloak del motore (Docs/Account_Motore_Taratura_Keycloak.md).
+  # Il file sta sulla macchina, con permessi 600; nel container compare in /run/secrets.
+  engine_client_secret:
+    file: /home/measurestream/secrets/engine_client_secret
+  # La chiave di firma di metrology-service e la sua password: file della macchina, proprietario
+  # UID 10002 (l'utente del container) e permessi 600. Docs/Firma_Certificati_Metrology.md
+  signing_keystore:
+    file: /home/measurestream/secrets/metrology-signing.p12
+  signing_password:
+    file: /home/measurestream/secrets/metrology-signing.password
 
 volumes:
   postgres-data:

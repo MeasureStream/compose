@@ -27,42 +27,6 @@ services:
       app_network:
         ipv4_address: 172.20.0.10
 
-  mongodb:
-    image: 'mongo:latest'
-    environment:
-      - 'MONGO_INITDB_DATABASE=mydatabase'
-      - 'MONGO_INITDB_ROOT_PASSWORD=secret'
-      - 'MONGO_INITDB_ROOT_USERNAME=root'
-    ports:
-      - '27017:27017'
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.23
-    volumes:
-      - mongo_data:/data/db
-      - ./mongod.conf:/etc/mongo/mongod.conf
-    command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
-    healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.runCommand('ping').ok" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  measure-manager:
-    image: 'docker.io/christiand9699/measure:0.0.1-SNAPSHOT'
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    ports:
-      - '8081:8080'
-    environment:
-      - 'SPRING_DATA_MONGODB_URI=mongodb://root:secret@172.20.0.23:27017/mydatabase?authSource=admin'
-      - 'SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://localhost:8090/realms/measurestream'
-    networks:
-      app_network:
-        ipv4_address: 172.20.0.11
-
   keycloak-db:
     image: 'postgres:latest'
     environment:
@@ -151,7 +115,6 @@ services:
 volumes:
   postgres-data:
   keycloak-db-data:
-  mongo_data:
   grafana_data:
 
 networks:
