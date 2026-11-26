@@ -109,6 +109,10 @@ services:
       SIGNING_DEV_SELF_SIGNED: "false"
       # Le CA di cui ci si fida nella verifica dei DCC: certificati .crt/.pem/.cer.
       SIGNING_TRUST_ANCHORS: /app/trust
+      # Rodaggio: l'amministratore corregge ed elimina ruoli, verifiche intermedie e numeri di
+      # serie dei campioni, che in esercizio restano immutabili. Va messo a "false" prima di
+      # emettere certificati veri; ogni correzione resta comunque nel registro delle azioni.
+      METROLOGY_RUN_IN: "true"
     volumes:
       - /home/measurestream/metrology/trust:/app/trust:ro
     secrets:
